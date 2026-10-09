@@ -21,6 +21,12 @@ window/handheld/orientation=1
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 
+[display.android]
+
+window/size/viewport_width=1080
+window/size/viewport_height=1920
+window/handheld/orientation=1
+
 [gui]
 
 theme/custom="res://art/theme.tres"

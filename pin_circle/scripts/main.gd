@@ -308,7 +308,7 @@ func _make_overlay() -> CenterContainer:
 
 func _overlay_vbox(c: CenterContainer) -> VBoxContainer:
 	var p := PanelContainer.new()
-	p.custom_minimum_size = Vector2(900, 520)
+	p.custom_minimum_size = Vector2(900, 0)  # 高度随内容自适应, 避免系统字体行高不同导致溢出重叠
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color(0.04, 0.06, 0.12, 0.92)
 	sb.set_corner_radius_all(24)
