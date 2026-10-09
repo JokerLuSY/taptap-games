@@ -1,0 +1,59 @@
+{
+  "id": 1,
+  "title": "门廊",
+  "bg": "res://art/bg/level_01.png",
+  "intro": "林晚音失踪第三天。她门上的纸条，是唯一的线索。",
+  "hotspots": [
+    {
+      "id": "door_note",
+      "rect": [430, 700, 220, 140],
+      "label": "门上的纸条",
+      "evidence_id": "note_01",
+      "required": true,
+      "obtain": "纸条下面压着一张打印的门禁记录：03:12，有人出门。"
+    },
+    {
+      "id": "doorplate",
+      "rect": [790, 600, 120, 60],
+      "label": "门牌",
+      "evidence_id": "plate_01",
+      "required": false,
+      "obtain": "门牌写着 1702。边缘有一圈旧胶痕，像被撕下来又贴回去过。"
+    },
+    {
+      "id": "shoe_cabinet",
+      "rect": [80, 1150, 220, 350],
+      "label": "鞋柜",
+      "evidence_id": "slippers_01",
+      "required": false,
+      "obtain": "鞋柜里有一双男士拖鞋，鞋尖朝里，摆得很整齐。"
+    }
+  ],
+  "evidences": [
+    {
+      "id": "note_01",
+      "name": "门禁记录",
+      "desc": "03:12 有人出门。",
+      "icon": "res://art/icons/access_record.png"
+    },
+    {
+      "id": "plate_01",
+      "name": "门牌 1702",
+      "desc": "她的门牌。胶痕很新。",
+      "icon": "res://art/icons/plate.png"
+    },
+    {
+      "id": "slippers_01",
+      "name": "男士拖鞋",
+      "desc": "她一个人住，为什么会有男士拖鞋。",
+      "icon": "res://art/icons/slippers.png"
+    }
+  ],
+  "board": {
+    "slots": ["谁在凌晨出门？"],
+    "solution": [["note_01"]],
+    "success_line": "有人走了。还是……有人回来了？",
+    "fail_line": "对不上。再找找。"
+  },
+  "truth_seed": "门牌被你自己撕过又贴"
+}

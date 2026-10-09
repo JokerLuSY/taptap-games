@@ -1,0 +1,59 @@
+{
+  "id": 7,
+  "title": "储物间",
+  "bg": "res://art/bg/level_07.png",
+  "intro": "储物间堆着纸箱。她说，别碰。",
+  "hotspots": [
+    {
+      "id": "box_tag",
+      "rect": [430, 1010, 160, 80],
+      "label": "纸箱上的标签",
+      "evidence_id": "nametag_07",
+      "required": true,
+      "obtain": "纸箱侧面的标签，写着：阿川。是你的名字。"
+    },
+    {
+      "id": "racket",
+      "rect": [720, 850, 90, 270],
+      "label": "旧球拍",
+      "evidence_id": "racket_07",
+      "required": false,
+      "obtain": "羽毛球拍，线断了两根。你大学时也有一把一样的。"
+    },
+    {
+      "id": "boxes",
+      "rect": [700, 1100, 280, 380],
+      "label": "纸箱堆",
+      "evidence_id": "boxes_07",
+      "required": false,
+      "obtain": "箱子里是旧课本、旧 T 恤。尺码都是男式。"
+    }
+  ],
+  "evidences": [
+    {
+      "id": "nametag_07",
+      "name": "姓名标签",
+      "desc": "「阿川」。她为什么收着你的东西？",
+      "icon": "res://art/icons/nametag.png"
+    },
+    {
+      "id": "racket_07",
+      "name": "旧球拍",
+      "desc": "和你大学时那把，一模一样。",
+      "icon": "res://art/icons/racket.png"
+    },
+    {
+      "id": "boxes_07",
+      "name": "男式旧物",
+      "desc": "全是男人的旧物。",
+      "icon": "res://art/icons/drawer.png"
+    }
+  ],
+  "board": {
+    "slots": ["纸箱是谁的？"],
+    "solution": [["nametag_07"]],
+    "success_line": "纸箱上的名字，是你的名字。",
+    "fail_line": "箱子不会自己长脚。再找找。"
+  },
+  "truth_seed": "纸箱是你的旧物"
+}

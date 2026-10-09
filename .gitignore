@@ -1,0 +1,28 @@
+# 构建产物
+**/builds/
+*.apk
+*.aab
+
+# 测试截图(可再生)
+**/tools/shots/
+
+# Godot 编辑器缓存
+.godot/
+
+# 本地工具链(可重新下载, 体积大)
+tools/godot/
+tools/gh/
+tools/android-sdk/
+tools/templates/
+tools/cmdline-tools.zip
+tools/yes.txt
+tools/godot_err.log
+tools/godot_out.log
+
+# Python
+__pycache__/
+*.pyc
+
+# 操作系统
+Thumbs.db
+Desktop.ini

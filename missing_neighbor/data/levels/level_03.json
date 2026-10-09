@@ -1,0 +1,59 @@
+{
+  "id": 3,
+  "title": "厨房",
+  "bg": "res://art/bg/level_03.png",
+  "intro": "早餐还摆在桌上。她走得很匆忙。",
+  "hotspots": [
+    {
+      "id": "trash",
+      "rect": [830, 1400, 120, 160],
+      "label": "垃圾桶",
+      "evidence_id": "receipt",
+      "required": true,
+      "obtain": "垃圾桶里一张便利店小票：饭团 ×2，豆浆 ×2。支付卡号尾数 0817。"
+    },
+    {
+      "id": "fridge_note",
+      "rect": [850, 700, 100, 80],
+      "label": "冰箱贴便签",
+      "evidence_id": "note_03",
+      "required": false,
+      "obtain": "「牛奶没了记得买。——晚音」字迹很急。"
+    },
+    {
+      "id": "table",
+      "rect": [300, 1220, 480, 140],
+      "label": "餐桌",
+      "evidence_id": "bowl_03",
+      "required": false,
+      "obtain": "两份早餐。一份吃得干净，另一份没动过。"
+    }
+  ],
+  "evidences": [
+    {
+      "id": "receipt",
+      "name": "购物小票",
+      "desc": "两人份早餐。她从不买两人份。",
+      "icon": "res://art/icons/receipt.png"
+    },
+    {
+      "id": "note_03",
+      "name": "冰箱便签",
+      "desc": "「牛奶没了记得买。」",
+      "icon": "res://art/icons/note.png"
+    },
+    {
+      "id": "bowl_03",
+      "name": "两份早餐",
+      "desc": "一份空了，一份没动。",
+      "icon": "res://art/icons/bowl.png"
+    }
+  ],
+  "board": {
+    "slots": ["早餐是几人份？"],
+    "solution": [["receipt"]],
+    "success_line": "两人份。她从不买两人份。",
+    "fail_line": "拼不上。再想想。"
+  },
+  "truth_seed": "两人份早餐，你吃过一份"
+}

@@ -1,0 +1,59 @@
+{
+  "id": 5,
+  "title": "书房",
+  "bg": "res://art/bg/level_05.png",
+  "intro": "她一直在写日记。写到一半，停了。",
+  "hotspots": [
+    {
+      "id": "diary",
+      "rect": [540, 1100, 220, 70],
+      "label": "摊开的日记",
+      "evidence_id": "diary_02",
+      "required": true,
+      "obtain": "日记摊开在 Day-2。前一页还写着「她开始害怕回家」，这一页却写着——「我不想回家」。"
+    },
+    {
+      "id": "album",
+      "rect": [60, 300, 300, 1180],
+      "label": "书架上的相册",
+      "evidence_id": "album_05",
+      "required": false,
+      "obtain": "相册里的照片，全是同一个男人的背影。楼下、路口、便利店门口。"
+    },
+    {
+      "id": "lamp_note",
+      "rect": [910, 950, 100, 60],
+      "label": "灯罩下的便签",
+      "evidence_id": "note_05",
+      "required": false,
+      "obtain": "便签上写着：「别忘了吃药。」字迹和日记一模一样。"
+    }
+  ],
+  "evidences": [
+    {
+      "id": "diary_02",
+      "name": "日记·Day-2",
+      "desc": "人称从「她」变成了「我」。写日记的人，换了一个。",
+      "icon": "res://art/icons/diary.png"
+    },
+    {
+      "id": "album_05",
+      "name": "相册",
+      "desc": "全是同一个男人的背影。拍了很多年。",
+      "icon": "res://art/icons/album.png"
+    },
+    {
+      "id": "note_05",
+      "name": "便签",
+      "desc": "「别忘了吃药。」——和日记同样的字迹。",
+      "icon": "res://art/icons/note.png"
+    }
+  ],
+  "board": {
+    "slots": ["写日记的人是谁？"],
+    "solution": [["diary_02"]],
+    "success_line": "日记里的人称，从「她」变成了「我」。",
+    "fail_line": "这一页，还接不上。"
+  },
+  "truth_seed": "人称从「她」变成「我」"
+}

@@ -1,0 +1,59 @@
+{
+  "id": 4,
+  "title": "阳台",
+  "bg": "res://art/bg/level_04.png",
+  "intro": "对面楼的灯，亮了一整夜。",
+  "hotspots": [
+    {
+      "id": "walkie",
+      "rect": [470, 1020, 130, 60],
+      "label": "栏杆上的对讲机",
+      "evidence_id": "walkie_04",
+      "required": true,
+      "obtain": "对讲机还开着。录音里有人说：「目标今天也没出门。」"
+    },
+    {
+      "id": "shirt",
+      "rect": [680, 420, 200, 220],
+      "label": "晾着的衬衫",
+      "evidence_id": "shirt_04",
+      "required": false,
+      "obtain": "晾衣绳上一件男士衬衫，洗得很干净。尺码不是女式的。"
+    },
+    {
+      "id": "lit_window",
+      "rect": [430, 560, 80, 50],
+      "label": "对面亮灯的窗",
+      "evidence_id": "window_04",
+      "required": false,
+      "obtain": "那扇窗亮了一整夜。窗帘后面，像有人站着。"
+    }
+  ],
+  "evidences": [
+    {
+      "id": "walkie_04",
+      "name": "对讲机录音",
+      "desc": "「目标今天也没出门。」——目标是谁？",
+      "icon": "res://art/icons/walkie.png"
+    },
+    {
+      "id": "shirt_04",
+      "name": "男士衬衫",
+      "desc": "她家没有男人。至少你以为没有。",
+      "icon": "res://art/icons/shirt.png"
+    },
+    {
+      "id": "window_04",
+      "name": "亮灯的窗",
+      "desc": "被盯着的感觉，从昨晚开始。",
+      "icon": "res://art/icons/photo.png"
+    }
+  ],
+  "board": {
+    "slots": ["谁在监视这间公寓？"],
+    "solution": [["walkie_04"]],
+    "success_line": "监视是真的。只是方向，好像反了。",
+    "fail_line": "方向不对。风把声音吹散了。"
+  },
+  "truth_seed": "监视对象是你"
+}

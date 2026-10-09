@@ -1,0 +1,83 @@
+{
+  "id": 12,
+  "title": "最终门",
+  "bg": "res://art/bg/level_12.png",
+  "intro": "最后一扇门。门后，是她不肯说的答案。",
+  "hotspots": [
+    {
+      "id": "door_light",
+      "rect": [560, 480, 90, 1020],
+      "label": "门缝的光",
+      "evidence_id": "id_card",
+      "required": true,
+      "obtain": "门缝里掉出一张身份证——阿川，男，29 岁。证件里还夹着一张探视证，日期是今天。"
+    },
+    {
+      "id": "calendar",
+      "rect": [760, 580, 170, 220],
+      "label": "日历",
+      "evidence_id": "calendar_12",
+      "required": false,
+      "obtain": "日历停在 9 月 14 日。那一页被红笔圈了很多圈。"
+    },
+    {
+      "id": "umbrellas",
+      "rect": [120, 1000, 140, 520],
+      "label": "伞架",
+      "evidence_id": "umbrella_12",
+      "required": false,
+      "obtain": "伞架上两把伞。一把是她的。另一把，你认得伞柄上的划痕。"
+    }
+  ],
+  "evidences": [
+    {
+      "id": "id_card",
+      "name": "身份证与探视证",
+      "desc": "照片是你。探视证上「陪护人」一栏，写着林晚音。",
+      "icon": "res://art/icons/idcard.png"
+    },
+    {
+      "id": "calendar_12",
+      "name": "日历",
+      "desc": "9 月 14 日。你莫名记得那晚的雨。",
+      "icon": "res://art/icons/calendar.png"
+    },
+    {
+      "id": "umbrella_12",
+      "name": "两把伞",
+      "desc": "其中一把是你的。",
+      "icon": "res://art/icons/umbrella.png"
+    }
+  ],
+  "board": {
+    "slots": ["失踪的人是谁？"],
+    "solution": [["id_card"]],
+    "success_line": "门开了。",
+    "fail_line": "还不是开门的时候。"
+  },
+  "truth_seed": "医院；她一直在",
+  "ending": {
+    "lines": [
+      "门开了。不是卧室。",
+      "消毒水的味道。白得晃眼的灯。长长的医院走廊。",
+      "她坐在病床边，手里攥着一串钥匙——你的钥匙。",
+      "林晚音：「你醒了。」",
+      "林晚音：「这三天，你一直说要帮我找『失踪的邻居』。」",
+      "林晚音：「可失踪的从来不是我。阿川，是你。」",
+      "旁白：9 月 14 日，车祸。你忘了自己是谁，却记得要救她。",
+      "林晚音：「医生说，记忆会回来的。别急，我陪你。」"
+    ],
+    "choice_a": "……我记得了。我们回家。",
+    "choice_b": "不对。她还在外面。我得继续找。",
+    "a_lines": [
+      "你伸出手，握住那串钥匙。",
+      "这一次，换你跟她回家。",
+      "（完）"
+    ],
+    "b_lines": [
+      "你转身跑回走廊尽头。",
+      "门后，又贴上了那张纸条。",
+      "NG —— 也许下一次，你会想起更多。"
+    ]
+  }
+}

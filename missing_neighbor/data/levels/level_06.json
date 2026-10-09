@@ -1,0 +1,59 @@
+{
+  "id": 6,
+  "title": "电脑桌",
+  "bg": "res://art/bg/level_06.png",
+  "intro": "电脑没关。屏幕的光，照着一张空椅子。",
+  "hotspots": [
+    {
+      "id": "monitor",
+      "rect": [420, 760, 320, 240],
+      "label": "亮着的显示器",
+      "evidence_id": "browser_06",
+      "required": true,
+      "obtain": "浏览记录：「网贷逾期怎么办」「被跟踪报警有用吗」。再往下——「失忆能恢复吗」。"
+    },
+    {
+      "id": "sticky",
+      "rect": [745, 790, 70, 70],
+      "label": "屏幕边的便签",
+      "evidence_id": "pwd_06",
+      "required": false,
+      "obtain": "便签写着开机密码。是你的生日。"
+    },
+    {
+      "id": "pills",
+      "rect": [290, 1090, 110, 60],
+      "label": "药盒",
+      "evidence_id": "pills_06",
+      "required": false,
+      "obtain": "布洛芬，只剩两粒。说明书上印着：头部外伤后慎用。"
+    }
+  ],
+  "evidences": [
+    {
+      "id": "browser_06",
+      "name": "浏览器历史",
+      "desc": "最后一条搜索：「失忆能恢复吗」。你不记得自己搜过。",
+      "icon": "res://art/icons/browser.png"
+    },
+    {
+      "id": "pwd_06",
+      "name": "密码便签",
+      "desc": "开机密码是你的生日。",
+      "icon": "res://art/icons/note.png"
+    },
+    {
+      "id": "pills_06",
+      "name": "药盒",
+      "desc": "头部外伤后，慎用。",
+      "icon": "res://art/icons/pills.png"
+    }
+  ],
+  "board": {
+    "slots": ["她在查什么？"],
+    "solution": [["browser_06"]],
+    "success_line": "最后一条搜索记录，你不记得自己搜过。",
+    "fail_line": "历史记录对不上这个时间。"
+  },
+  "truth_seed": "搜索「失忆能恢复吗」"
+}

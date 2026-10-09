@@ -1,0 +1,59 @@
+{
+  "id": 11,
+  "title": "天台",
+  "bg": "res://art/bg/level_11.png",
+  "intro": "天台的门虚掩着。风很大。",
+  "hotspots": [
+    {
+      "id": "letter",
+      "rect": [180, 800, 120, 60],
+      "label": "水箱上的信",
+      "evidence_id": "letter_11",
+      "required": true,
+      "obtain": "信纸压在石头上：「阿川：别找了。回家。——晚音」"
+    },
+    {
+      "id": "sheet",
+      "rect": [670, 700, 310, 450],
+      "label": "晾着的床单",
+      "evidence_id": "sheet_11",
+      "required": false,
+      "obtain": "床单没干，水滴了一地。是今天刚洗的。"
+    },
+    {
+      "id": "skyline",
+      "rect": [400, 700, 300, 400],
+      "label": "楼下的路口",
+      "evidence_id": "news_11",
+      "required": false,
+      "obtain": "楼下路口，9 月 14 日那晚拉着警戒线。新闻里说是车祸。"
+    }
+  ],
+  "evidences": [
+    {
+      "id": "letter_11",
+      "name": "亲笔信",
+      "desc": "「别找了。回家。」她早知道你会找到这里。",
+      "icon": "res://art/icons/letter.png"
+    },
+    {
+      "id": "sheet_11",
+      "name": "床单",
+      "desc": "今天刚洗的。她来过。",
+      "icon": "res://art/icons/shirt.png"
+    },
+    {
+      "id": "news_11",
+      "name": "车祸新闻",
+      "desc": "9 月 14 日，路口车祸，一人重伤。",
+      "icon": "res://art/icons/map.png"
+    }
+  ],
+  "board": {
+    "slots": ["她去了哪里？"],
+    "solution": [["letter_11"]],
+    "success_line": "她说：回家。可哪个家？",
+    "fail_line": "风把信吹远了。再读一遍。"
+  },
+  "truth_seed": "她留信：回家"
+}

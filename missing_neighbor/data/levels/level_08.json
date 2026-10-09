@@ -1,0 +1,59 @@
+{
+  "id": 8,
+  "title": "浴室",
+  "bg": "res://art/bg/level_08.png",
+  "intro": "浴室的灯坏了。只有水龙头的滴水声。",
+  "hotspots": [
+    {
+      "id": "towel",
+      "rect": [720, 810, 180, 310],
+      "label": "毛巾架",
+      "evidence_id": "towel_08",
+      "required": true,
+      "obtain": "毛巾上的血已经发黑。标签上印着日期：9 月 14 日。"
+    },
+    {
+      "id": "mirror",
+      "rect": [120, 560, 280, 340],
+      "label": "蒙雾的镜子",
+      "evidence_id": "mirror_08",
+      "required": false,
+      "obtain": "你擦开一块水汽。镜子里的人，脸色白得不像活人。"
+    },
+    {
+      "id": "cups",
+      "rect": [100, 1000, 320, 160],
+      "label": "漱口杯",
+      "evidence_id": "cup_08",
+      "required": false,
+      "obtain": "两只漱口杯，并排摆着。刷毛一旧一新。"
+    }
+  ],
+  "evidences": [
+    {
+      "id": "towel_08",
+      "name": "染血的毛巾",
+      "desc": "血迹发黑。9 月 14 日——你莫名记得那晚的雨。",
+      "icon": "res://art/icons/towel.png"
+    },
+    {
+      "id": "mirror_08",
+      "name": "镜子",
+      "desc": "你有多久，没好好看过自己了？",
+      "icon": "res://art/icons/photo.png"
+    },
+    {
+      "id": "cup_08",
+      "name": "两只漱口杯",
+      "desc": "并排摆着，一旧一新。",
+      "icon": "res://art/icons/cup.png"
+    }
+  ],
+  "board": {
+    "slots": ["血迹从哪来？"],
+    "solution": [["towel_08"]],
+    "success_line": "血迹的日期，你莫名记得那晚的雨。",
+    "fail_line": "水声太吵，你听不清这条线索。"
+  },
+  "truth_seed": "血迹来自车祸当晚"
+}

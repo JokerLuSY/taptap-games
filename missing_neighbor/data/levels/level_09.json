@@ -1,0 +1,59 @@
+{
+  "id": 9,
+  "title": "走廊",
+  "bg": "res://art/bg/level_09.png",
+  "intro": "隔壁没人应门。锁孔里，卡着半截钥匙。",
+  "hotspots": [
+    {
+      "id": "keyhole",
+      "rect": [360, 980, 60, 120],
+      "label": "锁孔",
+      "evidence_id": "keys_09",
+      "required": true,
+      "obtain": "你掏出她的钥匙串试锁。对不上。串上少了一把——少的那把，开的是你对面的门。"
+    },
+    {
+      "id": "couplet",
+      "rect": [700, 560, 200, 200],
+      "label": "对面的春联",
+      "evidence_id": "couplet_09",
+      "required": false,
+      "obtain": "春联褪了色。横批：平安归来。"
+    },
+    {
+      "id": "firebox",
+      "rect": [480, 900, 120, 200],
+      "label": "消防栓",
+      "evidence_id": "fire_09",
+      "required": false,
+      "obtain": "检修记录：9 月 14 日夜，有人报过警。记录又被人划掉了。"
+    }
+  ],
+  "evidences": [
+    {
+      "id": "keys_09",
+      "name": "钥匙串",
+      "desc": "钥匙对不上这扇门。它们能开的，是你住了三年的那一扇。",
+      "icon": "res://art/icons/keys.png"
+    },
+    {
+      "id": "couplet_09",
+      "name": "春联",
+      "desc": "平安归来。像一句没说出口的话。",
+      "icon": "res://art/icons/note.png"
+    },
+    {
+      "id": "fire_09",
+      "name": "检修记录",
+      "desc": "9 月 14 日夜的报警记录，被人划掉了。",
+      "icon": "res://art/icons/calendar.png"
+    }
+  ],
+  "board": {
+    "slots": ["钥匙为什么对不上？"],
+    "solution": [["keys_09"]],
+    "success_line": "钥匙对不上这扇门——因为它本来就不是开这扇门的。",
+    "fail_line": "锁没开。钥匙不对。"
+  },
+  "truth_seed": "钥匙对不上因你住这儿"
+}

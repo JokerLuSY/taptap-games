@@ -1,0 +1,59 @@
+{
+  "id": 2,
+  "title": "客厅",
+  "bg": "res://art/bg/level_02.png",
+  "intro": "屋里被翻过。翻得很急，像在找什么。",
+  "hotspots": [
+    {
+      "id": "sofa_gap",
+      "rect": [180, 1120, 150, 130],
+      "label": "沙发缝",
+      "evidence_id": "wristband",
+      "required": true,
+      "obtain": "沙发缝里卡着半截蓝色腕带，上面的字磨得看不清了。"
+    },
+    {
+      "id": "drawer",
+      "rect": [700, 950, 290, 530],
+      "label": "抽屉柜",
+      "evidence_id": "drawer_02",
+      "required": false,
+      "obtain": "抽屉全被拉开过。奇怪的是，每件东西都被放回了原处。"
+    },
+    {
+      "id": "photo_frame",
+      "rect": [500, 1640, 140, 100],
+      "label": "倒扣的相框",
+      "evidence_id": "photo_02",
+      "required": false,
+      "obtain": "相框扣在地上，玻璃碎了一角。你不想把它翻过来。"
+    }
+  ],
+  "evidences": [
+    {
+      "id": "wristband",
+      "name": "半张腕带",
+      "desc": "蓝色的，像某种手环。断口很整齐。",
+      "icon": "res://art/icons/wristband.png"
+    },
+    {
+      "id": "drawer_02",
+      "name": "被翻过的抽屉",
+      "desc": "被翻过，又被仔细复原。",
+      "icon": "res://art/icons/drawer.png"
+    },
+    {
+      "id": "photo_02",
+      "name": "倒扣的相框",
+      "desc": "你在怕什么？",
+      "icon": "res://art/icons/photo.png"
+    }
+  ],
+  "board": {
+    "slots": ["谁在翻东西？"],
+    "solution": [["wristband"]],
+    "success_line": "翻东西的人很小心——小心得像怕吵醒自己。",
+    "fail_line": "不是这个。屋里还有东西没看清。"
+  },
+  "truth_seed": "翻乱的是你的手"
+}

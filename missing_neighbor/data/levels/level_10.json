@@ -1,0 +1,59 @@
+{
+  "id": 10,
+  "title": "线索板",
+  "bg": "res://art/bg/level_10.png",
+  "intro": "所有线索都钉在这面墙上。该拼起来了。",
+  "hotspots": [
+    {
+      "id": "cam_puzzle",
+      "rect": [430, 640, 220, 190],
+      "label": "监控拼图",
+      "evidence_id": "cam_puzzle",
+      "required": true,
+      "obtain": "四张监控截图拼出一个人影。戴帽子，低着头。他手腕上的疤，位置和你的一模一样。"
+    },
+    {
+      "id": "red_string",
+      "rect": [150, 950, 300, 250],
+      "label": "红线",
+      "evidence_id": "string_10",
+      "required": false,
+      "obtain": "红线把所有照片连向同一张。线的尽头，是你最熟的那个背影。"
+    },
+    {
+      "id": "desk_note",
+      "rect": [850, 1180, 90, 80],
+      "label": "台灯下的便签",
+      "evidence_id": "note_10",
+      "required": false,
+      "obtain": "便签上只有三个字：「别查了。」字迹很熟，熟得让你心慌。"
+    }
+  ],
+  "evidences": [
+    {
+      "id": "cam_puzzle",
+      "name": "监控拼图",
+      "desc": "背影很熟。熟得像每天镜子里见的那个人。",
+      "icon": "res://art/icons/puzzle.png"
+    },
+    {
+      "id": "string_10",
+      "name": "红线团",
+      "desc": "所有线的尽头，指向同一个人。",
+      "icon": "res://art/icons/string.png"
+    },
+    {
+      "id": "note_10",
+      "name": "便签",
+      "desc": "「别查了。」——像劝，又像求。",
+      "icon": "res://art/icons/note.png"
+    }
+  ],
+  "board": {
+    "slots": ["跟踪者是谁？"],
+    "solution": [["cam_puzzle"]],
+    "success_line": "监控里的背影，你看了三遍。太熟了。",
+    "fail_line": "拼图的角，对不上。"
+  },
+  "truth_seed": "影像是你自己"
+}
