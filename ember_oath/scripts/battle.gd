@@ -105,18 +105,25 @@ func _build_ui() -> void:
 	tint.set_anchors_preset(Control.PRESET_FULL_RECT)
 	tint.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ui.add_child(tint)
-	# 顶栏
+	# 顶栏占住上安全区；贴边的主操作再内缩 EDGE_ACTION
 	var top := Panel.new()
 	top.position = Vector2.ZERO
-	top.size = Vector2(1280, 48)
+	top.size = Vector2(1280, SafeArea.MARGIN_Y)
 	_style_panel(top, Color(0.08, 0.10, 0.16, 0.95))
 	ui.add_child(top)
-	_make_label(top, Vector2(16, 9), "第一章 · 边境的少女", 22)
-	lbl_turn = _make_label(top, Vector2(420, 9), "", 22)
-	lbl_gold = _make_label(top, Vector2(660, 9), "", 22)
-	var btn_danger := _make_button("危险范围 (T)", Vector2(880, 5), Vector2(180, 38), toggle_danger)
+	var chapter_label := _make_label(top, Vector2(SafeArea.MARGIN_X, 12), tr("第一章 · 边境的少女"), 22)
+	chapter_label.name = "ChapterLabel"
+	lbl_turn = _make_label(top, Vector2(400, 12), "", 22)
+	lbl_gold = _make_label(top, Vector2(670, 12), "", 22)
+	var end_size := Vector2(156, SafeArea.MIN_HIT)
+	var danger_size := Vector2(210, SafeArea.MIN_HIT)
+	var end_pos := Vector2(1280.0 - SafeArea.EDGE_ACTION - end_size.x, 0)
+	var danger_pos := Vector2(end_pos.x - 8 - danger_size.x, 0)
+	var btn_danger := _make_button(tr("危险范围 (T)"), danger_pos, danger_size, toggle_danger)
+	btn_danger.name = "ThreatButton"
 	top.add_child(btn_danger)
-	var btn_end := _make_button("回合结束", Vector2(1090, 5), Vector2(160, 38), on_end_turn)
+	var btn_end := _make_button(tr("回合结束"), end_pos, end_size, on_end_turn)
+	btn_end.name = "EndTurnButton"
 	top.add_child(btn_end)
 	# 右侧信息栏
 	var side := Panel.new()
@@ -142,7 +149,7 @@ func _build_ui() -> void:
 	info_portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	info_portrait_frame.add_child(info_portrait)
 	info_label = _make_label(side, Vector2(16, 16), "", 20)
-	info_label.size = Vector2(290, 600)
+	info_label.size = Vector2(320 - 16 - SafeArea.MARGIN_X, 600)
 	info_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	# 底部提示栏
 	var bottom := Panel.new()
@@ -150,10 +157,11 @@ func _build_ui() -> void:
 	bottom.size = Vector2(1280, 32)
 	_style_panel(bottom, Color(0.08, 0.10, 0.16, 0.95))
 	ui.add_child(bottom)
-	hint_label = _make_label(bottom, Vector2(16, 3), "", 18)
+	hint_label = _make_label(bottom, Vector2(SafeArea.MARGIN_X, 3), "", 18)
 	hint_label.add_theme_color_override("font_color", Color(0.75, 0.8, 0.9))
 	# 中央阶段横幅
 	banner_label = Label.new()
+	banner_label.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 	banner_label.position = Vector2(0, 290)
 	banner_label.size = Vector2(1280, 90)
 	banner_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -162,6 +170,7 @@ func _build_ui() -> void:
 	ui.add_child(banner_label)
 	# 顶部 toast
 	toast_label = Label.new()
+	toast_label.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 	toast_label.position = Vector2(0, 58)
 	toast_label.size = Vector2(1280, 36)
 	toast_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -215,6 +224,7 @@ func _build_forecast_panel() -> void:
 	hb.alignment = BoxContainer.ALIGNMENT_CENTER
 	vb.add_child(hb)
 	forecast_att = Label.new()
+	forecast_att.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 	forecast_att.custom_minimum_size = Vector2(250, 0)
 	forecast_att.add_theme_font_size_override("font_size", 21)
 	hb.add_child(forecast_att)
@@ -226,6 +236,7 @@ func _build_forecast_panel() -> void:
 	vs.add_theme_color_override("font_color", Color(1.0, 0.75, 0.3))
 	hb.add_child(vs)
 	forecast_def = Label.new()
+	forecast_def.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 	forecast_def.custom_minimum_size = Vector2(250, 0)
 	forecast_def.add_theme_font_size_override("font_size", 21)
 	hb.add_child(forecast_def)
@@ -234,13 +245,15 @@ func _build_forecast_panel() -> void:
 	btn_row.add_theme_constant_override("separation", 24)
 	vb.add_child(btn_row)
 	var ok := Button.new()
-	ok.text = "确认攻击"
-	ok.custom_minimum_size = Vector2(150, 44)
+	ok.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	ok.text = tr("确认攻击")
+	ok.custom_minimum_size = Vector2(168, SafeArea.MIN_HIT)
 	ok.pressed.connect(_on_forecast_ok)
 	btn_row.add_child(ok)
 	var cancel := Button.new()
-	cancel.text = "取消"
-	cancel.custom_minimum_size = Vector2(150, 44)
+	cancel.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	cancel.text = tr("取消")
+	cancel.custom_minimum_size = Vector2(168, SafeArea.MIN_HIT)
 	cancel.pressed.connect(_on_forecast_cancel)
 	btn_row.add_child(cancel)
 	ui.add_child(forecast_panel)
@@ -273,12 +286,14 @@ func _build_end_overlay() -> void:
 	end_overlay.visible = false
 	ui.add_child(end_overlay)
 	end_title = Label.new()
+	end_title.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 	end_title.position = Vector2(0, 210)
 	end_title.size = Vector2(1280, 90)
 	end_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	end_title.add_theme_font_size_override("font_size", 64)
 	end_overlay.add_child(end_title)
 	end_sub = Label.new()
+	end_sub.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 	end_sub.position = Vector2(0, 330)
 	end_sub.size = Vector2(1280, 40)
 	end_sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -286,7 +301,8 @@ func _build_end_overlay() -> void:
 	end_sub.add_theme_color_override("font_color", Color(0.8, 0.78, 0.72))
 	end_overlay.add_child(end_sub)
 	end_btn = Button.new()
-	end_btn.custom_minimum_size = Vector2(220, 56)
+	end_btn.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	end_btn.custom_minimum_size = Vector2(220, maxi(56, SafeArea.MIN_HIT))
 	end_btn.position = Vector2(530, 460)
 	end_btn.add_theme_font_size_override("font_size", 26)
 	end_overlay.add_child(end_btn)
@@ -300,6 +316,7 @@ func _style_panel(p: Panel, c: Color) -> void:
 
 func _make_label(parent: Node, pos: Vector2, text: String, size: int) -> Label:
 	var l := Label.new()
+	l.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 	l.position = pos
 	l.text = text
 	l.add_theme_font_size_override("font_size", size)
@@ -309,9 +326,11 @@ func _make_label(parent: Node, pos: Vector2, text: String, size: int) -> Label:
 
 func _make_button(text: String, pos: Vector2, min_size: Vector2, cb: Callable) -> Button:
 	var b := Button.new()
+	b.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 	b.text = text
 	b.position = pos
 	b.custom_minimum_size = min_size
+	b.size = min_size
 	b.pressed.connect(cb)
 	return b
 
@@ -335,13 +354,13 @@ func start_player_phase(first := false) -> void:
 	state = S.STORY
 	update_topbar()
 	Audio.play_sfx("phase")
-	show_banner("第 %d 回合 · 我方回合" % turn, Color(0.45, 0.7, 1.0))
+	show_banner(tr("第 %d 回合 · 我方回合") % turn, Color(0.45, 0.7, 1.0))
 	_gain_support_points()
 	await chapter.on_turn_start(turn)
 	if state == S.OVER:
 		return
 	state = S.IDLE
-	hint("点击我方单位行动 · 点击敌人查看其威胁范围")
+	hint(tr("点击我方单位行动 · 点击敌人查看其威胁范围"))
 	_update_hover_info()
 
 
@@ -357,7 +376,7 @@ func enemy_phase() -> void:
 	board.clear_highlights()
 	update_topbar()
 	Audio.play_sfx("phase", 0.85)
-	show_banner("敌方回合", Color(1.0, 0.45, 0.4))
+	show_banner(tr("敌方回合"), Color(1.0, 0.45, 0.4))
 	await get_tree().create_timer(0.9).timeout
 	for e in units.duplicate():
 		if state == S.OVER:
@@ -390,16 +409,15 @@ func enemy_phase() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if state == S.STORY or state == S.COMBAT or state == S.ENEMY or state == S.OVER:
 		return
-	if event is InputEventMouseMotion:
-		var p := _mouse_tile()
+	if PointerInput.is_pointer_move(event):
+		var p := board.tile_at_viewport(PointerInput.viewport_position(event))
 		if board.in_bounds(p) and p != cursor.grid_pos:
 			cursor.set_grid(p)
 			_on_cursor_moved()
-	elif event is InputEventMouseButton and event.pressed:
-		if event.button_index == MOUSE_BUTTON_LEFT:
-			click_tile(_mouse_tile())
-		elif event.button_index == MOUSE_BUTTON_RIGHT:
-			cancel()
+	elif PointerInput.is_primary_press(event):
+		click_tile(board.tile_at_viewport(PointerInput.viewport_position(event)))
+	elif PointerInput.is_secondary_press(event):
+		cancel()
 	elif event.is_action_pressed("ui_accept"):
 		click_tile(cursor.grid_pos)
 	elif event.is_action_pressed("ui_cancel"):
@@ -414,11 +432,6 @@ func _unhandled_input(event: InputEvent) -> void:
 		_move_cursor(Vector2i(1, 0))
 	elif event is InputEventKey and event.pressed and not event.is_echo() and event.keycode == KEY_T:
 		toggle_danger()
-
-
-func _mouse_tile() -> Vector2i:
-	var local := board.get_local_mouse_position()
-	return Vector2i((local / TILE).floor())
 
 
 func _move_cursor(d: Vector2i) -> void:
@@ -494,7 +507,7 @@ func select_unit(u: Unit) -> void:
 		atk.erase(t)
 	board.show_move(move_dict, atk)
 	state = S.MOVE_SEL
-	hint("%s：选择移动位置（右键取消）" % u.display_name)
+	hint(tr("%s：选择移动位置（右键取消）") % u.display_name)
 	_update_hover_info()
 
 
@@ -503,7 +516,7 @@ func _deselect() -> void:
 	move_dict = {}
 	board.clear_highlights()
 	state = S.IDLE
-	hint("点击我方单位行动 · 点击敌人查看其威胁范围")
+	hint(tr("点击我方单位行动 · 点击敌人查看其威胁范围"))
 
 
 func _move_click(p: Vector2i) -> void:
@@ -547,7 +560,7 @@ func _preview_enemy(u: Unit) -> void:
 	for t in move:
 		area[t] = true
 	board.show_move({}, area)
-	hint("%s 的威胁范围（右键清除）" % u.display_name)
+	hint(tr("%s 的威胁范围（右键清除）") % u.display_name)
 	_update_hover_info()
 
 
@@ -574,21 +587,21 @@ func _open_action_menu(u: Unit) -> void:
 	state = S.ACTION_MENU
 	Audio.play_sfx("select")
 	var opts: Array = []
-	opts.append({"label": "攻击", "enabled": not find_targets(u, -1).is_empty(), "cb": _on_menu_attack})
+	opts.append({"label": tr("攻击"), "enabled": not find_targets(u, -1).is_empty(), "cb": _on_menu_attack})
 	if board.tile_at(u.grid_pos) == "H" and not chapter.visited.has(u.grid_pos):
-		opts.append({"label": "访问", "enabled": true, "cb": _on_menu_visit})
+		opts.append({"label": tr("访问"), "enabled": true, "cb": _on_menu_visit})
 	if chapter.get_talk_partner(u) != null:
-		opts.append({"label": "对话", "enabled": true, "cb": _on_menu_talk})
+		opts.append({"label": tr("对话"), "enabled": true, "cb": _on_menu_talk})
 	if chapter.get_support_partner(u) != null:
-		opts.append({"label": "支援", "enabled": true, "cb": _on_menu_support})
+		opts.append({"label": tr("支援"), "enabled": true, "cb": _on_menu_support})
 	if chapter.get_recruit_target(u) != null:
-		opts.append({"label": "说得", "enabled": true, "cb": _on_menu_recruit})
+		opts.append({"label": tr("说得"), "enabled": true, "cb": _on_menu_recruit})
 	if not u.items.is_empty():
-		opts.append({"label": "道具", "enabled": true, "cb": _on_menu_item})
-	opts.append({"label": "待机", "enabled": true, "cb": _on_menu_wait})
+		opts.append({"label": tr("道具"), "enabled": true, "cb": _on_menu_item})
+	opts.append({"label": tr("待机"), "enabled": true, "cb": _on_menu_wait})
 	_fill_menu(opts)
 	_place_menu(u)
-	hint("选择行动（右键返回移动）")
+	hint(tr("选择行动（右键返回移动）"))
 
 
 func _fill_menu(opts: Array) -> void:
@@ -596,8 +609,9 @@ func _fill_menu(opts: Array) -> void:
 		c.queue_free()
 	for o in opts:
 		var b := Button.new()
+		b.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 		b.text = o["label"]
-		b.custom_minimum_size = Vector2(170, 42)
+		b.custom_minimum_size = Vector2(170, SafeArea.MIN_HIT)
 		b.disabled = not o["enabled"]
 		b.pressed.connect(o["cb"])
 		menu_box.add_child(b)
@@ -628,7 +642,7 @@ func _cancel_action_menu() -> void:
 		atk.erase(t)
 	board.show_move(move_dict, atk)
 	state = S.MOVE_SEL
-	hint("%s：选择移动位置（右键取消）" % selected.display_name)
+	hint(tr("%s：选择移动位置（右键取消）") % selected.display_name)
 
 
 func _on_menu_attack() -> void:
@@ -639,12 +653,12 @@ func _on_menu_attack() -> void:
 			var w: Dictionary = selected.weapon(i)
 			var idx := i
 			opts.append({
-				"label": "%s (攻%d 命%d)" % [w["name"], w["mt"], w["hit"]],
+				"label": tr("%s (攻%d 命%d)") % [w["name"], w["mt"], w["hit"]],
 				"enabled": not find_targets(selected, i).is_empty(),
 				"cb": func() -> void: _on_weapon_chosen(idx),
 			})
 		_fill_menu(opts)
-		hint("选择武器（右键返回）")
+		hint(tr("选择武器（右键返回）"))
 	else:
 		sel_weapon = 0
 		_enter_target_select()
@@ -666,7 +680,7 @@ func _enter_target_select() -> void:
 	for t in targets:
 		tiles[t.grid_pos] = true
 	board.show_move({}, tiles)
-	hint("用【%s】选择攻击目标（右键返回）" % selected.weapon(sel_weapon)["name"])
+	hint(tr("用【%s】选择攻击目标（右键返回）") % selected.weapon(sel_weapon)["name"])
 
 
 func _target_click(p: Vector2i) -> void:
@@ -711,7 +725,7 @@ func _on_menu_item() -> void:
 		var idx := i
 		opts.append({"label": "%s（%s）" % [item["name"], item["desc"]], "enabled": true, "cb": func() -> void: _on_use_item(idx)})
 	_fill_menu(opts)
-	hint("选择要使用的道具（右键返回）")
+	hint(tr("选择要使用的道具（右键返回）"))
 
 
 func _on_use_item(idx: int) -> void:
@@ -745,9 +759,9 @@ func after_player_action() -> void:
 	update_topbar()
 	for u in units:
 		if u.is_player() and u.is_alive() and not u.has_acted:
-			hint("点击我方单位行动")
+			hint(tr("点击我方单位行动"))
 			return
-	hint("全军行动完毕……")
+	hint(tr("全军行动完毕……"))
 	await get_tree().create_timer(0.6).timeout
 	if state == S.IDLE:
 		enemy_phase()
@@ -810,7 +824,7 @@ func _show_forecast(att: Unit, def: Unit, wi: int) -> void:
 		var dwi: int = def.counter_weapon(GameData.dist(att.grid_pos, def.grid_pos))
 		forecast_def.text = _forecast_text(def, def.weapon(dwi), f["d_dmg"], f["d_hit"], f["d_times"], f["d_crit"])
 	else:
-		forecast_def.text = _forecast_text(def, def.weapon(), 0, 0, 0, 0) + "\n（无法反击）"
+		forecast_def.text = _forecast_text(def, def.weapon(), 0, 0, 0, 0) + "\n" + tr("（无法反击）")
 	forecast_panel.visible = true
 
 
@@ -903,7 +917,7 @@ func _victory() -> void:
 	Audio.play_sfx("victory")
 	await get_tree().create_timer(0.7).timeout
 	await chapter.on_victory()
-	_show_end("第一章 · 完", "缇娅的身世之谜，才刚刚开始……", "回到标题", "res://scenes/title.tscn")
+	_show_end(tr("第一章 · 完"), tr("缇娅的身世之谜，才刚刚开始……"), tr("回到标题"), "res://scenes/title.tscn")
 
 
 func _game_over() -> void:
@@ -912,7 +926,7 @@ func _game_over() -> void:
 	Audio.play_sfx("defeat")
 	await get_tree().create_timer(0.6).timeout
 	await chapter.on_defeat()
-	_show_end("战  败", "灰岩村的命运，到此为止……", "重试本章", "res://scenes/battle.tscn")
+	_show_end(tr("战  败"), tr("灰岩村的命运，到此为止……"), tr("重试本章"), "res://scenes/battle.tscn")
 
 
 func _show_end(title: String, sub: String, btn_text: String, scene: String) -> void:
@@ -973,9 +987,9 @@ func show_banner(text: String, color: Color) -> void:
 func update_topbar() -> void:
 	if lbl_turn == null:
 		return
-	var phase := "敌方回合" if state == S.ENEMY else "我方回合"
-	lbl_turn.text = "第 %d 回合 · %s" % [turn, phase]
-	lbl_gold.text = "金钱 %d G" % gold
+	var phase := tr("敌方回合") if state == S.ENEMY else tr("我方回合")
+	lbl_turn.text = tr("第 %d 回合 · %s") % [turn, phase]
+	lbl_gold.text = tr("金钱 %d G") % gold
 
 
 func add_gold(n: int) -> void:

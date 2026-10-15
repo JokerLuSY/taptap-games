@@ -1,5 +1,5 @@
 extends Control
-## 开场旁白：黑底逐行显现，点击 / 回车推进
+## 开场旁白：黑底逐行显现，主指针 / 回车推进
 
 const LINES := [
 	"卡尔迪亚大陆历 812 年。",
@@ -20,29 +20,36 @@ func _ready() -> void:
 	var bg := ColorRect.new()
 	bg.color = Color(0.02, 0.02, 0.03)
 	bg.set_anchors_preset(PRESET_FULL_RECT)
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(bg)
 
 	_label = Label.new()
-	_label.position = Vector2(140, 260)
-	_label.size = Vector2(1000, 200)
+	_label.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	_label.position = Vector2(SafeArea.MARGIN_X, 260)
+	_label.size = Vector2(1280 - SafeArea.MARGIN_X * 2, 200)
 	_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_label.add_theme_font_size_override("font_size", 32)
 	_label.add_theme_color_override("font_color", Color(0.85, 0.82, 0.75))
 	add_child(_label)
 
 	var hint := Label.new()
-	hint.text = "点击 / 回车 继续"
+	hint.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	hint.text = tr("点击 / 回车 继续")
 	hint.add_theme_font_size_override("font_size", 18)
 	hint.add_theme_color_override("font_color", Color(0.5, 0.5, 0.55))
-	hint.position = Vector2(0, 660)
-	hint.size = Vector2(1280, 30)
+	hint.position = Vector2(SafeArea.MARGIN_X, 720 - SafeArea.MARGIN_Y - 24)
+	hint.size = Vector2(1280 - SafeArea.MARGIN_X * 2, 24)
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	add_child(hint)
 
 	var skip := Button.new()
-	skip.text = "跳过 >>"
-	skip.position = Vector2(1140, 20)
-	skip.custom_minimum_size = Vector2(120, 40)
+	skip.name = "SkipButton"
+	skip.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	skip.text = tr("跳过 >>")
+	var skip_size := Vector2(148, SafeArea.MIN_HIT)
+	skip.custom_minimum_size = skip_size
+	skip.size = skip_size
+	skip.position = Vector2(1280.0 - SafeArea.EDGE_ACTION - skip_size.x, SafeArea.MARGIN_Y)
 	skip.pressed.connect(_go_battle)
 	add_child(skip)
 
@@ -50,7 +57,7 @@ func _ready() -> void:
 
 
 func _show() -> void:
-	_label.text = LINES[_idx]
+	_label.text = tr(LINES[_idx])
 	_label.modulate.a = 0.0
 	if _tween != null and _tween.is_valid():
 		_tween.kill()
@@ -59,12 +66,7 @@ func _show() -> void:
 
 
 func _input(event: InputEvent) -> void:
-	var advance := false
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		advance = true
-	elif event.is_action_pressed("ui_accept"):
-		advance = true
-	if not advance:
+	if not PointerInput.is_primary_press(event) and not event.is_action_pressed("ui_accept"):
 		return
 	if _label.modulate.a < 0.99:
 		if _tween != null and _tween.is_valid():

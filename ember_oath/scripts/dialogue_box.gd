@@ -31,15 +31,15 @@ var _portrait: TextureRect
 func _ready() -> void:
 	visible = false
 	set_process_input(false)
-	# 底部停靠：1280x720 下位于 y 530..704
+	# 底部停靠，左右/下边让出安全区。净高保持 174，避免挤掉三行正文。
 	anchor_left = 0.0
 	anchor_top = 1.0
 	anchor_right = 1.0
 	anchor_bottom = 1.0
-	offset_left = 24
-	offset_right = -24
-	offset_top = -190
-	offset_bottom = -16
+	offset_left = SafeArea.MARGIN_X
+	offset_right = -SafeArea.MARGIN_X
+	offset_bottom = -SafeArea.MARGIN_Y
+	offset_top = -(SafeArea.MARGIN_Y + 174)
 
 	var panel := Panel.new()
 	panel.set_anchors_preset(PRESET_FULL_RECT)
@@ -52,6 +52,7 @@ func _ready() -> void:
 	add_child(panel)
 
 	_name_label = Label.new()
+	_name_label.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 	_name_label.position = Vector2(20, -16)
 	_name_label.add_theme_font_size_override("font_size", 20)
 	var nb := StyleBoxFlat.new()
@@ -65,6 +66,7 @@ func _ready() -> void:
 	add_child(_name_label)
 
 	_text_label = Label.new()
+	_text_label.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 	_text_label.position = Vector2(24, 36)
 	_text_label.size = Vector2(1184, 122)
 	_text_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -91,7 +93,12 @@ func _ready() -> void:
 
 	var hint := Label.new()
 	hint.text = "▼"
-	hint.position = Vector2(1196, 136)
+	hint.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	hint.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	hint.offset_left = -36
+	hint.offset_top = -32
+	hint.offset_right = -12
+	hint.offset_bottom = -8
 	hint.add_theme_color_override("font_color", Color(0.85, 0.75, 0.45))
 	add_child(hint)
 
@@ -110,19 +117,17 @@ func _show_line() -> void:
 	var line: Dictionary = _lines[_idx]
 	Audio.play_sfx("talk")
 	var speaker: String = line.get("name", "")
-	_name_label.text = speaker
+	_name_label.text = tr(speaker)
 	_name_label.visible = speaker != ""
 	_name_label.add_theme_color_override("font_color", line.get("color", Color.WHITE))
 	# 立绘
 	if PORTRAITS.has(speaker):
 		_portrait.texture = _get_portrait(PORTRAITS[speaker])
 		_portrait_frame.visible = true
-		_text_label.position = Vector2(158, 36)
-		_text_label.size = Vector2(1050, 122)
+		_fit_text(true)
 	else:
 		_portrait_frame.visible = false
-		_text_label.position = Vector2(24, 36)
-		_text_label.size = Vector2(1184, 122)
+		_fit_text(false)
 	_text_label.text = line.get("text", "")
 	_text_label.visible_ratio = 0.0
 	_typing = true
@@ -134,15 +139,23 @@ func _show_line() -> void:
 	_tween.tween_callback(func() -> void: _typing = false)
 
 
+func _fit_text(with_portrait: bool) -> void:
+	var width := size.x
+	if width < 200.0:
+		width = 1280.0 - SafeArea.MARGIN_X * 2
+	var right_pad := 40.0
+	if with_portrait:
+		_text_label.position = Vector2(158, 36)
+		_text_label.size = Vector2(maxf(width - 158.0 - right_pad, 200), 122)
+	else:
+		_text_label.position = Vector2(24, 36)
+		_text_label.size = Vector2(maxf(width - 24.0 - right_pad, 200), 122)
+
+
 func _input(event: InputEvent) -> void:
 	if not _active:
 		return
-	var advance := false
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		advance = true
-	elif event.is_action_pressed("ui_accept"):
-		advance = true
-	if not advance:
+	if not PointerInput.is_primary_press(event) and not event.is_action_pressed("ui_accept"):
 		return
 	get_viewport().set_input_as_handled()
 	if _typing:

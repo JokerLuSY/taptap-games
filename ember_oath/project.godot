@@ -18,6 +18,7 @@ config/icon="res://icon.png"
 
 [autoload]
 
+GameLocale="*res://scripts/game_locale.gd"
 Audio="*res://scripts/audio.gd"
 
 [display]
@@ -30,6 +31,16 @@ window/stretch/aspect="expand"
 [gui]
 
 theme/custom="res://art/theme.tres"
+
+[input_devices]
+
+pointing/emulate_mouse_from_touch=true
+pointing/emulate_touch_from_mouse=false
+
+[internationalization]
+
+locale/fallback="zh_CN"
+locale/translations=PackedStringArray("res://locale/ui.zh_CN.translation", "res://locale/ui.en.translation")
 
 [rendering]
 

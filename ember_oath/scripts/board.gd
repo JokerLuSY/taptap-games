@@ -80,6 +80,12 @@ func in_bounds(p: Vector2i) -> bool:
 	return p.x >= 0 and p.y >= 0 and p.x < width and p.y < height
 
 
+## 视口坐标 → 格子。鼠标与触摸事件的 position 都走这里。
+func tile_at_viewport(viewport_pos: Vector2) -> Vector2i:
+	var local: Vector2 = get_global_transform_with_canvas().affine_inverse() * viewport_pos
+	return Vector2i((local / float(TILE)).floor())
+
+
 func tile_at(p: Vector2i) -> String:
 	if not in_bounds(p):
 		return "~"
