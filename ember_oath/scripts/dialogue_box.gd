@@ -15,10 +15,23 @@ const PORTRAITS := {
 	"老奶奶": "portrait_granny",
 }
 
+const BODY_FONT_SIZE := 22
+const NAME_FONT_SIZE := 20
+const BODY_LINE_RATIO := 1.35
+## 正文区高度：3 行 × 字号 1.35，约 90–100px
+const BODY_AREA_H := 96.0
+const PORTRAIT_ORIGIN := Vector2(18, 22)
+const PORTRAIT_SIZE := Vector2(124, 124)
+const TEXT_GAP := 16.0
+const TEXT_TOP := 36.0
+## 正文右缘。无立绘时左缘 24、宽 1184
+const TEXT_RIGHT := 1208.0
+
 var _lines: Array = []
 var _idx := 0
 var _typing := false
 var _active := false
+var _line_text := ""
 var _tween: Tween = null
 var _tex_cache := {}
 
@@ -53,7 +66,7 @@ func _ready() -> void:
 
 	_name_label = Label.new()
 	_name_label.position = Vector2(20, -16)
-	_name_label.add_theme_font_size_override("font_size", 20)
+	_name_label.add_theme_font_size_override("font_size", NAME_FONT_SIZE)
 	var nb := StyleBoxFlat.new()
 	nb.bg_color = Color(0.10, 0.13, 0.22)
 	nb.border_color = Color(0.85, 0.75, 0.45)
@@ -65,16 +78,21 @@ func _ready() -> void:
 	add_child(_name_label)
 
 	_text_label = Label.new()
-	_text_label.position = Vector2(24, 36)
-	_text_label.size = Vector2(1184, 122)
 	_text_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_text_label.add_theme_font_size_override("font_size", 23)
+	_text_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	_text_label.add_theme_font_size_override("font_size", BODY_FONT_SIZE)
+	# CJK 打字机按字裁切，不用 visible_ratio（ratio 会在成形前把字形挤到同一位置）
+	_text_label.visible_characters_behavior = TextServer.VC_CHARS_BEFORE_SHAPING
+	_text_label.visible_characters = -1
 	add_child(_text_label)
+	_apply_body_line_spacing()
+	_layout_body(false)
 
 	# 立绘框
 	_portrait_frame = Panel.new()
-	_portrait_frame.position = Vector2(18, 22)
-	_portrait_frame.size = Vector2(124, 124)
+	_portrait_frame.position = PORTRAIT_ORIGIN
+	_portrait_frame.size = PORTRAIT_SIZE
+	_portrait_frame.clip_contents = true
 	_portrait_frame.visible = false
 	var pb := StyleBoxFlat.new()
 	pb.bg_color = Color(0.10, 0.13, 0.22)
@@ -113,24 +131,25 @@ func _show_line() -> void:
 	_name_label.text = speaker
 	_name_label.visible = speaker != ""
 	_name_label.add_theme_color_override("font_color", line.get("color", Color.WHITE))
-	# 立绘
-	if PORTRAITS.has(speaker):
+	# 立绘在左时，正文左缘 = 框右缘 + 16（124 框 → x=158）
+	var with_portrait := PORTRAITS.has(speaker)
+	if with_portrait:
 		_portrait.texture = _get_portrait(PORTRAITS[speaker])
 		_portrait_frame.visible = true
-		_text_label.position = Vector2(158, 36)
-		_text_label.size = Vector2(1050, 122)
 	else:
 		_portrait_frame.visible = false
-		_text_label.position = Vector2(24, 36)
-		_text_label.size = Vector2(1184, 122)
-	_text_label.text = line.get("text", "")
-	_text_label.visible_ratio = 0.0
-	_typing = true
+	_layout_body(with_portrait)
+	_line_text = str(line.get("text", ""))
+	_text_label.text = _line_text
+	_text_label.visible_characters = 0
+	_typing = _line_text.length() > 0
 	if _tween != null and _tween.is_valid():
 		_tween.kill()
+	if not _typing:
+		return
 	_tween = create_tween()
-	var dur: float = clampf(_text_label.text.length() * 0.035, 0.2, 3.0)
-	_tween.tween_property(_text_label, "visible_ratio", 1.0, dur)
+	var dur: float = clampf(_line_text.length() * 0.035, 0.2, 3.0)
+	_tween.tween_method(_set_shown_chars, 0.0, float(_line_text.length()), dur)
 	_tween.tween_callback(func() -> void: _typing = false)
 
 
@@ -148,7 +167,7 @@ func _input(event: InputEvent) -> void:
 	if _typing:
 		if _tween != null and _tween.is_valid():
 			_tween.kill()
-		_text_label.visible_ratio = 1.0
+		_text_label.visible_characters = -1
 		_typing = false
 	else:
 		_idx += 1
@@ -163,6 +182,28 @@ func _finish() -> void:
 	visible = false
 	set_process_input(false)
 	all_finished.emit()
+
+
+func _layout_body(with_portrait: bool) -> void:
+	var left := 24.0
+	if with_portrait:
+		left = PORTRAIT_ORIGIN.x + PORTRAIT_SIZE.x + TEXT_GAP
+	_text_label.position = Vector2(left, TEXT_TOP)
+	_text_label.size = Vector2(TEXT_RIGHT - left, BODY_AREA_H)
+
+
+func _apply_body_line_spacing() -> void:
+	var font := _text_label.get_theme_font("font")
+	var font_h := font.get_height(BODY_FONT_SIZE)
+	var min_line := int(ceil(float(BODY_FONT_SIZE) * BODY_LINE_RATIO))
+	_text_label.add_theme_constant_override("line_spacing", maxi(0, min_line - font_h))
+
+
+## 按字推进。visible_characters 在成形前截断，避免 CJK 叠字。
+func _set_shown_chars(shown: float) -> void:
+	var n := clampi(int(shown), 0, _line_text.length())
+	if _text_label.visible_characters != n:
+		_text_label.visible_characters = n
 
 
 func _get_portrait(key: String) -> Texture2D:
