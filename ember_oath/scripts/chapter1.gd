@@ -194,7 +194,7 @@ func on_talk(_u) -> void:
 	await battle.play_dialogue(_talk_tia_balto())
 	var tia = battle.get_unit("tia")
 	tia.items.append("vulnerary")
-	battle.notify("缇娅 获得 伤药")
+	battle.notify(tr("缇娅 获得 伤药"))
 
 
 ## 支援: u 的相邻格有可解锁支援的伙伴 → 返回伙伴单位
@@ -227,7 +227,7 @@ func on_support(u) -> void:
 	await battle.play_dialogue(_support_c_tia_balto())
 	u.support_with[partner.unit_id] = "C"
 	partner.support_with[u.unit_id] = "C"
-	battle.notify("缇娅 与 巴尔托 的支援提升到 C！（相邻时 命中/回避 +5）")
+	battle.notify(tr("缇娅 与 巴尔托 的支援提升到 C！（相邻时 命中/回避 +5）"))
 
 
 ## 说得: u 的相邻格有可招募的敌人 → 返回目标
@@ -249,7 +249,7 @@ func on_recruit(u) -> void:
 	t.faction = "player"
 	t.has_acted = true
 	t.queue_redraw()
-	battle.notify("%s 成为同伴了！" % t.display_name)
+	battle.notify(tr("%s 成为同伴了！") % tr(t.display_name))
 
 
 func on_victory() -> void:

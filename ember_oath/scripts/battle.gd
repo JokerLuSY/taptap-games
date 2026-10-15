@@ -48,6 +48,7 @@ var dialogue: DialogueBox
 var combat_scene: CombatScene
 
 var _forecast_target: Unit = null
+var _banner_tween: Tween = null
 
 
 func _ready() -> void:
@@ -280,6 +281,7 @@ func _build_levelup_panel() -> void:
 	sb.content_margin_bottom = 20
 	levelup_panel.add_theme_stylebox_override("panel", sb)
 	levelup_label = Label.new()
+	levelup_label.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 	levelup_label.add_theme_font_size_override("font_size", 24)
 	levelup_panel.add_child(levelup_label)
 	ui.add_child(levelup_panel)
@@ -513,7 +515,7 @@ func select_unit(u: Unit) -> void:
 		atk.erase(t)
 	board.show_move(move_dict, atk)
 	state = S.MOVE_SEL
-	hint(tr("%s：选择移动位置（右键取消）") % u.display_name)
+	hint(tr("%s：选择移动位置（右键取消）") % tr(u.display_name))
 	_update_hover_info()
 
 
@@ -566,7 +568,7 @@ func _preview_enemy(u: Unit) -> void:
 	for t in move:
 		area[t] = true
 	board.show_move({}, area)
-	hint(tr("%s 的威胁范围（右键清除）") % u.display_name)
+	hint(tr("%s 的威胁范围（右键清除）") % tr(u.display_name))
 	_update_hover_info()
 
 
@@ -586,7 +588,7 @@ func _gain_support_points() -> void:
 		if support_points.get(key, 0) < need:
 			support_points[key] = support_points.get(key, 0) + 1
 			if support_points[key] == need:
-				notify("%s 与 %s 的羁绊加深了……（相邻时可用【支援】）" % [a.display_name, b.display_name])
+				notify(tr("%s 与 %s 的羁绊加深了……（相邻时可用【支援】）") % [tr(a.display_name), tr(b.display_name)])
 
 
 func _open_action_menu(u: Unit) -> void:
@@ -648,7 +650,7 @@ func _cancel_action_menu() -> void:
 		atk.erase(t)
 	board.show_move(move_dict, atk)
 	state = S.MOVE_SEL
-	hint(tr("%s：选择移动位置（右键取消）") % selected.display_name)
+	hint(tr("%s：选择移动位置（右键取消）") % tr(selected.display_name))
 
 
 func _on_menu_attack() -> void:
@@ -659,7 +661,7 @@ func _on_menu_attack() -> void:
 			var w: Dictionary = selected.weapon(i)
 			var idx := i
 			opts.append({
-				"label": tr("%s (攻%d 命%d)") % [w["name"], w["mt"], w["hit"]],
+				"label": tr("%s (攻%d 命%d)") % [tr(w["name"]), w["mt"], w["hit"]],
 				"enabled": not find_targets(selected, i).is_empty(),
 				"cb": func() -> void: _on_weapon_chosen(idx),
 			})
@@ -686,7 +688,7 @@ func _enter_target_select() -> void:
 	for t in targets:
 		tiles[t.grid_pos] = true
 	board.show_move({}, tiles)
-	hint(tr("用【%s】选择攻击目标（右键返回）") % selected.weapon(sel_weapon)["name"])
+	hint(tr("用【%s】选择攻击目标（右键返回）") % tr(selected.weapon(sel_weapon)["name"]))
 
 
 func _target_click(p: Vector2i) -> void:
@@ -729,7 +731,7 @@ func _on_menu_item() -> void:
 	for i in selected.items.size():
 		var item: Dictionary = GameData.ITEMS[selected.items[i]]
 		var idx := i
-		opts.append({"label": "%s（%s）" % [item["name"], item["desc"]], "enabled": true, "cb": func() -> void: _on_use_item(idx)})
+		opts.append({"label": tr("%s（%s）") % [tr(item["name"]), tr(item["desc"])], "enabled": true, "cb": func() -> void: _on_use_item(idx)})
 	_fill_menu(opts)
 	hint(tr("选择要使用的道具（右键返回）"))
 
@@ -835,10 +837,14 @@ func _show_forecast(att: Unit, def: Unit, wi: int) -> void:
 
 
 func _forecast_text(u: Unit, w: Dictionary, dmg: int, hit: int, times: int, crit: int) -> String:
-	var s := "%s  Lv%d %s\nHP %d/%d\n%s\n攻击 %d" % [u.display_name, u.level, u.class_label, u.hp, u.max_hp, w["name"], dmg]
+	var wname := tr(str(w.get("name", "")))
+	var s := tr("%s  Lv%d %s") % [tr(u.display_name), u.level, tr(u.class_label)]
+	s += "\nHP %d/%d" % [u.hp, u.max_hp]
+	s += "\n" + wname
+	s += "\n" + (tr("攻击 %d") % dmg)
 	if times == 2:
 		s += "×2"
-	s += "\n命中 %d   必杀 %d" % [hit, crit]
+	s += "\n" + (tr("命中 %d   必杀 %d") % [hit, crit])
 	return s
 
 
@@ -887,12 +893,12 @@ func _give_xp(u: Unit, n: int) -> void:
 	if res.is_empty():
 		return
 	Audio.play_sfx("levelup")
-	var lines: Array = ["%s 升级了！  Lv %d" % [u.display_name, res["level"]], ""]
+	var lines: Array = [tr("%s 升级了！  Lv %d") % [tr(u.display_name), res["level"]], ""]
 	var gains: Dictionary = res["gains"]
 	if gains.is_empty():
-		lines.append("（能力没有提升……）")
+		lines.append(tr("（能力没有提升……）"))
 	else:
-		var names := {"hp": "HP", "pwr": "力量", "skl": "技巧", "spd": "速度", "dfn": "守备"}
+		var names := {"hp": "HP", "pwr": tr("力量"), "skl": tr("技巧"), "spd": tr("速度"), "dfn": tr("守备")}
 		for k in gains:
 			lines.append("%s +1" % names[k])
 	levelup_label.text = "\n".join(PackedStringArray(lines))
@@ -918,6 +924,7 @@ func check_end_conditions() -> bool:
 
 func _victory() -> void:
 	state = S.OVER
+	hide_banner()
 	update_topbar()
 	Audio.stop_music()
 	Audio.play_sfx("victory")
@@ -928,6 +935,7 @@ func _victory() -> void:
 
 func _game_over() -> void:
 	state = S.OVER
+	hide_banner()
 	Audio.stop_music()
 	Audio.play_sfx("defeat")
 	await get_tree().create_timer(0.6).timeout
@@ -981,13 +989,30 @@ func notify(text: String) -> void:
 func show_banner(text: String, color: Color) -> void:
 	if banner_label == null:
 		return
+	_stop_banner_tween()
+	banner_label.visible = true
 	banner_label.text = text
 	banner_label.add_theme_color_override("font_color", color)
 	banner_label.modulate.a = 0.0
-	var t := create_tween()
-	t.tween_property(banner_label, "modulate:a", 1.0, 0.25)
-	t.tween_interval(0.8)
-	t.tween_property(banner_label, "modulate:a", 0.0, 0.4)
+	_banner_tween = create_tween()
+	_banner_tween.tween_property(banner_label, "modulate:a", 1.0, 0.25)
+	_banner_tween.tween_interval(0.8)
+	_banner_tween.tween_property(banner_label, "modulate:a", 0.0, 0.4)
+
+
+## 结算层是半透明黑底，相位横幅不关掉会从「战败」上透出来。
+func hide_banner() -> void:
+	if banner_label == null:
+		return
+	_stop_banner_tween()
+	banner_label.modulate.a = 0.0
+	banner_label.visible = false
+
+
+func _stop_banner_tween() -> void:
+	if _banner_tween != null and _banner_tween.is_valid():
+		_banner_tween.kill()
+	_banner_tween = null
 
 
 func update_topbar() -> void:
@@ -1059,7 +1084,8 @@ func _update_hover_info() -> void:
 		info_portrait_frame.visible = false
 		info_label.position = Vector2(16, 16)
 		var t: Dictionary = board.terrain(cursor.grid_pos)
-		info_label.text = "【%s】 高度 Lv%d\n守备 +%d   回避 +%d" % [t["name"], board.level_at(cursor.grid_pos), t["dfn"], t["avo"]]
+		var lv := board.level_at(cursor.grid_pos)
+		info_label.text = tr("【%s】 高度 Lv%d") % [tr(t["name"]), lv] + "\n" + tr("守备 +%d   回避 +%d") % [t["dfn"], t["avo"]]
 
 
 func _unit_portrait_key(u: Unit) -> String:
@@ -1077,20 +1103,20 @@ func _unit_portrait_key(u: Unit) -> String:
 
 func _unit_info_text(u: Unit) -> String:
 	var lines: Array = []
-	var side := "我方" if u.is_player() else "敌方"
-	lines.append("%s  Lv%d %s（%s）" % [u.display_name, u.level, u.class_label, side])
+	var side := tr("我方") if u.is_player() else tr("敌方")
+	lines.append(tr("%s  Lv%d %s（%s）") % [tr(u.display_name), u.level, tr(u.class_label), side])
 	lines.append("HP %d/%d   EXP %d" % [u.hp, u.max_hp, u.xp])
-	lines.append("力 %d   技 %d   速 %d" % [u.pwr, u.skl, u.spd])
-	lines.append("守 %d   移 %d" % [u.dfn, u.mov])
+	lines.append(tr("力 %d   技 %d   速 %d") % [u.pwr, u.skl, u.spd])
+	lines.append(tr("守 %d   移 %d") % [u.dfn, u.mov])
 	var wnames: Array = []
 	for w in u.weapons:
-		wnames.append(GameData.WEAPONS[w]["name"])
-	lines.append("武器：" + "、".join(PackedStringArray(wnames)))
+		wnames.append(tr(GameData.WEAPONS[w]["name"]))
+	lines.append(tr("武器：") + tr("、").join(PackedStringArray(wnames)))
 	if not u.items.is_empty():
 		var inames: Array = []
 		for it in u.items:
-			inames.append(GameData.ITEMS[it]["name"])
-		lines.append("道具：" + "、".join(PackedStringArray(inames)))
+			inames.append(tr(GameData.ITEMS[it]["name"]))
+		lines.append(tr("道具：") + tr("、").join(PackedStringArray(inames)))
 	return "\n".join(PackedStringArray(lines))
 
 
