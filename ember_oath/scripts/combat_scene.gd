@@ -115,9 +115,7 @@ func skip() -> void:
 func _input(event: InputEvent) -> void:
 	if not active:
 		return
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		skip()
-	elif event.is_action_pressed("ui_accept"):
+	if PointerInput.is_primary_press(event) or event.is_action_pressed("ui_accept"):
 		skip()
 
 

@@ -135,7 +135,7 @@ func on_turn_start(t: int) -> void:
 		f_reinforce = true
 		battle.spawn_units(REINFORCEMENTS)
 		Audio.play_sfx("reinforce")
-		battle.show_banner("敌方增援！", Color(1.0, 0.5, 0.3))
+		battle.show_banner(tr("敌方增援！"), Color(1.0, 0.5, 0.3))
 		await battle.play_dialogue(_turn3_reinforce())
 
 
@@ -161,11 +161,11 @@ func on_visit(u, pos: Vector2i) -> void:
 	if pos == Vector2i(9, 1):
 		await battle.play_dialogue(_visit_east())
 		u.items.append("vulnerary")
-		battle.notify("获得 伤药")
+		battle.notify(tr("获得 伤药"))
 	elif pos == Vector2i(3, 1):
 		await battle.play_dialogue(_visit_west())
 		battle.add_gold(500)
-		battle.notify("获得 500 金币")
+		battle.notify(tr("获得 500 金币"))
 	elif pos == Vector2i(1, 3):
 		await battle.play_dialogue(_visit_house1())
 	elif pos == Vector2i(11, 3):
@@ -267,7 +267,8 @@ func on_defeat() -> void:
 # ============ 台词 ============
 
 func _l(n: String, c: Color, t: String) -> Dictionary:
-	return {"name": n, "color": c, "text": t}
+	# 名字保留中文键，对话框显示时再 tr()，立绘表才能对上。
+	return {"name": n, "color": c, "text": tr(t)}
 
 
 func _pre_battle() -> Array:

@@ -24,8 +24,8 @@ const PORTRAIT_ORIGIN := Vector2(18, 22)
 const PORTRAIT_SIZE := Vector2(124, 124)
 const TEXT_GAP := 16.0
 const TEXT_TOP := 36.0
-## 正文右缘。无立绘时左缘 24、宽 1184
-const TEXT_RIGHT := 1208.0
+const TEXT_LEFT := 24.0
+const TEXT_RIGHT_PAD := 24.0
 
 var _lines: Array = []
 var _idx := 0
@@ -44,15 +44,15 @@ var _portrait: TextureRect
 func _ready() -> void:
 	visible = false
 	set_process_input(false)
-	# 底部停靠：1280x720 下位于 y 530..704
+	# 底部停靠，左右/下边让出安全区。净高保持 174，避免挤掉三行正文。
 	anchor_left = 0.0
 	anchor_top = 1.0
 	anchor_right = 1.0
 	anchor_bottom = 1.0
-	offset_left = 24
-	offset_right = -24
-	offset_top = -190
-	offset_bottom = -16
+	offset_left = SafeArea.MARGIN_X
+	offset_right = -SafeArea.MARGIN_X
+	offset_bottom = -SafeArea.MARGIN_Y
+	offset_top = -(SafeArea.MARGIN_Y + 174)
 
 	var panel := Panel.new()
 	panel.set_anchors_preset(PRESET_FULL_RECT)
@@ -65,6 +65,7 @@ func _ready() -> void:
 	add_child(panel)
 
 	_name_label = Label.new()
+	_name_label.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 	_name_label.position = Vector2(20, -16)
 	_name_label.add_theme_font_size_override("font_size", NAME_FONT_SIZE)
 	var nb := StyleBoxFlat.new()
@@ -78,6 +79,7 @@ func _ready() -> void:
 	add_child(_name_label)
 
 	_text_label = Label.new()
+	_text_label.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 	_text_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_text_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	_text_label.add_theme_font_size_override("font_size", BODY_FONT_SIZE)
@@ -109,7 +111,12 @@ func _ready() -> void:
 
 	var hint := Label.new()
 	hint.text = "▼"
-	hint.position = Vector2(1196, 136)
+	hint.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	hint.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	hint.offset_left = -36
+	hint.offset_top = -32
+	hint.offset_right = -12
+	hint.offset_bottom = -8
 	hint.add_theme_color_override("font_color", Color(0.85, 0.75, 0.45))
 	add_child(hint)
 
@@ -128,7 +135,7 @@ func _show_line() -> void:
 	var line: Dictionary = _lines[_idx]
 	Audio.play_sfx("talk")
 	var speaker: String = line.get("name", "")
-	_name_label.text = speaker
+	_name_label.text = tr(speaker)
 	_name_label.visible = speaker != ""
 	_name_label.add_theme_color_override("font_color", line.get("color", Color.WHITE))
 	# 立绘在左时，正文左缘 = 框右缘 + 16（124 框 → x=158）
@@ -156,12 +163,7 @@ func _show_line() -> void:
 func _input(event: InputEvent) -> void:
 	if not _active:
 		return
-	var advance := false
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		advance = true
-	elif event.is_action_pressed("ui_accept"):
-		advance = true
-	if not advance:
+	if not PointerInput.is_primary_press(event) and not event.is_action_pressed("ui_accept"):
 		return
 	get_viewport().set_input_as_handled()
 	if _typing:
@@ -185,11 +187,15 @@ func _finish() -> void:
 
 
 func _layout_body(with_portrait: bool) -> void:
-	var left := 24.0
+	var width := size.x
+	if width < 200.0:
+		width = 1280.0 - SafeArea.MARGIN_X * 2.0
+	var left := TEXT_LEFT
 	if with_portrait:
 		left = PORTRAIT_ORIGIN.x + PORTRAIT_SIZE.x + TEXT_GAP
+	var right := width - TEXT_RIGHT_PAD
 	_text_label.position = Vector2(left, TEXT_TOP)
-	_text_label.size = Vector2(TEXT_RIGHT - left, BODY_AREA_H)
+	_text_label.size = Vector2(maxf(right - left, 200), BODY_AREA_H)
 
 
 func _apply_body_line_spacing() -> void:
