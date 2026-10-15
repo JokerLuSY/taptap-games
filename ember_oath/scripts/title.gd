@@ -23,27 +23,35 @@ func _ready() -> void:
 	_title = _label(84, Color(1.0, 0.62, 0.3), text_pos, text_size)
 	_sub = _label(26, Color(0.8, 0.75, 0.7), Vector2(SafeArea.MARGIN_X, 305), Vector2(text_size.x, 40))
 
-	# 缇娅立绘装饰
+	# 缇娅立绘：源图 1024²。先定 280×360 的裁切框（右缘 1240≤1260），
+	# 再让贴图按框适配，避免 IGNORE_SIZE 之前按原图尺寸从 (920,180) 铺出窗口。
+	var portrait_box := Control.new()
+	portrait_box.position = Vector2(960, 160)
+	portrait_box.size = Vector2(280, 360)
+	portrait_box.clip_contents = true
+	portrait_box.mouse_filter = MOUSE_FILTER_IGNORE
+	add_child(portrait_box)
+
 	var portrait := TextureRect.new()
-	portrait.texture = load("res://art/portraits/portrait_tia.jpg")
-	portrait.position = Vector2(920, 180)
-	portrait.size = Vector2(300, 300)
-	portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	portrait.expand_mode = TextureRect.EXPAND_FIT_HEIGHT_PROPORTIONAL
 	portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	portrait.mouse_filter = MOUSE_FILTER_IGNORE
 	portrait.modulate = Color(1, 1, 1, 0.92)
-	portrait.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(portrait)
+	portrait.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	portrait_box.add_child(portrait)
+	portrait.texture = load("res://art/portraits/portrait_tia.jpg")
+	portrait.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+
 	var frame := Panel.new()
-	frame.position = Vector2(920, 180)
-	frame.size = Vector2(300, 300)
-	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	frame.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
+	frame.mouse_filter = MOUSE_FILTER_IGNORE
 	var fb := StyleBoxFlat.new()
 	fb.bg_color = Color(0, 0, 0, 0)
 	fb.border_color = Color(0.85, 0.65, 0.35)
 	fb.set_border_width_all(3)
 	fb.set_corner_radius_all(8)
 	frame.add_theme_stylebox_override("panel", fb)
-	add_child(frame)
+	portrait_box.add_child(frame)
 
 	_note = _label(18, Color(0.55, 0.52, 0.5), Vector2(SafeArea.MARGIN_X, 720 - SafeArea.MARGIN_Y - 28), Vector2(text_size.x, 28))
 
