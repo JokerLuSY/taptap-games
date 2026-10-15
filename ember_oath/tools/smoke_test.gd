@@ -26,6 +26,7 @@ func _run() -> void:
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(_shot_dir))
 	_check_infra()
 	await _check_title_and_narration()
+	await _check_en_topbar()
 	GameLocale.set_code("zh_CN")
 	battle = load("res://scenes/battle.tscn").instantiate()
 	get_tree().root.add_child(battle)
@@ -43,6 +44,11 @@ func _run() -> void:
 		_check(end_turn.text == "回合结束", "回合结束按钮应为中文，实际 " + end_turn.text)
 	var chapter_label := battle.ui.find_child("ChapterLabel", true, false) as Label
 	_check(chapter_label != null and chapter_label.position.x >= SafeArea.MARGIN_X, "章节名应避开左缘 64px")
+	var turn_label := battle.ui.find_child("TurnLabel", true, false) as Label
+	_check(turn_label != null, "应有回合标签")
+	if chapter_label != null and turn_label != null:
+		var chapter_right := chapter_label.position.x + maxf(chapter_label.size.x, chapter_label.get_minimum_size().x)
+		_check(chapter_right <= turn_label.position.x + 0.01, "中文章节右缘应不超过回合左缘，右缘 %s 左缘 %s" % [chapter_right, turn_label.position.x])
 	# 切到缇娅的台词, 截取带立绘的对话框
 	battle.dialogue._idx = 1
 	battle.dialogue._show_line()
@@ -480,6 +486,38 @@ func _check_infra() -> void:
 	_check(tr("战  败") == "Defeat", "英文战败文案错误: " + tr("战  败"))
 	_check(tr("手腕太僵了。剑不是靠蛮力挥的，缇娅。") == "Your wrist is too stiff. A sword isn't swung by brute force, Tia.", "抽样台词未译出")
 	TranslationServer.set_locale("zh_CN")
+
+
+func _check_en_topbar() -> void:
+	GameLocale.set_code("en")
+	var probe = load("res://scenes/battle.tscn").instantiate()
+	add_child(probe)
+	probe.set_process_unhandled_input(false)
+	await _frames(2)
+	var chapter_label := probe.ui.find_child("ChapterLabel", true, false) as Label
+	var turn_label := probe.ui.find_child("TurnLabel", true, false) as Label
+	var gold_label := probe.ui.find_child("GoldLabel", true, false) as Label
+	var threat := probe.ui.find_child("ThreatButton", true, false) as Button
+	_check(chapter_label != null and turn_label != null, "英文顶栏应有章节与回合标签")
+	if chapter_label != null and turn_label != null:
+		var chapter_right := chapter_label.position.x + maxf(chapter_label.size.x, chapter_label.get_minimum_size().x)
+		var turn_left := turn_label.position.x
+		var turn_right := turn_left + maxf(turn_label.size.x, turn_label.get_minimum_size().x)
+		_check(chapter_label.text == "Chapter 1 · The Girl of the Border", "英文章节名不符，实际 " + chapter_label.text)
+		_check(turn_label.text.begins_with("Turn "), "英文回合标应已刷新，实际 " + turn_label.text)
+		_check(chapter_right <= turn_left + 0.01, "英文章节右缘应不超过回合左缘，右缘 %s 左缘 %s" % [chapter_right, turn_left])
+		_check(turn_left - chapter_right >= 8.0, "英文章节与回合应留出空隙，间距 %s" % (turn_left - chapter_right))
+		if gold_label != null:
+			var gold_left := gold_label.position.x
+			_check(turn_right <= gold_left + 0.01, "英文回合右缘应不超过金钱左缘，右缘 %s 左缘 %s" % [turn_right, gold_left])
+	if threat != null:
+		_check(is_equal_approx(threat.size.x, 210.0), "危险范围按钮宽应保持 210，实际 %s" % threat.size.x)
+		if gold_label != null:
+			var gold_right := gold_label.position.x + maxf(gold_label.size.x, gold_label.get_minimum_size().x)
+			_check(gold_right <= threat.position.x + 0.01, "英文金钱标不应压到危险范围，右缘 %s 按钮 %s" % [gold_right, threat.position.x])
+	probe.queue_free()
+	await _frames(2)
+	GameLocale.set_code("zh_CN")
 
 
 func _check_title_and_narration() -> void:

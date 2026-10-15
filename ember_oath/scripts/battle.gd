@@ -23,8 +23,10 @@ var danger_on := false
 
 # ---- UI ----
 var ui: CanvasLayer
+var lbl_chapter: Label
 var lbl_turn: Label
 var lbl_gold: Label
+var btn_threat: Button
 var info_label: Label
 var info_portrait_frame: Panel
 var info_portrait: TextureRect
@@ -111,20 +113,24 @@ func _build_ui() -> void:
 	top.size = Vector2(1280, SafeArea.MARGIN_Y)
 	_style_panel(top, Color(0.08, 0.10, 0.16, 0.95))
 	ui.add_child(top)
-	var chapter_label := _make_label(top, Vector2(SafeArea.MARGIN_X, 12), tr("第一章 · 边境的少女"), 22)
-	chapter_label.name = "ChapterLabel"
-	lbl_turn = _make_label(top, Vector2(400, 12), "", 22)
-	lbl_gold = _make_label(top, Vector2(670, 12), "", 22)
+	lbl_chapter = _make_label(top, Vector2(SafeArea.MARGIN_X, 12), tr("第一章 · 边境的少女"), 22)
+	lbl_chapter.name = "ChapterLabel"
+	lbl_turn = _make_label(top, Vector2(SafeArea.MARGIN_X, 12), "", 22)
+	lbl_turn.name = "TurnLabel"
+	lbl_gold = _make_label(top, Vector2(SafeArea.MARGIN_X, 12), "", 22)
+	lbl_gold.name = "GoldLabel"
 	var end_size := Vector2(156, SafeArea.MIN_HIT)
+	# 「Threat Range (T)」在 210 宽里刚好放下，不要再加长。
 	var danger_size := Vector2(210, SafeArea.MIN_HIT)
 	var end_pos := Vector2(1280.0 - SafeArea.EDGE_ACTION - end_size.x, 0)
 	var danger_pos := Vector2(end_pos.x - 8 - danger_size.x, 0)
-	var btn_danger := _make_button(tr("危险范围 (T)"), danger_pos, danger_size, toggle_danger)
-	btn_danger.name = "ThreatButton"
-	top.add_child(btn_danger)
+	btn_threat = _make_button(tr("危险范围 (T)"), danger_pos, danger_size, toggle_danger)
+	btn_threat.name = "ThreatButton"
+	top.add_child(btn_threat)
 	var btn_end := _make_button(tr("回合结束"), end_pos, end_size, on_end_turn)
 	btn_end.name = "EndTurnButton"
 	top.add_child(btn_end)
+	update_topbar()
 	# 右侧信息栏
 	var side := Panel.new()
 	side.position = Vector2(960, 48)
@@ -985,11 +991,48 @@ func show_banner(text: String, color: Color) -> void:
 
 
 func update_topbar() -> void:
-	if lbl_turn == null:
+	if lbl_turn == null or lbl_chapter == null or lbl_gold == null:
 		return
 	var phase := tr("敌方回合") if state == S.ENEMY else tr("我方回合")
 	lbl_turn.text = tr("第 %d 回合 · %s") % [turn, phase]
 	lbl_gold.text = tr("金钱 %d G") % gold
+	_layout_topbar()
+
+
+## 章节列先按中文标题宽 ×1.3 预留，当前文案更长时再加宽，然后排回合和金钱。
+## 横坐标随文案走，避免英文标题顶到「Turn」。排不下时裁章节，不侵占回合或危险范围按钮。
+func _layout_topbar() -> void:
+	var gap := 16.0
+	var row_h := 28.0
+	var zh_w := _top_text_width("第一章 · 边境的少女")
+	var chapter_w := _top_text_width(lbl_chapter.text)
+	var slot := maxf(zh_w * 1.3, chapter_w)
+	var player_w := _top_text_width(tr("第 %d 回合 · %s") % [turn, tr("我方回合")])
+	var enemy_w := _top_text_width(tr("第 %d 回合 · %s") % [turn, tr("敌方回合")])
+	var turn_w := maxf(player_w, enemy_w)
+	var gold_w := _top_text_width(lbl_gold.text)
+	var threat_left := btn_threat.position.x if btn_threat != null else 826.0
+	var max_slot := threat_left - gap - turn_w - gap - gold_w - gap - SafeArea.MARGIN_X
+	if slot > max_slot:
+		slot = maxf(max_slot, 0.0)
+	var shown := minf(chapter_w, slot)
+	lbl_chapter.position = Vector2(SafeArea.MARGIN_X, 12)
+	lbl_chapter.size = Vector2(shown, row_h)
+	lbl_chapter.clip_text = chapter_w > shown + 0.5
+	lbl_chapter.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS if lbl_chapter.clip_text else TextServer.OVERRUN_NO_TRIMMING
+	var turn_x := SafeArea.MARGIN_X + slot + gap
+	lbl_turn.position = Vector2(turn_x, 12)
+	lbl_turn.size = Vector2(_top_text_width(lbl_turn.text), row_h)
+	lbl_gold.position = Vector2(turn_x + turn_w + gap, 12)
+	lbl_gold.size = Vector2(gold_w, row_h)
+
+
+func _top_text_width(text: String) -> float:
+	var font := lbl_chapter.get_theme_font("font")
+	if font == null:
+		return 0.0
+	var font_size := lbl_chapter.get_theme_font_size("font_size")
+	return font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
 
 
 func add_gold(n: int) -> void:
