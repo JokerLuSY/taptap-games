@@ -382,6 +382,7 @@ func _run() -> void:
 	_check(battle.state == battle.S.OVER, "缇娅阵亡应进入 OVER")
 	_check("败" in battle.end_title.text, "结算标题应为「战败」, 实际: " + battle.end_title.text)
 	_check("灰岩村" in battle.end_sub.text, "缇娅败北副标题应含灰岩村, 实际: " + battle.end_sub.text)
+	_check(_phase_banner_hidden(), "缇娅败北结算时相位横幅应不可见, vis=%s a=%s text=%s" % _banner_state())
 	_shot("09_gameover.png")
 
 	# ---- 战败: 新开一局, 巴尔托阵亡 ----
@@ -399,6 +400,7 @@ func _run() -> void:
 	_check(battle.state == battle.S.OVER, "巴尔托阵亡应进入 OVER")
 	_check("败" in battle.end_title.text, "结算标题应为「战败」, 实际: " + battle.end_title.text)
 	_check("灰岩村" in battle.end_sub.text, "巴尔托败北副标题应含灰岩村, 实际: " + battle.end_sub.text)
+	_check(_phase_banner_hidden(), "巴尔托败北结算时相位横幅应不可见, vis=%s a=%s text=%s" % _banner_state())
 	_shot("10_gameover_balto.png")
 
 	print("========================================")
@@ -490,6 +492,32 @@ func _check_infra() -> void:
 	_check(tr("敌方增援！") == "Enemy Reinforcements!", "英文横幅翻译错误: " + tr("敌方增援！"))
 	_check(tr("战  败") == "Defeat", "英文战败文案错误: " + tr("战  败"))
 	_check(tr("手腕太僵了。剑不是靠蛮力挥的，缇娅。") == "Your wrist is too stiff. A sword isn't swung by brute force, Tia.", "抽样台词未译出")
+	var en_keys: Array = [
+		"攻击", "待机", "访问", "对话", "支援", "说得", "道具",
+		"回合结束", "我方回合", "敌方回合", "危险范围 (T)",
+		"第一章 · 边境的少女", "战  败", "第一章 · 完", "重试本章", "回到标题",
+		"敌方增援！", "点击我方单位行动 · 点击敌人查看其威胁范围",
+		"确认攻击", "取消", "必 杀 !", "攻击 %d", "命中 %d   必杀 %d",
+		"我方", "敌方", "铁剑", "银枪", "伤药", "剑士", "圣骑士", "弓箭手", "平原", "森林",
+		"%s 成为同伴了！", "缇娅 获得 伤药",
+		"%s 与 %s 的羁绊加深了……（相邻时可用【支援】）",
+		"缇娅 与 巴尔托 的支援提升到 C！（相邻时 命中/回避 +5）",
+		"（能力没有提升……）", "%s 升级了！  Lv %d",
+		"自「焚世之灾」过去，已逾八百年。",
+		"在圣焰教会治理下的和平年代，火焰成为人们敬畏与禁忌的象征。",
+		"知道啦知道啦，这话你说了八百遍了。",
+		"……红头发？他们在说什么？",
+		"……别分心！先解决眼前的敌人！",
+		"对……不起……巴尔托……",
+		"缇娅倒下了。灰岩村的命运，到此为止……",
+		"听好，战场上先看清四周再动手。点击缇娅，就能看到她能走到的范围。",
+		"（屋内）缇娅小姐！救命！有山贼在砸我家的门！",
+	]
+	for k in en_keys:
+		var got := tr(k)
+		_check(got.strip_edges() != "" and got != k and not _has_cjk(got), "英文 locale 下关键文案应有非空英译: %s -> %s" % [k, got])
+	var narr_en := tr("在圣焰教会治理下的和平年代，火焰成为人们敬畏与禁忌的象征。").replace("\\n", "\n")
+	_check("\n" in narr_en, "英文开场旁白应保留换行，实际 " + narr_en)
 	TranslationServer.set_locale("zh_CN")
 
 
@@ -554,6 +582,8 @@ func _check_title_and_narration() -> void:
 	var skip_right := skip.position.x + skip.size.x
 	_check(skip_right <= 1280.0 - SafeArea.EDGE_ACTION + 0.01, "跳过按钮应避开右缘 80px，右缘 %s" % skip_right)
 	_check(narration._label.text == "卡尔迪亚大陆历 812 年。", "开场旁白抽样应保持中文，实际 " + narration._label.text)
+	var narr_zh := tr("在圣焰教会治理下的和平年代，火焰成为人们敬畏与禁忌的象征。").replace("\\n", "\n")
+	_check("\n" in narr_zh and narr_zh.begins_with("在圣焰教会"), "中文开场旁白应保留换行，实际 " + narr_zh)
 	# 旁白推进走主指针：淡入未完成时只补全，不切到下一句
 	narration._label.modulate.a = 0.2
 	var adv := InputEventMouseButton.new()
@@ -563,6 +593,26 @@ func _check_title_and_narration() -> void:
 	_check(narration._idx == 0 and narration._label.modulate.a == 1.0, "主指针应先补全淡入，而不是直接跳过")
 	narration.queue_free()
 	await _frames(2)
+
+
+func _phase_banner_hidden() -> bool:
+	if battle == null or battle.banner_label == null:
+		return true
+	return (not battle.banner_label.visible) or battle.banner_label.modulate.a < 0.01
+
+
+func _banner_state() -> Array:
+	if battle == null or battle.banner_label == null:
+		return [false, 0.0, ""]
+	return [battle.banner_label.visible, battle.banner_label.modulate.a, battle.banner_label.text]
+
+
+func _has_cjk(s: String) -> bool:
+	for i in s.length():
+		var c := s.unicode_at(i)
+		if c >= 0x4E00 and c <= 0x9FFF:
+			return true
+	return false
 
 
 func _find_button(root: Node, text: String) -> Button:

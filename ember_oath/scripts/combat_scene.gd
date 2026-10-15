@@ -212,15 +212,16 @@ func _setup_labels(wi: int) -> void:
 		_att_wpn.set_meta("perm", true)
 		_def_wpn.set_meta("perm", true)
 		_build_hp_bars()
-	_att_name.text = _att_real.display_name
-	_def_name.text = _def_real.display_name
+	_att_name.text = tr(_att_real.display_name)
+	_def_name.text = tr(_def_real.display_name)
 	var dist: int = GameData.dist(_att_real.grid_pos, _def_real.grid_pos)
-	_att_wpn.text = _att_real.weapon(wi)["name"]
-	_def_wpn.text = _def_real.weapon(maxi(0, _def_real.counter_weapon(dist)))["name"]
+	_att_wpn.text = tr(_att_real.weapon(wi)["name"])
+	_def_wpn.text = tr(_def_real.weapon(maxi(0, _def_real.counter_weapon(dist)))["name"])
 
 
 func _make_ui_label(pos: Vector2, size: int, align: HorizontalAlignment) -> Label:
 	var l := Label.new()
+	l.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 	l.position = pos
 	l.add_theme_font_size_override("font_size", size)
 	l.add_theme_color_override("font_color", Color.WHITE)
@@ -365,7 +366,7 @@ func _strike_crit(striker: Unit, victim: Unit, ev: Dictionary, dir: float) -> vo
 	var victim_x: float = victim.position.x
 	# 蓄力：全身金光 + 大字
 	striker.modulate = Color(1.6, 1.3, 0.5)
-	_big_text("必 杀 !", Color(1.0, 0.85, 0.25))
+	_big_text(tr("必 杀 !"), Color(1.0, 0.85, 0.25))
 	await get_tree().create_timer(0.34).timeout
 	striker.modulate = Color.WHITE
 	# 慢速突进（压迫感）
@@ -490,6 +491,7 @@ func _spark_effect(pos: Vector2, color: Color, n: int) -> void:
 ## 中央大字（必杀等）
 func _big_text(text: String, color: Color) -> void:
 	var l := Label.new()
+	l.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 	l.text = text
 	l.add_theme_font_size_override("font_size", 72)
 	l.add_theme_color_override("font_color", color)
