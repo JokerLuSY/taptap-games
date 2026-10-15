@@ -96,6 +96,23 @@ func _run() -> void:
 	if not FileAccess.file_exists("user://pin_save.json"):
 		_failures.append("存档文件未生成")
 
+	# ---- 英文切换 ----
+	main._cycle_lang()
+	await _frames(4)
+	if main.lang != "en":
+		_failures.append("切换后语言应为 en, 实际 %s" % main.lang)
+	if main._level_label.text != "LEVEL %d" % main.level:
+		_failures.append("英文关卡文案错误: " + main._level_label.text)
+	_shot("05_english.png")
+	# 语言偏好应写入存档
+	var saved: Variant = JSON.parse_string(FileAccess.get_file_as_string("user://pin_save.json"))
+	if typeof(saved) != TYPE_DICTIONARY or saved.get("lang", "") != "en":
+		_failures.append("语言偏好未存档")
+	main._cycle_lang()
+	await _frames(2)
+	if main.lang != "zh":
+		_failures.append("再切换应回到 zh")
+
 	print("========================================")
 	if _failures.is_empty():
 		print("SMOKE TEST: ALL PASS")

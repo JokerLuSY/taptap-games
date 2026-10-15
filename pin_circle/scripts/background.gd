@@ -32,11 +32,20 @@ func _process(delta: float) -> void:
 
 func _draw() -> void:
 	# 竖向渐变(深靛 -> 暗蓝)
+	# 按舞台实际覆盖范围绘制: 长屏上舞台比设计尺寸(1920)更高,
+	# 只画到 1920 会在上下露出窗口底色
+	var h := 1920.0
+	var top := 0.0
+	var parent := get_parent() as Control
+	if parent and parent.scale.y > 0.0:
+		var vp_h := get_viewport_rect().size.y
+		top = -parent.position.y / parent.scale.y
+		h = vp_h / parent.scale.y
 	var steps := 32
 	for i in steps:
 		var t := float(i) / steps
 		var c := Color(0.03, 0.04, 0.10).lerp(Color(0.09, 0.11, 0.24), t)
-		draw_rect(Rect2(0, t * 1920, 1080, 1920.0 / steps + 1), c)
+		draw_rect(Rect2(0, top + t * h, 1080, h / steps + 1), c)
 	# 轮盘后柔光(同心圆近似径向渐变)
 	for i in 6:
 		draw_circle(glow_pos, 520.0 - i * 80.0, Color(glow_color, 0.028))

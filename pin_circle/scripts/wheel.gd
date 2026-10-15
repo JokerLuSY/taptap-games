@@ -56,11 +56,11 @@ func pulse() -> void:
 	t.tween_property(self, "scale", Vector2.ONE, 0.12)
 
 
-func shake() -> void:
+func shake(origin_x: float) -> void:
 	var t := create_tween()
 	for i in 4:
-		t.tween_property(self, "position:x", position.x + (14 if i % 2 == 0 else -14), 0.04)
-	t.tween_property(self, "position:x", 540.0, 0.05)
+		t.tween_property(self, "position:x", origin_x + (14 if i % 2 == 0 else -14), 0.04)
+	t.tween_property(self, "position:x", origin_x, 0.05)
 
 
 func _draw() -> void:

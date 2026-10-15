@@ -18,6 +18,12 @@ tools/cmdline-tools.zip
 tools/yes.txt
 tools/godot_err.log
 tools/godot_out.log
+tools/godot_export_out.log
+
+# 备份与日志
+*.bak
+*.log
+smoke_err.log
 
 # Python
 __pycache__/
@@ -26,3 +32,7 @@ __pycache__/
 # 操作系统
 Thumbs.db
 Desktop.ini
+keys/
+*.keystore
+storepass.txt
+.storepass

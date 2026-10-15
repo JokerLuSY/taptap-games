@@ -5,13 +5,15 @@ extends Control
 enum State { TITLE, PLAYING, CLEAR, OVER }
 
 const SAVE_PATH := "user://pin_save.json"
-const WHEEL_POS := Vector2(540, 640)
-const PIN_SPAWN := Vector2(540, 1560)
+const STRINGS_PATH := "res://data/strings.json"
+const DESIGN_SIZE := Vector2(1080, 1920)  ## 设计分辨率; 运行时按真实屏幕比例整体缩放居中
 
 var state: State = State.TITLE
 var level := 1
 var remaining := 0
 var best := 0
+var lang := "zh"  ## "zh" / "en" / "auto" 之外的实际生效语言
+var _strings: Dictionary = {}
 var _flying := false
 var _flip_halfway := false
 var _flip_at := -1
@@ -28,26 +30,39 @@ var _over_title: Label
 var _over_detail: Label
 var _flash: ColorRect
 var _particles: CPUParticles2D
+var _lang_btn: Button
+var _stage: Control  ## 1080x1920 设计舞台, 整体缩放适配真实屏幕
 var _tick_sfx: Array[AudioStreamPlayer] = []
 var _fail_sfx: AudioStreamPlayer
 var _win_sfx: AudioStreamPlayer
 
 
 func _ready() -> void:
+	_strings = JSON.parse_string(FileAccess.get_file_as_string(STRINGS_PATH))
 	_load_save()
+	if lang == "auto" or lang == "":
+		lang = "zh" if OS.get_locale().begins_with("zh") else "en"
 
+	_stage = Control.new()
+	_stage.custom_minimum_size = DESIGN_SIZE
+	_stage.size = DESIGN_SIZE
+	_stage.pivot_offset = DESIGN_SIZE / 2.0
+	add_child(_stage)
+	get_viewport().size_changed.connect(_fit_stage)
+	_fit_stage()
 	var bg := Node2D.new()
 	bg.set_script(preload("res://scripts/background.gd"))
-	add_child(bg)
+	_stage.add_child(bg)
 	_bg = bg
 
 	_wheel = Wheel.new()
-	_wheel.position = WHEEL_POS
+	_wheel.position = _wheel_pos()
+	_wheel.position = _wheel_pos()
 	add_child(_wheel)
 
 	# 过关粒子
 	_particles = CPUParticles2D.new()
-	_particles.position = WHEEL_POS
+	_particles.position = _wheel_pos()
 	_particles.emitting = false
 	_particles.one_shot = true
 	_particles.explosiveness = 1.0
@@ -70,7 +85,7 @@ func _ready() -> void:
 	_level_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_level_label.add_theme_font_size_override("font_size", 72)
 	_level_label.add_theme_color_override("font_color", Color(0.85, 0.9, 1.0))
-	add_child(_level_label)
+	_stage.add_child(_level_label)
 
 	_best_label = Label.new()
 	_best_label.set_anchors_preset(Control.PRESET_CENTER_TOP)
@@ -79,35 +94,76 @@ func _ready() -> void:
 	_best_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_best_label.add_theme_font_size_override("font_size", 36)
 	_best_label.add_theme_color_override("font_color", Color(0.55, 0.62, 0.75))
-	add_child(_best_label)
+	_stage.add_child(_best_label)
 
 	_queue_view = Control.new()
 	_queue_view.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_queue_view.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(_queue_view)
+	_stage.add_child(_queue_view)
 	_queue_view.draw.connect(_draw_queue)
 
 	_flash = ColorRect.new()
 	_flash.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_flash.modulate.a = 0.0
-	add_child(_flash)
+	_stage.add_child(_flash)
 
 	for i in 8:
 		var p := AudioStreamPlayer.new()
 		p.stream = load("res://audio/tick_%d.wav" % i)
-		add_child(p)
+		_stage.add_child(p)
 		_tick_sfx.append(p)
 	_fail_sfx = AudioStreamPlayer.new()
 	_fail_sfx.stream = load("res://audio/fail.wav")
-	add_child(_fail_sfx)
+	_stage.add_child(_fail_sfx)
 	_win_sfx = AudioStreamPlayer.new()
 	_win_sfx.stream = load("res://audio/win.wav")
-	add_child(_win_sfx)
+	_stage.add_child(_win_sfx)
 
 	_build_title_overlay()
 	_build_over_overlay()
+	_build_lang_button()
 	_show_title()
+
+
+func _build_lang_button() -> void:
+	_lang_btn = Button.new()
+	_lang_btn.text = lang.to_upper()
+	_lang_btn.custom_minimum_size = Vector2(150, 80)
+	_lang_btn.add_theme_font_size_override("font_size", 36)
+	_lang_btn.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	_lang_btn.position = Vector2(-190, 40)
+	_lang_btn.pressed.connect(_cycle_lang)
+	_stage.add_child(_lang_btn)
+
+
+## 切换语言后刷新静态界面文案
+func _refresh_static_texts() -> void:
+	var map := {"TitleLabel": "title", "TipLabel": "tip", "StartLabel": "tap_start", "RetryLabel": "tap_retry"}
+	for node_name in map:
+		var node := find_child(node_name, true, false)
+		if node:
+			node.text = t(map[node_name])
+
+
+## 舞台整体等比缩放并居中, 适配任意屏幕比例(含刘海/导航条)
+## 注意基准是视口真实尺寸而非设计分辨率: stretch/aspect=expand 时,
+## 长屏手机的视口会被拉高(如 1080x2400), 按设计尺寸算会把内容放大到屏幕外
+func _fit_stage() -> void:
+	var vp := get_viewport_rect().size
+	if vp.x <= 0.0 or vp.y <= 0.0:
+		return
+	var s := minf(vp.x, vp.y) / minf(DESIGN_SIZE.x, DESIGN_SIZE.y)
+	_stage.scale = Vector2(s, s)
+	_stage.position = (vp - DESIGN_SIZE * s) / 2.0
+
+
+func _wheel_pos() -> Vector2:
+	return Vector2(DESIGN_SIZE.x / 2.0, DESIGN_SIZE.y * 0.36)
+
+
+func _pin_spawn() -> Vector2:
+	return Vector2(DESIGN_SIZE.x / 2.0, DESIGN_SIZE.y * 0.84)
 
 
 # ---------------- 输入 ----------------
@@ -169,8 +225,8 @@ func _start_level(n: int) -> void:
 	_bg.glow_color = _wheel.wheel_color
 	_wheel.queue_redraw()
 	_wheel.set_count(remaining)
-	_level_label.text = "第 %d 关" % n
-	_best_label.text = "最佳: 第 %d 关" % best if best > 0 else ""
+	_level_label.text = t("level") % n
+	_best_label.text = t("best") % best if best > 0 else ""
 	_queue_view.queue_redraw()
 	state = State.PLAYING
 
@@ -182,10 +238,10 @@ func _shoot() -> void:
 		return
 	_flying = true
 	var pin := preload("res://scenes/flying_pin.tscn").instantiate()
-	pin.position = PIN_SPAWN
+	pin.position = _pin_spawn()
 	pin.color = _wheel.pin_color
-	add_child(pin)
-	var target := Vector2(PIN_SPAWN.x, WHEEL_POS.y + _wheel.radius + Wheel.PIN_LEN)
+	_stage.add_child(pin)
+	var target := Vector2(_pin_spawn().x, _wheel_pos().y + _wheel.radius + Wheel.PIN_LEN)
 	var t := create_tween()
 	t.tween_property(pin, "position", target, 0.12).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	t.tween_callback(_on_pin_arrived.bind(pin))
@@ -226,7 +282,7 @@ func _on_collision(pin: Node2D) -> void:
 	_fail_sfx.play()
 	_wheel.spinning = false
 	_flash_once(Color(0.9, 0.15, 0.2), 0.3)
-	_wheel.shake()
+	_wheel.shake(_wheel_pos().x)
 	# 针弹飞
 	var t := create_tween()
 	t.set_parallel(true)
@@ -240,8 +296,8 @@ func _on_collision(pin: Node2D) -> void:
 	await get_tree().create_timer(0.7).timeout
 	if state != State.OVER:
 		return  # 玩家已在死亡动画期间重试, 不再弹失败窗
-	_over_title.text = "碰到针了！"
-	_over_detail.text = "止步第 %d 关 · 最佳第 %d 关" % [level, best]
+	_over_title.text = t("hit")
+	_over_detail.text = t("result") % [level, best]
 	_over_overlay.visible = true
 
 
@@ -257,20 +313,23 @@ func _build_title_overlay() -> void:
 	_title_overlay = _make_overlay()
 	var vb := _overlay_vbox(_title_overlay)
 	var title := Label.new()
-	title.text = "见缝插针"
+	title.name = "TitleLabel"
+	title.text = t("title")
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_font_size_override("font_size", 130)
 	title.add_theme_color_override("font_color", Color(0.4, 0.9, 1.0))
 	vb.add_child(title)
 	var tip := Label.new()
-	tip.text = "点击屏幕，把针插进旋转的圆盘\n别碰到其他针"
+	tip.name = "TipLabel"
+	tip.text = t("tip")
 	tip.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	tip.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	tip.add_theme_font_size_override("font_size", 44)
 	tip.add_theme_color_override("font_color", Color(0.85, 0.88, 0.96))
 	vb.add_child(tip)
 	var start := Label.new()
-	start.text = "▽ 点击开始"
+	start.name = "StartLabel"
+	start.text = t("tap_start")
 	start.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	start.add_theme_font_size_override("font_size", 48)
 	start.add_theme_color_override("font_color", Color(1.0, 0.78, 0.4))
@@ -291,7 +350,8 @@ func _build_over_overlay() -> void:
 	_over_detail.add_theme_color_override("font_color", Color(0.85, 0.88, 0.96))
 	vb.add_child(_over_detail)
 	var retry := Label.new()
-	retry.text = "▽ 点击重试"
+	retry.name = "RetryLabel"
+	retry.text = t("tap_retry")
 	retry.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	retry.add_theme_font_size_override("font_size", 48)
 	retry.add_theme_color_override("font_color", Color(1.0, 0.78, 0.4))
@@ -302,7 +362,7 @@ func _make_overlay() -> CenterContainer:
 	var c := CenterContainer.new()
 	c.set_anchors_preset(Control.PRESET_FULL_RECT)
 	c.visible = false
-	add_child(c)
+	_stage.add_child(c)
 	return c
 
 
@@ -329,7 +389,7 @@ func _show_title() -> void:
 	_wheel.spinning = true
 	_wheel.set_count(0)
 	_level_label.text = ""
-	_best_label.text = "最佳: 第 %d 关" % best if best > 0 else ""
+	_best_label.text = t("best") % best if best > 0 else ""
 	_title_overlay.visible = true
 
 
@@ -351,9 +411,9 @@ func _flash_once(c: Color, strength: float) -> void:
 func _spawn_ripple(pos: Vector2) -> void:
 	var ripple := Node2D.new()
 	ripple.set_script(preload("res://scripts/ripple.gd"))
-	ripple.position = pos
+	ripple.position = _stage.get_global_transform_with_canvas().affine_inverse() * pos
 	ripple.color = _wheel.wheel_color
-	add_child(ripple)
+	_stage.add_child(ripple)
 	var t := create_tween()
 	t.set_parallel(true)
 	t.tween_property(ripple, "radius", 70.0, 0.4).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
@@ -374,13 +434,37 @@ func _draw_queue() -> void:
 func _save() -> void:
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if f:
-		f.store_string(JSON.stringify({"best": best}))
+		f.store_string(JSON.stringify({"best": best, "lang": lang}))
 		f.close()
 
 
 func _load_save() -> void:
 	if not FileAccess.file_exists(SAVE_PATH):
+		lang = "auto"
 		return
 	var data: Variant = JSON.parse_string(FileAccess.get_file_as_string(SAVE_PATH))
 	if typeof(data) == TYPE_DICTIONARY:
 		best = int(data.get("best", 0))
+		lang = str(data.get("lang", "auto"))
+
+
+## 取当前语言的文案
+func t(key: String) -> String:
+	return str(_strings.get(lang, {}).get(key, key))
+
+
+## 中/英切换按钮
+func _cycle_lang() -> void:
+	lang = "en" if lang == "zh" else "zh"
+	_save()
+	_lang_btn.text = lang.to_upper()
+	_refresh_static_texts()
+	if state == State.PLAYING:
+		_level_label.text = t("level") % level
+		_best_label.text = t("best") % best if best > 0 else ""
+	elif state == State.OVER:
+		_over_title.text = t("hit")
+		_over_detail.text = t("result") % [level, best]
+		_best_label.text = t("best") % best if best > 0 else ""
+	else:
+		_show_title()

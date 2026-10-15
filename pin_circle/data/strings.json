@@ -1,0 +1,22 @@
+{
+  "zh": {
+    "title": "见缝插针",
+    "tip": "点击屏幕，把针插进旋转的圆盘\n别碰到其他针",
+    "tap_start": "▽ 点击开始",
+    "tap_retry": "▽ 点击重试",
+    "level": "第 %d 关",
+    "best": "最佳: 第 %d 关",
+    "hit": "碰到针了！",
+    "result": "止步第 %d 关 · 最佳第 %d 关"
+  },
+  "en": {
+    "title": "Pin Circle",
+    "tip": "Tap the screen to shoot pins\ninto the spinning circle.\nDon't hit the other pins!",
+    "tap_start": "▽ TAP TO START",
+    "tap_retry": "▽ TAP TO RETRY",
+    "level": "LEVEL %d",
+    "best": "BEST: LEVEL %d",
+    "hit": "HIT!",
+    "result": "Reached level %d · Best: level %d"
+  }
+}

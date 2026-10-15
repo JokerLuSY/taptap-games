@@ -1,0 +1,8 @@
+[gd_resource type="Theme" load_steps=2 format=3]
+
+[sub_resource type="SystemFont" id="SystemFont_zh"]
+font_names = PackedStringArray("Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", "Droid Sans Fallback", "sans-serif")
+
+[resource]
+default_font = SubResource("SystemFont_zh")
+default_font_size = 22
