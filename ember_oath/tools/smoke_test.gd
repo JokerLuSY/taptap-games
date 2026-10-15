@@ -14,7 +14,7 @@ func _ready() -> void:
 
 ## 看门狗：任何脚本错误导致 _run 中断时也能退出，避免挂死
 func _watchdog() -> void:
-	await get_tree().create_timer(150.0).timeout
+	await get_tree().create_timer(180.0).timeout
 	print("WATCHDOG: 超时强制退出")
 	print("SMOKE TEST: TIMEOUT, %d FAILURES" % _failures.size())
 	for f_ in _failures:
@@ -135,7 +135,24 @@ func _run() -> void:
 	archer.grid_pos = Vector2i(6, 8)
 	archer.position = archer.tile_center()
 
-	# ---- 支援系统 ----
+	# ---- 支援自然涨点（相邻回合 +1）----
+	_mark("支援自然涨点")
+	battle.support_points["tia|balto"] = 0
+	tia.grid_pos = Vector2i(4, 3)
+	tia.position = tia.tile_center()
+	balto.grid_pos = Vector2i(4, 4)  # 相邻
+	balto.position = balto.tile_center()
+	battle._gain_support_points()
+	_check(battle.support_points.get("tia|balto", 0) == 1, "相邻时应涨到 1 点, 实际 %d" % battle.support_points.get("tia|balto", 0))
+	battle._gain_support_points()
+	_check(battle.support_points.get("tia|balto", 0) == 2, "再相邻应涨到 2 点, 实际 %d" % battle.support_points.get("tia|balto", 0))
+	# 不相邻不涨
+	balto.grid_pos = Vector2i(6, 3)
+	balto.position = balto.tile_center()
+	battle._gain_support_points()
+	_check(battle.support_points.get("tia|balto", 0) == 2, "不相邻时点数应保持 2, 实际 %d" % battle.support_points.get("tia|balto", 0))
+
+	# ---- 支援系统（灌满后解锁对话）----
 	_mark("支援系统")
 	battle.support_points["tia|balto"] = 6  # 直接灌满点数
 	balto.grid_pos = Vector2i(4, 4)
@@ -240,9 +257,34 @@ func _run() -> void:
 	battle._on_menu_wait()
 
 	# ---- 第 3 回合：敌方增援 ----
-	ok = await _wait_cond(func() -> bool: return battle.state == battle.S.IDLE and battle.turn == 3, 40.0)
+	# 横幅「敌方增援！」会在进入 IDLE 前被「第 3 回合 · 我方回合」覆盖，需在过渡中捕获
+	var saw_reinforce_banner := false
+	var t_rf := 0.0
+	while not (battle.state == battle.S.IDLE and battle.turn == 3) and t_rf < 40.0:
+		if battle.banner_label != null and "敌方增援" in battle.banner_label.text:
+			saw_reinforce_banner = true
+		if battle.state == battle.S.STORY:
+			battle.dialogue.skip_all()
+		if battle.combat_scene.active:
+			battle.combat_scene.skip()
+		await get_tree().create_timer(0.1).timeout
+		t_rf += 0.1
+	ok = battle.state == battle.S.IDLE and battle.turn == 3
 	_check(ok, "应进入第 3 回合, state=%d turn=%d" % [battle.state, battle.turn])
+	# 若轮询错过淡入瞬间，退而检查 banner 残留文案或已触发标志
+	if not saw_reinforce_banner and battle.banner_label != null and "敌方增援" in battle.banner_label.text:
+		saw_reinforce_banner = true
+	_check(saw_reinforce_banner or battle.chapter.f_reinforce, "应出现含「敌方增援」的横幅（或至少触发增援事件）")
+	_check(saw_reinforce_banner, "过渡中应捕获到横幅文案含「敌方增援」, banner='%s'" % (battle.banner_label.text if battle.banner_label else ""))
 	_check(battle.get_unit("bandit_r1") != null, "第 3 回合应有增援 bandit_r1")
+	_check(battle.get_unit("bandit_r2") != null, "第 3 回合应有增援 bandit_r2")
+	_check(battle.chapter.f_reinforce, "第 3 回合增援标志 f_reinforce 应为 true")
+	var r1 = battle.get_unit("bandit_r1")
+	var r2 = battle.get_unit("bandit_r2")
+	if r1 != null:
+		_check(r1.is_alive() and not r1.is_player(), "bandit_r1 应为存活敌方")
+	if r2 != null:
+		_check(r2.is_alive() and not r2.is_player(), "bandit_r2 应为存活敌方")
 	_shot("07_reinforce.png")
 
 	# ---- 胜利: 只留一个残血山贼, 让巴尔托击杀 ----
@@ -290,7 +332,25 @@ func _run() -> void:
 	_check(ok, "缇娅阵亡后应显示结算界面")
 	_check(battle.state == battle.S.OVER, "缇娅阵亡应进入 OVER")
 	_check("败" in battle.end_title.text, "结算标题应为「战败」, 实际: " + battle.end_title.text)
+	_check("灰岩村" in battle.end_sub.text, "缇娅败北副标题应含灰岩村, 实际: " + battle.end_sub.text)
 	_shot("09_gameover.png")
+
+	# ---- 战败: 新开一局, 巴尔托阵亡 ----
+	_mark("巴尔托阵亡败北")
+	battle.queue_free()
+	await _frames(3)
+	await _spawn_battle()
+	var balto2 = battle.get_unit("balto")
+	var tia3 = battle.get_unit("tia")
+	balto2.take_damage(999)
+	_check(not balto2.is_alive() and tia3.is_alive(), "巴尔托应阵亡且缇娅仍存活")
+	battle.check_end_conditions()
+	ok = await _wait_cond(func() -> bool: return battle.end_overlay.visible, 15.0)
+	_check(ok, "巴尔托阵亡后应显示结算界面")
+	_check(battle.state == battle.S.OVER, "巴尔托阵亡应进入 OVER")
+	_check("败" in battle.end_title.text, "结算标题应为「战败」, 实际: " + battle.end_title.text)
+	_check("灰岩村" in battle.end_sub.text, "巴尔托败北副标题应含灰岩村, 实际: " + battle.end_sub.text)
+	_shot("10_gameover_balto.png")
 
 	print("========================================")
 	if _failures.is_empty():
