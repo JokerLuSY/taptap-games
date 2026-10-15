@@ -3,6 +3,8 @@ class_name GameData
 
 const WEAPONS := {
 	"iron_sword": {"name": "铁剑", "type": "sword", "mt": 5, "hit": 90, "crit": 5, "rng": [1]},
+	# 炎刃：剑系，沿用剑的突进斩击。觉醒后替换铁剑，不另做武器动作。
+	"ember_blade": {"name": "炎刃", "type": "sword", "mt": 7, "hit": 90, "crit": 5, "rng": [1]},
 	"silver_lance": {"name": "银枪", "type": "lance", "mt": 12, "hit": 80, "crit": 5, "rng": [1]},
 	"javelin": {"name": "投枪", "type": "lance", "mt": 7, "hit": 70, "crit": 0, "rng": [1, 2]},
 	"iron_axe": {"name": "铁斧", "type": "axe", "mt": 7, "hit": 75, "crit": 0, "rng": [1]},
@@ -26,6 +28,10 @@ const TERRAIN := {
 	"s": {"name": "沙滩", "pass": true, "cost": 1, "dfn": 0, "avo": 0},
 	"W": {"name": "水井", "pass": false, "cost": 99, "dfn": 0, "avo": 0},
 	"X": {"name": "崖壁", "pass": false, "cost": 99, "dfn": 0, "avo": 0},
+	# 第二章焦土。程序色块，不新增精灵图集。
+	"C": {"name": "焦土", "pass": true, "cost": 1, "dfn": 0, "avo": 0},
+	"E": {"name": "火焰", "pass": false, "cost": 99, "dfn": 0, "avo": 0},
+	"Z": {"name": "废墟", "pass": true, "cost": 2, "dfn": 1, "avo": 5},
 }
 
 const ITEMS := {

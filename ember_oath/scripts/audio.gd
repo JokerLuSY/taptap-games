@@ -21,6 +21,16 @@ const SFX := {
 	"levelup": "res://audio/levelup.wav",
 	"victory": "res://audio/victory.wav",
 	"defeat": "res://audio/defeat.wav",
+	# TODO(M3): 觉醒 stinger / 火焰一声 / 转职一声仍是静音占位 wav。
+	# 正式芯片音效到位后替换 awaken_stinger.wav、sfx_fire.wav、sfx_promote.wav。
+	"awaken": "res://audio/awaken_stinger.wav",
+	"fire": "res://audio/sfx_fire.wav",
+	"promote": "res://audio/sfx_promote.wav",
+}
+
+## TODO(M3): 火焰环境 loop 仍是静音占位。地图与战斗 BGM 继续复用第一章。
+const LOOPS := {
+	"fire": "res://audio/fire_loop.wav",
 }
 
 const MUSIC := {
@@ -39,7 +49,9 @@ var sfx_percent := 100.0
 var _streams := {}
 var _sfx_pool: Array = []
 var _music_player: AudioStreamPlayer
+var _loop_player: AudioStreamPlayer
 var _current_music := ""
+var _current_loop := ""
 
 
 func _ready() -> void:
@@ -50,6 +62,9 @@ func _ready() -> void:
 		_sfx_pool.append(p)
 	_music_player = AudioStreamPlayer.new()
 	add_child(_music_player)
+	_loop_player = AudioStreamPlayer.new()
+	_loop_player.volume_db = -12.0
+	add_child(_loop_player)
 	_apply_bgm()
 	_apply_sfx()
 	for k in SFX:
@@ -59,6 +74,11 @@ func _ready() -> void:
 		if s is AudioStreamWAV:
 			s.loop_mode = AudioStreamWAV.LOOP_FORWARD
 		_streams[k] = s
+	for k in LOOPS:
+		var loop_stream: AudioStream = load(LOOPS[k])
+		if loop_stream is AudioStreamWAV:
+			loop_stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
+		_streams["loop:" + k] = loop_stream
 
 
 func play_sfx(sfx_name: String, pitch := 1.0) -> void:
@@ -138,3 +158,19 @@ func play_music(music_name: String) -> void:
 func stop_music() -> void:
 	_current_music = ""
 	_music_player.stop()
+
+
+func play_loop(loop_name: String) -> void:
+	var key := "loop:" + loop_name
+	if _current_loop == loop_name and _loop_player.playing:
+		return
+	if not _streams.has(key) or _streams[key] == null:
+		return
+	_current_loop = loop_name
+	_loop_player.stream = _streams[key]
+	_loop_player.play()
+
+
+func stop_loop() -> void:
+	_current_loop = ""
+	_loop_player.stop()
