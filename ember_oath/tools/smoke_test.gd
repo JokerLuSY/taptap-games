@@ -444,6 +444,11 @@ func _wait_cond(cond: Callable, timeout: float) -> bool:
 
 
 func _check_infra() -> void:
+	_check(int(ProjectSettings.get_setting("display/window/size/viewport_width")) == 1280, "逻辑宽度应为 1280")
+	_check(int(ProjectSettings.get_setting("display/window/size/viewport_height")) == 720, "逻辑高度应为 720")
+	_check(int(ProjectSettings.get_setting("display/window/handheld/orientation")) == 4, "应强制 sensor_landscape（横屏）")
+	_check(str(ProjectSettings.get_setting("rendering/renderer/rendering_method.mobile")) == "gl_compatibility", "Android 渲染应走 gl_compatibility")
+	_check(bool(ProjectSettings.get_setting("input_devices/pointing/emulate_mouse_from_touch")), "应开启触控模拟鼠标")
 	_check(SafeArea.MARGIN_X >= 64 and SafeArea.MARGIN_Y >= 48, "安全区左右应 ≥ 64、上下应 ≥ 48")
 	_check(SafeArea.EDGE_ACTION >= 80 and SafeArea.MIN_HIT >= 48, "主操作内缩应 ≥ 80、热区应 ≥ 48")
 	var area := SafeArea.rect()

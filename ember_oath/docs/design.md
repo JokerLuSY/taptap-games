@@ -197,6 +197,7 @@
 - 芯片音效 17 个 + BGM 2 首（程序合成）
 - 自动化冒烟测试（`tools/smoke_runner.tscn`，无头逻辑 + 截图）
 - **M2 骨架**：`PointerInput` 统一鼠标/触控（点格子、点单位、对话推进；菜单仍走 Button）；`locale/ui.csv` 中英翻译（标题切换，默认中文）；`SafeArea` 左右 64、上下 48、贴边主操作内缩 80、最小热区 48
+- **Android 横屏 debug 包**：`export_presets.cfg` 预设「Android」（arm64-v8a + x86_64，debug 签名）。逻辑分辨率 1280×720，`sensor_landscape`。导出与 adb 安装见 `docs/android_debug.md`
 
 ### 🔲 待实现
 
