@@ -135,12 +135,19 @@ func _run() -> void:
 	var confirm := _find_button(battle.forecast_panel, "确认攻击")
 	_check(confirm != null and confirm.custom_minimum_size.y >= SafeArea.MIN_HIT, "确认攻击热区应 ≥ 48")
 	_shot("04_forecast.png")
-	Combat.force_crit = true  # 截一张暴击演出
+	Combat.force_crit = true  # 截一张暴击挥砍
 	battle._on_forecast_ok()
-	await get_tree().create_timer(1.05).timeout
-	_shot("04b_combat_scene.png")  # 暴击特写演出中
+	# 0.12 白闪 + 0.42 入场 + 0.34 必杀蓄力 + 0.32 突进后进入挥砍，停在这一帧
+	await get_tree().create_timer(1.30).timeout
+	_shot("04b_combat_scene.png")  # 必杀挥砍：左缇娅朝右，右山贼朝左
 	_check_combat_feet(battle.combat_scene._att_node, "缇娅")
 	_check_combat_feet(battle.combat_scene._def_node, "山贼")
+	_check(_fighter_faces_right(battle.combat_scene._att_node), "左方缇娅应朝右")
+	_check(not _fighter_faces_right(battle.combat_scene._def_node), "右方山贼应朝左")
+	_check(battle.combat_scene._att_node.scale.x > 0.0, "朝右的缇娅条带站左侧不应镜像")
+	_check(battle.combat_scene._def_node.scale.x > 0.0, "朝左的山贼条带站右侧不应再镜像")
+	_check(absf(battle.combat_scene._att_node.position.y - CombatScene.FEET_Y) < 1.5, "挥砍中缇娅脚底世界坐标应仍是 FEET_Y")
+	_check(absf(battle.combat_scene._def_node.position.y - CombatScene.FEET_Y) < 1.5, "受击中山贼脚底世界坐标应仍是 FEET_Y")
 	_check(str(battle.combat_scene._att_node.get_meta("combat_sheet", "")) == "tia_sword", "缇娅应使用 tia_sword")
 	_check(str(battle.combat_scene._att_node.get_meta("combat_sheet_mode", "")) == "crit", "暴击演出应标记 crit")
 	_check(battle.combat_scene._att_node.get_meta("combat_frames_crit") != battle.combat_scene._att_node.get_meta("combat_frames_normal"), "必杀应换上 _crit 条带，而不是复用普通四帧")
@@ -587,6 +594,10 @@ func _check_infra() -> void:
 	for path in combat_art:
 		_check(FileAccess.file_exists(path), "战斗资源应存在: " + path)
 	_check(CombatScene.SHEET_IDS.size() == 2, "战斗条带只保留缇娅与山贼")
+	for sheet in CombatScene.SHEET_IDS:
+		_check(CombatScene.SHEET_FACES_RIGHT.has(sheet), "条带应登记原生朝向: " + sheet)
+	_check(CombatScene.SHEET_FACES_RIGHT["tia_sword"] == true, "tia_sword 原生应朝右")
+	_check(CombatScene.SHEET_FACES_RIGHT["bandit_axe"] == false, "bandit_axe 原生应朝左")
 	_check(not FileAccess.file_exists("res://art/combat/archer_bow.png"), "日系整包不应留在运行时")
 	_check(is_equal_approx(CombatScene.SPRITE_TARGET_H, 154.0), "最早风视觉高度应为 154")
 	_check(is_equal_approx(CombatScene.FEET_Y, 520.0), "脚底世界坐标应为 520")
@@ -642,6 +653,7 @@ func _check_infra() -> void:
 		var expect: String = CombatScene.CLASS_SHEET[label]
 		var got := scene._sheet_id_for(probe)
 		_check(got == expect, "职业 %s 应映射 %s，实际 %s" % [label, expect, got])
+	_check_sheet_facing(scene)
 	scene.free()
 	probe.free()
 	var area := SafeArea.rect()
@@ -1120,6 +1132,76 @@ func _check_color_stage(scene: CombatScene, terrain_char: String) -> void:
 	_check(sprites == 0 and blocks > 0, "地形 %s 应走色块，Sprite %d 色块 %d" % [terrain_char, sprites, blocks])
 
 
+## 左方朝右、右方朝左。原生朝左的条带站在右侧时不应再镜像。
+func _check_sheet_facing(scene: CombatScene) -> void:
+	var tia := Unit.new()
+	tia.unit_id = "tia"
+	tia.class_label = "剑士"
+	var bandit := Unit.new()
+	bandit.unit_id = "bandit1"
+	bandit.class_label = "山贼"
+	var tia_left := scene._make_fighter(tia, false)
+	var tia_right := scene._make_fighter(tia, true)
+	var bandit_left := scene._make_fighter(bandit, false)
+	var bandit_right := scene._make_fighter(bandit, true)
+	_check(_fighter_faces_right(tia_left), "缇娅站左侧应朝右")
+	_check(not _fighter_faces_right(tia_right), "缇娅站右侧应朝左")
+	_check(_fighter_faces_right(bandit_left), "山贼站左侧应朝右")
+	_check(not _fighter_faces_right(bandit_right), "山贼站右侧应朝左")
+	_check(tia_left.scale.x > 0.0, "朝右条带站左侧 scale.x 应为正")
+	_check(tia_right.scale.x < 0.0, "朝右条带站右侧应水平翻转")
+	_check(bandit_left.scale.x < 0.0, "朝左条带站左侧应水平翻转")
+	_check(bandit_right.scale.x > 0.0, "朝左条带站右侧 scale.x 应为正")
+	for fighter in [tia_left, tia_right, bandit_left, bandit_right]:
+		fighter.position = Vector2(CombatScene.ATT_X, CombatScene.FEET_Y)
+		for pose in [CombatScene.POSE_IDLE, CombatScene.POSE_STRIKE]:
+			scene._set_pose(fighter, pose)
+			_check_anchor_on_feet(fighter, "普通帧")
+		scene._use_crit_frames(fighter, true)
+		scene._set_pose(fighter, CombatScene.POSE_STRIKE)
+		_check_anchor_on_feet(fighter, "必杀挥砍")
+		fighter.free()
+	var plain := Unit.new()
+	plain.unit_id = "nobody"
+	plain.class_label = "无"
+	var q_left := scene._make_fighter(plain, true)
+	var q_right := scene._make_fighter(plain, false)
+	_check(is_equal_approx(q_left.scale.x, -CombatScene.UNIT_SCALE), "无条带朝左应镜像程序小人")
+	_check(is_equal_approx(q_right.scale.x, CombatScene.UNIT_SCALE), "无条带朝右应正向程序小人")
+	_check(is_equal_approx(q_left.scale.y, CombatScene.UNIT_SCALE), "无条带纵向缩放应保持")
+	q_left.free()
+	q_right.free()
+	tia.free()
+	bandit.free()
+	plain.free()
+
+
+func _fighter_faces_right(node: Node) -> bool:
+	var body := node as Node2D
+	var sheet := str(node.get_meta("combat_sheet", ""))
+	var native := bool(CombatScene.SHEET_FACES_RIGHT.get(sheet, true))
+	return native != (body.scale.x < 0.0)
+
+
+func _check_anchor_on_feet(node: Node, tag: String) -> void:
+	var body := node as Node2D
+	var pose := node.get_node_or_null("CombatPose") as Sprite2D
+	_check(pose != null and pose.texture != null, tag + " 应挂上像素帧")
+	if pose == null or pose.texture == null:
+		return
+	var planted := false
+	for fr in node.get_meta("combat_frames"):
+		if fr["tex"] == pose.texture:
+			var feet: Vector2 = fr["feet"]
+			var anchored: Vector2 = (pose.position + feet * pose.scale) * body.scale
+			_check(anchored.length() < 0.6, tag + " 翻转后脚底应仍在节点原点，偏差 %s" % anchored)
+			var world_y := body.position.y + anchored.y
+			_check(absf(world_y - CombatScene.FEET_Y) < 1.5, tag + " 脚底世界坐标应为 FEET_Y，实际 %s" % world_y)
+			planted = true
+			break
+	_check(planted, tag + " 当前帧应能对上脚底点")
+
+
 func _check_combat_feet(node: Node, who: String) -> void:
 	var pose := node.get_node_or_null("CombatPose") as Sprite2D
 	_check(pose != null and pose.texture != null, who + "特写应挂上像素帧")
@@ -1134,8 +1216,11 @@ func _check_combat_feet(node: Node, who: String) -> void:
 	for fr in node.get_meta("combat_frames"):
 		if fr["tex"] == pose.texture:
 			var feet: Vector2 = fr["feet"]
+			var body := node as Node2D
 			var local: Vector2 = pose.position + feet * pose.scale
-			_check(local.length() < 0.6, who + " 脚底应落在节点原点，偏差 %s" % local)
+			var anchored: Vector2 = local * body.scale
+			_check(anchored.length() < 0.6, who + " 翻转后脚底仍应在节点原点，偏差 %s" % anchored)
+			_check(is_equal_approx(body.scale.y, 1.0), who + " 纵向不应被翻转")
 			var src := str(fr["src"])
 			var want_crit := str(node.get_meta("combat_sheet_mode", "")) == "crit"
 			_check(src.ends_with("_crit.png") == want_crit, who + " 当前帧应来自%s，实际 %s" % ["必杀条" if want_crit else "普通条", src])
