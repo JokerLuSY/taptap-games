@@ -8,7 +8,7 @@ SPRITE_TARGET_H (154) with nearest filtering. Other classes stay procedural.
 
 Layered backdrops live in combat/bg/. Each set is four 1280×720 layers
 (sky, mountains, mid, ground_strip), drawn with LINEAR filtering.
-Feet stay on CombatScene.FEET_Y (520). Unlisted terrain chars use the color-block fallback.
+Feet stay on CombatScene.FEET_Y (520). Unlisted terrain chars default to the grass set.
 
 - grass (`.` `H` `W`): sky_grass.png, mountains_grass.png, mid_grass.png, ground_strip_grass.png
 - forest (`F`): sky_forest.png, mountains_forest.png, mid_forest.png, ground_strip_forest.png

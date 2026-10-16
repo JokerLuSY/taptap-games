@@ -621,10 +621,19 @@ func _check_infra() -> void:
 		_check_layered_stage(scene, "scorch")
 	_check(scene._usable_layered_paths(["res://art/combat/bg/missing_layer.png"]).is_empty(), "任一层缺失时应放弃分层套")
 	_check(scene._usable_layered_paths(grass_paths.slice(0, 3) + ["res://art/combat/bg/missing_layer.png"]).is_empty(), "四层里缺一层时应整套回退")
-	for plain_char in ["R", "M", "X", "g", "~"]:
-		_check(scene._layered_bg_paths(plain_char).is_empty(), "未登记地形应走色块: " + plain_char)
+	_check(CombatScene.DEFAULT_BG_SET == "grass", "未登记地形的缺省套应为 grass")
+	var explicit := {".": "grass", "H": "grass", "W": "grass", "F": "forest", "f": "scorch", "B": "scorch"}
+	_check(CombatScene.TERRAIN_BG == explicit, "显式地形映射应只保留平原/民居/水井、森林、焦土/木桥")
+	var unregistered: Array[String] = ["R", "M", "X", "g", "~", "s", "C", "E", "Z", "=", "?"]
+	for ch in GameData.TERRAIN.keys():
+		var key := str(ch)
+		if not explicit.has(key) and not unregistered.has(key):
+			unregistered.append(key)
+	for plain_char in unregistered:
+		_check(not CombatScene.TERRAIN_BG.has(plain_char), "缺省用例不应写进显式表: " + plain_char)
+		_check(scene._layered_bg_paths(plain_char) == grass_paths, "未登记地形应默认 grass 四层: " + plain_char)
 		scene._rebuild_bg(CombatScene.GROUND_COLORS.get(plain_char, CombatScene.GROUND_COLORS["."]), plain_char)
-		_check_color_stage(scene, plain_char)
+		_check_layered_stage(scene, "grass")
 	scene.free()
 	scene = CombatScene.new()
 	var probe := Unit.new()
@@ -1119,17 +1128,6 @@ func _check_layered_stage(scene: CombatScene, tag: String) -> void:
 		var ground := str((live[3] as Sprite2D).texture.resource_path)
 		_check(sky.contains("sky_" + tag), tag + " 最远层应为 sky，实际 " + sky)
 		_check(ground.contains("ground_strip_" + tag), tag + " 最近层应为地面带，实际 " + ground)
-
-
-func _check_color_stage(scene: CombatScene, terrain_char: String) -> void:
-	var sprites := 0
-	var blocks := 0
-	for c in _live_stage_children(scene):
-		if c is Sprite2D:
-			sprites += 1
-		else:
-			blocks += 1
-	_check(sprites == 0 and blocks > 0, "地形 %s 应走色块，Sprite %d 色块 %d" % [terrain_char, sprites, blocks])
 
 
 ## 左方朝右、右方朝左。原生朝左的条带站在右侧时不应再镜像。
