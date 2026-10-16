@@ -102,6 +102,36 @@ var f_boss_met := false
 var f_support := {}               # {支援对 key: 已解锁}
 
 
+func export_flags() -> Dictionary:
+	var visited_out: Array = []
+	for k in visited:
+		visited_out.append([int(k.x), int(k.y)])
+	return {
+		"visited": visited_out,
+		"f_first_attack": f_first_attack,
+		"f_talk": f_talk,
+		"f_reinforce": f_reinforce,
+		"f_boss_met": f_boss_met,
+		"f_support": f_support.duplicate(),
+	}
+
+
+func import_flags(data: Dictionary) -> void:
+	visited = {}
+	var raw = data.get("visited", [])
+	if raw is Array:
+		for pair in raw:
+			if typeof(pair) != TYPE_ARRAY or pair.size() < 2:
+				continue
+			visited[Vector2i(int(pair[0]), int(pair[1]))] = true
+	f_first_attack = bool(data.get("f_first_attack", false))
+	f_talk = bool(data.get("f_talk", false))
+	f_reinforce = bool(data.get("f_reinforce", false))
+	f_boss_met = bool(data.get("f_boss_met", false))
+	var fs = data.get("f_support", {})
+	f_support = fs.duplicate() if fs is Dictionary else {}
+
+
 ## 合并模板（山贼/弓箭手只写 id 和 pos 时套模板）；const 字典为只读，必须逐键拷贝到新字典
 static func expand(defs: Array) -> Array:
 	var out: Array = []

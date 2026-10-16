@@ -1,13 +1,21 @@
 extends Control
 ## 标题画面：暗色背景 + 上升的余烬粒子
-## 开始 / 语言是 Button，鼠标点击与触摸共用 pressed。
+## 新游戏 / 继续 / 语言 / 菜单是 Button，鼠标点击与触摸共用 pressed。
+## 已有存档时，新游戏先确认才会覆盖 user://save.cfg。
 
 var _embers: Array = []
 var _title: Label
 var _sub: Label
 var _note: Label
 var _start: Button
+var _continue: Button
 var _lang: Button
+var _menu: Button
+var _system
+var _confirm: ColorRect
+var _confirm_label: Label
+var _confirm_yes: Button
+var _confirm_no: Button
 
 
 func _ready() -> void:
@@ -66,13 +74,21 @@ func _ready() -> void:
 		_embers.append({"node": e, "speed": randf_range(15.0, 55.0), "drift": randf_range(-14.0, 14.0)})
 
 	var start_size := Vector2(240, maxf(64, SafeArea.MIN_HIT))
+	_continue = Button.new()
+	_continue.name = "ContinueButton"
+	_continue.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	_continue.custom_minimum_size = start_size
+	_continue.size = start_size
+	_continue.add_theme_font_size_override("font_size", 30)
+	_continue.pressed.connect(_on_continue)
+	_continue.visible = false
+	add_child(_continue)
+
 	_start = Button.new()
 	_start.name = "StartButton"
 	_start.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 	_start.custom_minimum_size = start_size
 	_start.size = start_size
-	var start_x := clampf((1280.0 - start_size.x) * 0.5, SafeArea.EDGE_ACTION, 1280.0 - SafeArea.EDGE_ACTION - start_size.x)
-	_start.position = Vector2(start_x, 450)
 	_start.add_theme_font_size_override("font_size", 30)
 	_start.pressed.connect(_on_start)
 	add_child(_start)
@@ -87,6 +103,24 @@ func _ready() -> void:
 	_lang.add_theme_font_size_override("font_size", 22)
 	_lang.pressed.connect(_on_lang)
 	add_child(_lang)
+
+	var menu_size := Vector2(120, SafeArea.MIN_HIT)
+	_menu = Button.new()
+	_menu.name = "MenuButton"
+	_menu.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	_menu.custom_minimum_size = menu_size
+	_menu.size = menu_size
+	_menu.position = Vector2(SafeArea.MARGIN_X, SafeArea.MARGIN_Y)
+	_menu.add_theme_font_size_override("font_size", 22)
+	_menu.pressed.connect(_on_menu)
+	add_child(_menu)
+
+	_build_confirm()
+	_system = load("res://scripts/system_menu.gd").new()
+	_system.show_title_button = false
+	add_child(_system)
+	if not get_tree().root.go_back_requested.is_connected(_on_android_back):
+		get_tree().root.go_back_requested.connect(_on_android_back)
 
 	if not GameLocale.locale_changed.is_connected(_apply_locale):
 		GameLocale.locale_changed.connect(_apply_locale)
@@ -109,8 +143,26 @@ func _apply_locale(_code: String) -> void:
 	_title.text = tr("炎烬之誓")
 	_sub.text = tr("Emberflame Oath · 战棋原型")
 	_note.text = tr("第一章 · 边境的少女（原型 v0.1）")
-	_start.text = tr("开始游戏")
+	_start.text = tr("新游戏")
+	_continue.text = tr("继续游戏")
 	_lang.text = tr("LANG_SWITCH")
+	_menu.text = tr("菜单")
+	_confirm_label.text = tr("开始新游戏会覆盖当前存档，确定吗？")
+	_confirm_yes.text = tr("确定")
+	_confirm_no.text = tr("取消")
+	_place_main_buttons()
+
+
+func _place_main_buttons() -> void:
+	var start_size := _start.size
+	var start_x := clampf((1280.0 - start_size.x) * 0.5, SafeArea.EDGE_ACTION, 1280.0 - SafeArea.EDGE_ACTION - start_size.x)
+	var has := CampaignSave.has_save()
+	_continue.visible = has
+	if has:
+		_continue.position = Vector2(start_x, 400)
+		_start.position = Vector2(start_x, 484)
+	else:
+		_start.position = Vector2(start_x, 450)
 
 
 func _process(delta: float) -> void:
@@ -127,5 +179,92 @@ func _on_lang() -> void:
 	GameLocale.toggle()
 
 
+func _on_menu() -> void:
+	if _system.is_open():
+		_system.close()
+	else:
+		_system.open()
+
+
 func _on_start() -> void:
+	if CampaignSave.has_save():
+		_confirm.visible = true
+		return
+	_begin_new_game()
+
+
+func _on_continue() -> void:
+	if not CampaignSave.has_save():
+		return
+	CampaignSave.request_continue()
+	get_tree().change_scene_to_file("res://scenes/battle.tscn")
+
+
+func _begin_new_game() -> void:
+	_confirm.visible = false
+	CampaignSave.clear()
 	get_tree().change_scene_to_file("res://scenes/narration.tscn")
+
+
+func _on_android_back() -> void:
+	if not is_inside_tree():
+		return
+	if not PointerInput.accept_back():
+		return
+	_handle_back()
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if not event.is_action_pressed("ui_cancel"):
+		return
+	if _system.is_open():
+		return
+	if not PointerInput.accept_back():
+		return
+	_handle_back()
+
+
+func _handle_back() -> void:
+	if _system.is_open():
+		_system.close()
+		return
+	if _confirm.visible:
+		_confirm.visible = false
+		return
+	_system.open()
+
+
+func _build_confirm() -> void:
+	_confirm = ColorRect.new()
+	_confirm.name = "ConfirmOverlay"
+	_confirm.color = Color(0, 0, 0, 0.72)
+	_confirm.set_anchors_preset(PRESET_FULL_RECT)
+	_confirm.visible = false
+	_confirm.mouse_filter = MOUSE_FILTER_STOP
+	add_child(_confirm)
+	_confirm_label = Label.new()
+	_confirm_label.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	_confirm_label.position = Vector2(SafeArea.MARGIN_X, 250)
+	_confirm_label.size = Vector2(1280 - SafeArea.MARGIN_X * 2, 80)
+	_confirm_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_confirm_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_confirm_label.add_theme_font_size_override("font_size", 28)
+	_confirm.add_child(_confirm_label)
+	_confirm_yes = Button.new()
+	_confirm_yes.name = "ConfirmButton"
+	_confirm_yes.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	_confirm_yes.custom_minimum_size = Vector2(180, SafeArea.MIN_HIT)
+	_confirm_yes.size = _confirm_yes.custom_minimum_size
+	_confirm_yes.position = Vector2(430, 380)
+	_confirm_yes.add_theme_font_size_override("font_size", 24)
+	_confirm_yes.pressed.connect(_begin_new_game)
+	_confirm.add_child(_confirm_yes)
+	_confirm_no = Button.new()
+	_confirm_no.name = "ConfirmCancelButton"
+	_confirm_no.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	_confirm_no.custom_minimum_size = Vector2(180, SafeArea.MIN_HIT)
+	_confirm_no.size = _confirm_no.custom_minimum_size
+	_confirm_no.position = Vector2(670, 380)
+	_confirm_no.add_theme_font_size_override("font_size", 24)
+	_confirm_no.pressed.connect(func() -> void: _confirm.visible = false)
+	_confirm.add_child(_confirm_no)

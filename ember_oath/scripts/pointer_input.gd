@@ -40,6 +40,18 @@ static func is_pointer_move(event: InputEvent) -> bool:
 	return false
 
 
+## Esc 与 Android 返回可能在几十毫秒内各投递一次。只接受第一次。
+static var _last_back_ms := 0
+
+
+static func accept_back() -> bool:
+	var now := Time.get_ticks_msec()
+	if now - _last_back_ms < 80:
+		return false
+	_last_back_ms = now
+	return true
+
+
 static func viewport_position(event: InputEvent) -> Vector2:
 	if event is InputEventMouse:
 		return (event as InputEventMouse).position

@@ -24,6 +24,7 @@ func _watchdog() -> void:
 
 func _run() -> void:
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(_shot_dir))
+	CampaignSave.clear()
 	_check_infra()
 	await _check_title_and_narration()
 	await _check_en_topbar()
@@ -61,6 +62,7 @@ func _run() -> void:
 	_check(battle.turn == 1, "应为第 1 回合, 实际 %d" % battle.turn)
 	_check(battle.units.size() == 11, "初始应有 11 个单位, 实际 %d" % battle.units.size())
 	_shot("01_map.png")
+	await _check_save_pause_back()
 
 	var tia = battle.get_unit("tia")
 	var balto = battle.get_unit("balto")
@@ -370,6 +372,10 @@ func _run() -> void:
 	ok = await _wait_cond(func() -> bool: return battle.end_overlay.visible, 15.0)
 	_check(ok, "胜利后应显示结算界面")
 	_check("完" in battle.end_title.text, "结算标题应为「第一章 完」, 实际: " + battle.end_title.text)
+	_check(CampaignSave.is_cleared(), "章节胜利后存档应标为已通关")
+	var cleared_payload := CampaignSave.read()
+	_check(int(cleared_payload.get("turn", -1)) == battle.turn, "通关标记应保留获胜回合的检查点，实际回合 %s" % str(cleared_payload.get("turn", -1)))
+	_check(not (cleared_payload.get("units", []) as Array).is_empty(), "通关标记不应抹掉单位快照")
 	_shot("08_victory.png")
 
 	# ---- 战败: 新开一局, 缇娅阵亡 ----
@@ -404,6 +410,7 @@ func _run() -> void:
 	_check("灰岩村" in battle.end_sub.text, "巴尔托败北副标题应含灰岩村, 实际: " + battle.end_sub.text)
 	_check(_phase_banner_hidden(), "巴尔托败北结算时相位横幅应不可见, vis=%s a=%s text=%s" % _banner_state())
 	_shot("10_gameover_balto.png")
+	await _check_save_roundtrip()
 
 	print("========================================")
 	if _failures.is_empty():
@@ -501,6 +508,9 @@ func _check_infra() -> void:
 	finger2.pressed = true
 	_check(PointerInput.is_secondary_press(finger2), "第二指按下应视为取消")
 	ProjectSettings.set_setting("input_devices/pointing/emulate_mouse_from_touch", true)
+	var csv_text := FileAccess.get_file_as_string("res://locale/ui.csv")
+	_check("右键" not in csv_text, "ui.csv 不应再提示右键")
+	_check("right-click" not in csv_text.to_lower(), "ui.csv 不应再提示 right-click")
 	TranslationServer.set_locale("zh_CN")
 	_check(tr("敌方增援！") == "敌方增援！", "中文横幅应保持敌方增援，实际 " + tr("敌方增援！"))
 	TranslationServer.set_locale("en")
@@ -526,6 +536,14 @@ func _check_infra() -> void:
 		"对……不起……巴尔托……",
 		"缇娅倒下了。灰岩村的命运，到此为止……",
 		"听好，战场上先看清四周再动手。点击缇娅，就能看到她能走到的范围。",
+		"新游戏", "继续游戏", "返回", "菜单", "继续", "系统", "音乐", "音效", "确定",
+		"开始新游戏会覆盖当前存档，确定吗？",
+		"%s：选择移动位置（返回取消）",
+		"%s 的威胁范围（返回清除）",
+		"选择行动（返回撤销移动）",
+		"选择武器（返回）",
+		"用【%s】选择攻击目标（返回）",
+		"选择要使用的道具（返回）",
 		"（屋内）缇娅小姐！救命！有山贼在砸我家的门！",
 	]
 	for k in en_keys:
@@ -575,18 +593,20 @@ func _check_title_and_narration() -> void:
 	await _frames(2)
 	var start := title.get_node("StartButton") as Button
 	var lang := title.get_node("LangButton") as Button
-	_check(start.text == "开始游戏", "标题开始按钮默认中文，实际 " + start.text)
+	_check(start.text == "新游戏", "标题新游戏按钮默认中文，实际 " + start.text)
+	var cont0 := title.get_node_or_null("ContinueButton") as Button
+	_check(cont0 != null and not cont0.visible, "没有存档时不应显示继续游戏")
 	_check(lang.text == "English", "中文界面的语言按钮应写 English，实际 " + lang.text)
 	var lang_right := lang.position.x + lang.size.x
 	_check(lang_right <= 1280.0 - SafeArea.EDGE_ACTION + 0.01, "语言按钮应避开右缘 80px，右缘 %s" % lang_right)
 	_check(lang.position.y >= SafeArea.MARGIN_Y and lang.size.y >= SafeArea.MIN_HIT, "语言按钮应落在安全区且热区 ≥ 48")
 	_check(start.size.y >= SafeArea.MIN_HIT, "开始按钮热区应 ≥ 48")
 	GameLocale.toggle()
-	_check(start.text == "Start", "切换英文后开始按钮应为 Start，实际 " + start.text)
+	_check(start.text == "New Game", "切换英文后新游戏按钮应为 New Game，实际 " + start.text)
 	_check(lang.text == "中文", "英文界面的语言按钮应写 中文，实际 " + lang.text)
-	_check(tr("开始游戏") == "Start", "切换后 tr(开始游戏) 应为 Start")
+	_check(tr("新游戏") == "New Game", "切换后 tr(新游戏) 应为 New Game")
 	GameLocale.toggle()
-	_check(start.text == "开始游戏", "切回中文后开始按钮应恢复")
+	_check(start.text == "新游戏", "切回中文后新游戏按钮应恢复")
 	title.queue_free()
 	await _frames(2)
 	var narration = load("res://scenes/narration.tscn").instantiate()
@@ -608,6 +628,122 @@ func _check_title_and_narration() -> void:
 	_check(narration._idx == 0 and narration._label.modulate.a == 1.0, "主指针应先补全淡入，而不是直接跳过")
 	narration.queue_free()
 	await _frames(2)
+
+
+func _check_save_pause_back() -> void:
+	_mark("存档 / 暂停 / 返回")
+	_check(CampaignSave.has_save(), "我方回合开始后应写入存档")
+	var cfg := ConfigFile.new()
+	_check(cfg.load(CampaignSave.PATH) == OK, "应能读到 user://save.cfg")
+	_check(str(cfg.get_value("save", "chapter_id", "")) == "ch1", "存档章节应为 ch1，实际 " + str(cfg.get_value("save", "chapter_id", "")))
+	_check(int(cfg.get_value("save", "turn", 0)) == 1, "存档回合应为 1，实际 %s" % str(cfg.get_value("save", "turn", 0)))
+	_check(not bool(cfg.get_value("save", "cleared", true)), "回合开始的检查点不应标为已通关")
+	var payload := CampaignSave.read()
+	_check((payload.get("units", []) as Array).size() == battle.units.size(), "存档单位数应与战场一致")
+
+	var title = load("res://scenes/title.tscn").instantiate()
+	add_child(title)
+	await _frames(2)
+	var cont := title.get_node("ContinueButton") as Button
+	_check(cont != null and cont.visible, "有存档时标题应显示继续游戏")
+	_check(cont.text == "继续游戏", "继续按钮默认中文，实际 " + cont.text)
+	_check(cont.pressed.is_connected(title._on_continue), "继续按钮应接上读档")
+	GameLocale.set_code("en")
+	_check(cont.text == "Continue", "英文继续按钮应为 Continue，实际 " + cont.text)
+	_check((title.get_node("StartButton") as Button).text == "New Game", "英文新游戏按钮应为 New Game")
+	GameLocale.set_code("zh_CN")
+	_check(cont.text == "继续游戏", "切回中文后继续按钮应恢复")
+	(title.get_node("StartButton") as Button).pressed.emit()
+	var confirm := title.get_node("ConfirmOverlay") as ColorRect
+	_check(confirm.visible, "有存档时新游戏应先确认覆盖")
+	_check(CampaignSave.has_save(), "确认前不应删除存档")
+	var cancel_confirm := title.find_child("ConfirmCancelButton", true, false) as Button
+	_check(cancel_confirm != null, "应有取消覆盖按钮")
+	if cancel_confirm != null:
+		cancel_confirm.pressed.emit()
+		_check(not confirm.visible, "取消确认应关闭对话框")
+	title.queue_free()
+	await _frames(2)
+
+	Audio.set_bgm_percent(40)
+	Audio.set_sfx_percent(80)
+	battle.open_system_menu()
+	var opened: bool = bool(battle.system_menu.is_open()) and get_tree().paused
+	var resume := battle.system_menu.find_child("ResumeButton", true, false) as Button
+	var bgm := battle.system_menu.find_child("BgmSlider", true, false) as HSlider
+	_check(resume != null and resume.text == "继续", "暂停菜单应有「继续」，实际 %s" % (resume.text if resume != null else "null"))
+	_check(bgm != null and is_equal_approx(bgm.value, 40.0), "音乐滑条应反映当前音量")
+	if resume != null:
+		resume.pressed.emit()
+	else:
+		battle.close_system_menu()
+	_check(opened, "暂停菜单应打开并暂停场景树")
+	_check(not battle.system_menu.is_open() and not get_tree().paused, "继续应关闭暂停菜单并恢复")
+	Audio.set_bgm_percent(100)
+	Audio.set_sfx_percent(100)
+
+	var cancel_ev := InputEventAction.new()
+	cancel_ev.action = "ui_cancel"
+	cancel_ev.pressed = true
+	battle._unhandled_input(cancel_ev)
+	var opened_by_key: bool = bool(battle.system_menu.is_open()) and get_tree().paused
+	battle.close_system_menu()
+	_check(opened_by_key, "空闲时取消键应打开系统菜单")
+	_check(not battle.system_menu.is_open() and not get_tree().paused, "关闭系统菜单后应恢复运行")
+
+	if get_tree().paused:
+		battle.close_system_menu()
+	var tia = battle.get_unit("tia")
+	battle.click_tile(tia.grid_pos)
+	await _frames(2)
+	_check(battle.selected == tia, "返回测试前应选中缇娅")
+	_check("右键" not in battle.hint_label.text, "移动提示不应再写右键，实际 " + battle.hint_label.text)
+	_check("返回" in battle.hint_label.text, "移动提示应改用返回，实际 " + battle.hint_label.text)
+	var back := battle.ui.find_child("BackButton", true, false) as Button
+	_check(back != null, "应有返回按钮")
+	if back != null:
+		_check(back.text == "返回", "返回按钮应为中文，实际 " + back.text)
+		_check(back.position.x >= SafeArea.MARGIN_X and back.position.y >= SafeArea.MARGIN_Y, "返回按钮应落在安全区内")
+		_check(back.position.x + back.size.x <= 1280.0 - SafeArea.MARGIN_X + 0.01, "返回按钮应避开右安全区，右缘 %s" % (back.position.x + back.size.x))
+		_check(back.position.y + back.size.y <= 720.0 - SafeArea.MARGIN_Y + 0.01, "返回按钮应避开下安全区，底边 %s" % (back.position.y + back.size.y))
+		_check(back.size.y >= SafeArea.MIN_HIT, "返回按钮热区应 ≥ 48")
+		back.pressed.emit()
+	var menu_btn := battle.ui.find_child("MenuButton", true, false) as Button
+	if menu_btn != null:
+		var menu_right := menu_btn.position.x + menu_btn.size.x
+		_check(menu_right <= 1280.0 - SafeArea.MARGIN_X + 0.01, "菜单按钮应避开右安全区，右缘 %s" % menu_right)
+		_check(menu_btn.position.y + menu_btn.size.y <= 720.0 - SafeArea.MARGIN_Y + 0.01, "菜单按钮应避开下安全区")
+	_check(battle.selected == null and battle.state == battle.S.IDLE, "返回按钮应取消选中并回到 IDLE")
+	if get_tree().paused:
+		battle.close_system_menu()
+	if battle.selected != null:
+		battle.cancel()
+
+
+func _check_save_roundtrip() -> void:
+	_mark("读档")
+	var tia = battle.get_unit("tia")
+	tia.hp = 11
+	tia.grid_pos = Vector2i(2, 2)
+	tia.position = tia.tile_center()
+	tia.support_with["balto"] = "C"
+	battle.gold = 321
+	battle.chapter.f_talk = true
+	battle.chapter.visited[Vector2i(9, 1)] = true
+	CampaignSave.write_checkpoint(battle)
+	battle.queue_free()
+	await _frames(3)
+	CampaignSave.request_continue()
+	await _spawn_battle()
+	var loaded = battle.get_unit("tia")
+	_check(battle.state == battle.S.IDLE, "读档应直接进入 IDLE，实际 %d" % battle.state)
+	_check(battle.gold == 321, "读档应恢复金钱，实际 %d" % battle.gold)
+	_check(loaded != null and loaded.hp == 11, "读档应恢复 HP，实际 %s" % (str(loaded.hp) if loaded != null else "null"))
+	_check(loaded != null and loaded.grid_pos == Vector2i(2, 2), "读档应恢复坐标，实际 %s" % (str(loaded.grid_pos) if loaded != null else "null"))
+	_check(loaded != null and str(loaded.support_with.get("balto", "")) == "C", "读档应恢复支援")
+	_check(battle.chapter.f_talk, "读档应恢复对话旗标")
+	_check(battle.chapter.visited.has(Vector2i(9, 1)), "读档应恢复民居访问")
+	_check(battle.units.size() == 11, "读档单位数量应为 11，实际 %d" % battle.units.size())
 
 
 func _phase_banner_hidden() -> bool:

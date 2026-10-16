@@ -29,6 +29,12 @@ const MUSIC := {
 }
 
 const POOL_SIZE := 10
+const SETTINGS_PATH := "user://settings.cfg"
+## 100 = 现有混音（BGM 在 -9 dB 上，音效为 0 dB）。
+const BGM_BASE_DB := -9.0
+
+var bgm_percent := 100.0
+var sfx_percent := 100.0
 
 var _streams := {}
 var _sfx_pool: Array = []
@@ -37,13 +43,15 @@ var _current_music := ""
 
 
 func _ready() -> void:
+	_load_volumes()
 	for i in POOL_SIZE:
 		var p := AudioStreamPlayer.new()
 		add_child(p)
 		_sfx_pool.append(p)
 	_music_player = AudioStreamPlayer.new()
-	_music_player.volume_db = -9.0
 	add_child(_music_player)
+	_apply_bgm()
+	_apply_sfx()
 	for k in SFX:
 		_streams[k] = load(SFX[k])
 	for k in MUSIC:
@@ -58,14 +66,63 @@ func play_sfx(sfx_name: String, pitch := 1.0) -> void:
 		return
 	for p in _sfx_pool:
 		if not p.playing:
-			p.stream = _streams[sfx_name]
-			p.pitch_scale = pitch
-			p.play()
+			_play_on(p, sfx_name, pitch)
 			return
 	# 全忙则抢占最旧的一个
-	_sfx_pool[0].stream = _streams[sfx_name]
-	_sfx_pool[0].pitch_scale = pitch
-	_sfx_pool[0].play()
+	_play_on(_sfx_pool[0], sfx_name, pitch)
+
+
+func set_bgm_percent(v: float) -> void:
+	bgm_percent = clampf(v, 0.0, 100.0)
+	_apply_bgm()
+	_save_volumes()
+
+
+func set_sfx_percent(v: float) -> void:
+	sfx_percent = clampf(v, 0.0, 100.0)
+	_apply_sfx()
+	_save_volumes()
+
+
+func _play_on(p: AudioStreamPlayer, sfx_name: String, pitch: float) -> void:
+	p.stream = _streams[sfx_name]
+	p.pitch_scale = pitch
+	p.volume_db = _bus_db(sfx_percent)
+	p.play()
+
+
+func _apply_bgm() -> void:
+	if _music_player == null:
+		return
+	_music_player.volume_db = BGM_BASE_DB + _bus_db(bgm_percent)
+
+
+func _apply_sfx() -> void:
+	var db := _bus_db(sfx_percent)
+	for p in _sfx_pool:
+		p.volume_db = db
+
+
+func _bus_db(percent: float) -> float:
+	if percent <= 0.001:
+		return -80.0
+	return linear_to_db(percent / 100.0)
+
+
+func _load_volumes() -> void:
+	var cfg := ConfigFile.new()
+	if cfg.load(SETTINGS_PATH) != OK:
+		return
+	bgm_percent = clampf(float(cfg.get_value("audio", "bgm", 100.0)), 0.0, 100.0)
+	sfx_percent = clampf(float(cfg.get_value("audio", "sfx", 100.0)), 0.0, 100.0)
+
+
+func _save_volumes() -> void:
+	var cfg := ConfigFile.new()
+	cfg.load(SETTINGS_PATH)
+	cfg.set_value("audio", "bgm", bgm_percent)
+	cfg.set_value("audio", "sfx", sfx_percent)
+	cfg.save(SETTINGS_PATH)
 
 
 func play_music(music_name: String) -> void:
