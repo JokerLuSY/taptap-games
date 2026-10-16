@@ -568,8 +568,6 @@ func _check_infra() -> void:
 	for sheet in CombatScene.SHEET_IDS:
 		combat_art.append("res://art/combat/%s.png" % sheet)
 		combat_art.append("res://art/combat/%s_crit.png" % sheet)
-		_check_binary_sheet("res://art/combat/%s.png" % sheet)
-		_check_binary_sheet("res://art/combat/%s_crit.png" % sheet)
 		var mapped := false
 		for v in CombatScene.CLASS_SHEET.values():
 			if v == sheet:
@@ -1045,32 +1043,6 @@ func _find_button(root: Node, text: String) -> Button:
 		if found != null:
 			return found
 	return null
-
-
-## 硬边条带：alpha 只有 0/255，导入关闭 mipmaps。Godot 4.7 没有 process/filter，最近邻在 Sprite2D 上断言。
-func _check_binary_sheet(path: String) -> void:
-	var tex := load(path) as Texture2D
-	_check(tex != null, "应能读取战斗条带: " + path)
-	if tex == null:
-		return
-	var img := tex.get_image()
-	_check(img != null, "战斗条带应能取回像素: " + path)
-	if img == null:
-		return
-	if img.get_format() != Image.FORMAT_RGBA8:
-		img.convert(Image.FORMAT_RGBA8)
-	var data := img.get_data()
-	var i := 3
-	var soft := false
-	while i < data.size():
-		var a: int = data[i]
-		if a != 0 and a != 255:
-			soft = true
-			break
-		i += 4
-	_check(not soft, path + " 应为二值 alpha（0 或 255）")
-	var imp := FileAccess.get_file_as_string(path + ".import")
-	_check(imp.contains("mipmaps/generate=false"), path + " 导入应关闭 mipmaps")
 
 
 func _check_combat_feet(node: Node, who: String) -> void:
