@@ -1169,9 +1169,14 @@ func _check_sheet_facing(scene: CombatScene) -> void:
 		for pose in [CombatScene.POSE_IDLE, CombatScene.POSE_STRIKE]:
 			scene._set_pose(fighter, pose)
 			_check_anchor_on_feet(fighter, "普通帧")
+		_check_no_body_slit(fighter, "普通挥砍")
+		if int(fighter.get_meta("combat_hit_frame", -1)) >= 0:
+			scene._set_hit_pose(fighter)
+			_check_no_body_slit(fighter, "受击")
 		scene._use_crit_frames(fighter, true)
 		scene._set_pose(fighter, CombatScene.POSE_STRIKE)
 		_check_anchor_on_feet(fighter, "必杀挥砍")
+		_check_no_body_slit(fighter, "必杀挥砍")
 		fighter.free()
 	var plain := Unit.new()
 	plain.unit_id = "nobody"
@@ -1212,6 +1217,32 @@ func _check_anchor_on_feet(node: Node, tag: String) -> void:
 			planted = true
 			break
 	_check(planted, tag + " 当前帧应能对上脚底点")
+
+
+## 上下都是实心、中间却透明的横缝，会让灌丛下沿穿进身体。
+func _check_no_body_slit(node: Node, tag: String) -> void:
+	var pose := node.get_node_or_null("CombatPose") as Sprite2D
+	if pose == null or not (pose.texture is AtlasTexture):
+		_check(false, tag + " 应有图集帧")
+		return
+	var atlas := pose.texture as AtlasTexture
+	var img := atlas.atlas.get_image()
+	_check(img != null, tag + " 补实后的条带应能读回像素")
+	if img == null:
+		return
+	var region := atlas.region
+	var x0 := int(region.position.x)
+	var y0 := int(region.position.y)
+	var fw := int(region.size.x)
+	var fh := int(region.size.y)
+	var slits := 0
+	for y in range(1, fh - 1):
+		for x in fw:
+			if img.get_pixel(x0 + x, y0 + y).a >= 0.5:
+				continue
+			if img.get_pixel(x0 + x, y0 + y - 1).a >= 0.5 and img.get_pixel(x0 + x, y0 + y + 1).a >= 0.5:
+				slits += 1
+	_check(slits == 0, tag + " 身体不应留下透明横缝，实际 %d" % slits)
 
 
 func _check_combat_feet(node: Node, who: String) -> void:

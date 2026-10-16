@@ -98,7 +98,13 @@ const SHEET_FACES_RIGHT := {
 const Z_BG := 0
 const Z_FIGHTER := 10
 const Z_FX := 30
+## 挥砍/受击在腰腹留下横向透明缝，中景灌丛的硬下沿会从缝里穿过去。
+## 按帧做扁长闭运算：横向多补、纵向少补。不改磁盘上的 earliest 正稿。
+const BODY_SEAL_HX := 16
+const BODY_SEAL_HY := 4
 const _POSE_SHADER := preload("res://shaders/combat_pose.gdshader")
+
+static var _sealed_tex: Dictionary = {}
 
 var active := false
 
@@ -364,6 +370,7 @@ func _load_strip(sheet_id: String, crit: bool) -> Array:
 	var full_h := tex.get_height()
 	if full_w < feet.size() or full_h <= 0:
 		return []
+	var sealed := _sealed_texture(tex, path, feet.size())
 	var base_w := int(full_w / feet.size())
 	var extra := full_w - base_w * feet.size()
 	var frames: Array = []
@@ -371,13 +378,129 @@ func _load_strip(sheet_id: String, crit: bool) -> Array:
 	for i in feet.size():
 		var fw := base_w + (1 if i < extra else 0)
 		var atlas := AtlasTexture.new()
-		atlas.atlas = tex
+		atlas.atlas = sealed
 		atlas.region = Rect2(x, 0, fw, full_h)
 		# 最近邻也不要从相邻帧渗一像素进来。
 		atlas.filter_clip = true
 		frames.append({"tex": atlas, "feet": feet[i], "src": path})
 		x += fw
 	return frames
+
+
+## 每张条带只补一次。分帧处理，避免相邻帧的身体被补到一起。
+func _sealed_texture(tex: Texture2D, path: String, frame_count: int) -> Texture2D:
+	if _sealed_tex.has(path):
+		return _sealed_tex[path]
+	var src := tex.get_image()
+	if src == null:
+		return tex
+	if src.is_compressed():
+		src.decompress()
+	var sealed := _seal_strip(src, frame_count, BODY_SEAL_HX, BODY_SEAL_HY)
+	var out := ImageTexture.create_from_image(sealed)
+	_sealed_tex[path] = out
+	return out
+
+
+func _seal_strip(src: Image, frame_count: int, hx: int, hy: int) -> Image:
+	var out := src.duplicate()
+	var full_w := src.get_width()
+	var h := src.get_height()
+	var base_w := int(full_w / frame_count)
+	var extra := full_w - base_w * frame_count
+	var x0 := 0
+	for i in frame_count:
+		var fw := base_w + (1 if i < extra else 0)
+		_seal_rect(out, x0, fw, h, hx, hy)
+		x0 += fw
+	return out
+
+
+func _seal_rect(img: Image, x0: int, w: int, h: int, hx: int, hy: int) -> void:
+	var local := Image.create(w, h, false, Image.FORMAT_RGBA8)
+	local.blit_rect(img, Rect2i(x0, 0, w, h), Vector2i.ZERO)
+	var n := w * h
+	var mask := PackedByteArray()
+	mask.resize(n)
+	for y in h:
+		for x in w:
+			mask[y * w + x] = 1 if local.get_pixel(x, y).a >= 0.5 else 0
+	var grown := _dilate_ellipse(mask, w, h, hx, hy)
+	var solid := _erode_ellipse(grown, w, h, hx, hy)
+	for y in h:
+		for x in w:
+			var i := y * w + x
+			if solid[i] == 0 or mask[i] == 1:
+				continue
+			var best_d := 1 << 30
+			var best := local.get_pixel(x, y)
+			var found := false
+			var y1 := maxi(0, y - hy)
+			var y2 := mini(h - 1, y + hy)
+			var x1 := maxi(0, x - hx)
+			var x2 := mini(w - 1, x + hx)
+			for yy in range(y1, y2 + 1):
+				for xx in range(x1, x2 + 1):
+					if mask[yy * w + xx] == 0:
+						continue
+					var dd := (xx - x) * (xx - x) + (yy - y) * (yy - y)
+					if dd < best_d:
+						best_d = dd
+						best = local.get_pixel(xx, yy)
+						found = true
+			if found:
+				local.set_pixel(x, y, Color(best.r, best.g, best.b, 1.0))
+	img.blit_rect(local, Rect2i(0, 0, w, h), Vector2i(x0, 0))
+
+
+func _dilate_ellipse(mask: PackedByteArray, w: int, h: int, hx: int, hy: int) -> PackedByteArray:
+	return _vmax(_hmax(mask, w, h, hx, false), w, h, hy, false)
+
+
+func _erode_ellipse(mask: PackedByteArray, w: int, h: int, hx: int, hy: int) -> PackedByteArray:
+	return _vmax(_hmax(mask, w, h, hx, true), w, h, hy, true)
+
+
+func _hmax(mask: PackedByteArray, w: int, h: int, radius: int, erode: bool) -> PackedByteArray:
+	var out := PackedByteArray()
+	out.resize(w * h)
+	for y in h:
+		for x in w:
+			var on := 1 if erode else 0
+			var x1 := maxi(0, x - radius)
+			var x2 := mini(w - 1, x + radius)
+			for xx in range(x1, x2 + 1):
+				var bit := mask[y * w + xx]
+				if erode:
+					if bit == 0:
+						on = 0
+						break
+				elif bit == 1:
+					on = 1
+					break
+			out[y * w + x] = on
+	return out
+
+
+func _vmax(mask: PackedByteArray, w: int, h: int, radius: int, erode: bool) -> PackedByteArray:
+	var out := PackedByteArray()
+	out.resize(w * h)
+	for x in w:
+		for y in h:
+			var on := 1 if erode else 0
+			var y1 := maxi(0, y - radius)
+			var y2 := mini(h - 1, y + radius)
+			for yy in range(y1, y2 + 1):
+				var bit := mask[yy * w + x]
+				if erode:
+					if bit == 0:
+						on = 0
+						break
+				elif bit == 1:
+					on = 1
+					break
+			out[y * w + x] = on
+	return out
 
 
 func _set_pose(node: Unit, pose: int) -> void:
