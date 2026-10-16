@@ -136,6 +136,8 @@ func _run() -> void:
 	battle._on_forecast_ok()
 	await get_tree().create_timer(1.05).timeout
 	_shot("04b_combat_scene.png")  # 暴击特写演出中
+	_check(battle.combat_scene._att_node.get_node_or_null("CombatPose") != null, "缇娅特写应挂上像素帧")
+	_check(battle.combat_scene._def_node.get_node_or_null("CombatPose") != null, "山贼特写应挂上像素帧")
 	Combat.force_crit = false
 	var ok: bool = await _wait_cond(func() -> bool: return battle.state == battle.S.IDLE, 15.0)
 	_check(ok, "战斗应结束并回到 IDLE")
@@ -453,6 +455,19 @@ func _check_infra() -> void:
 	_check(bool(ProjectSettings.get_setting("input_devices/pointing/emulate_mouse_from_touch")), "应开启触控模拟鼠标")
 	_check(SafeArea.MARGIN_X >= 64 and SafeArea.MARGIN_Y >= 48, "安全区左右应 ≥ 64、上下应 ≥ 48")
 	_check(SafeArea.EDGE_ACTION >= 80 and SafeArea.MIN_HIT >= 48, "主操作内缩应 ≥ 80、热区应 ≥ 48")
+	var combat_art: Array = [
+		"res://art/combat/tia_sword.png",
+		"res://art/combat/bandit_axe.png",
+		"res://art/combat/bg/sky_grass.png",
+		"res://art/combat/bg/mountains_grass.png",
+		"res://art/combat/bg/mid_grass.png",
+		"res://art/combat/bg/ground_strip_grass.png",
+	]
+	for i in 4:
+		combat_art.append("res://art/combat/tia_sword_frames/%02d.png" % i)
+		combat_art.append("res://art/combat/bandit_axe_frames/%02d.png" % i)
+	for path in combat_art:
+		_check(FileAccess.file_exists(path), "战斗资源应存在: " + path)
 	var area := SafeArea.rect()
 	_check(area.position == Vector2(64, 48), "安全区原点应为 (64, 48)，实际 %s" % area.position)
 	var click := InputEventMouseButton.new()
