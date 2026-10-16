@@ -86,6 +86,12 @@ const CLASS_SHEET := {
 	"山贼": "bandit_axe",
 }
 const SHEET_IDS: Array[String] = ["bandit_axe", "tia_sword"]
+## 条带画布上的原生朝向。true = 朝右。
+## tia_sword 朝右；bandit_axe 是最早风，按火纹敌方位朝左画。缺省朝右。
+const SHEET_FACES_RIGHT := {
+	"tia_sword": true,
+	"bandit_axe": false,
+}
 
 var active := false
 
@@ -269,9 +275,12 @@ func _make_fighter(u: Unit, face_left: bool) -> Unit:
 	if frames.is_empty():
 		c.scale = Vector2(-UNIT_SCALE if face_left else UNIT_SCALE, UNIT_SCALE)
 		return c
-	# 朝右为默认；敌方用父节点镜像。像素帧自身不再乘 UNIT_SCALE。
+	# 攻击方要朝右、防守方要朝左。条带原生朝向不一定朝右，差多少翻多少。
+	# 程序 Q 版仍走上面的 face_left。像素帧自身不再乘 UNIT_SCALE。
 	c.suppress_draw = true
-	c.scale = Vector2(-1.0 if face_left else 1.0, 1.0)
+	var want_right := not face_left
+	var need_flip := want_right != _sheet_faces_right(sheet)
+	c.scale = Vector2(-1.0 if need_flip else 1.0, 1.0)
 	var sc: float = SPRITE_TARGET_H / float(FRAME_BODY_H[sheet])
 	var sprite := Sprite2D.new()
 	sprite.name = "CombatPose"
@@ -308,6 +317,10 @@ func _sheet_id_for(u: Unit) -> String:
 
 func _is_sheet(id: String) -> bool:
 	return id != "" and SHEET_IDS.has(id)
+
+
+func _sheet_faces_right(sheet_id: String) -> bool:
+	return bool(SHEET_FACES_RIGHT.get(sheet_id, true))
 
 
 ## 横排 4 格。普攻 {id}.png，必杀 {id}_crit.png。缺文件则返回空，调用方改画程序 Q 版。
@@ -353,7 +366,7 @@ func _set_pose(node: Unit, pose: int) -> void:
 	var sc: float = node.get_meta("combat_px_scale")
 	var feet: Vector2 = fr["feet"]
 	sprite.texture = fr["tex"]
-	# 脚底点对齐节点原点。节点在世界 FEET_Y，所以脚踩在草带上。
+	# 脚底点对齐节点原点。父节点 scale.x 绕原点镜像，原点不动，翻转后脚仍踩在 FEET_Y。
 	sprite.position = Vector2(-feet.x, -feet.y) * sc
 
 
