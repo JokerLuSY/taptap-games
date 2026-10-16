@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bq8kfj01oegph"
-path="res://.godot/imported/bandit_axe_crit.png-4d6409fa178a0c7919ca800474907836.ctex"
+uid="uid://d1n1srf55al80"
+path="res://.godot/imported/00.png-f7c936339884227ac0ba40a870367898.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://art/combat/bandit_axe_crit.png"
-dest_files=["res://.godot/imported/bandit_axe_crit.png-4d6409fa178a0c7919ca800474907836.ctex"]
+source_file="res://art/combat/bandit_axe_frames/00.png"
+dest_files=["res://.godot/imported/00.png-f7c936339884227ac0ba40a870367898.ctex"]
 
 [params]
 

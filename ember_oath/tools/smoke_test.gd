@@ -142,7 +142,8 @@ func _run() -> void:
 	_check_combat_feet(battle.combat_scene._att_node, "缇娅")
 	_check_combat_feet(battle.combat_scene._def_node, "山贼")
 	_check(str(battle.combat_scene._att_node.get_meta("combat_sheet", "")) == "tia_sword", "缇娅应使用 tia_sword")
-	_check(str(battle.combat_scene._att_node.get_meta("combat_sheet_mode", "")) == "crit", "暴击中攻击方应使用 crit 条带")
+	_check(str(battle.combat_scene._att_node.get_meta("combat_sheet_mode", "")) == "crit", "暴击演出应标记 crit")
+	_check(battle.combat_scene._att_node.get_meta("combat_frames_crit") == battle.combat_scene._att_node.get_meta("combat_frames_normal"), "最早风没有单独 _crit，暴击应复用普通四帧")
 	_check(str(battle.combat_scene._def_node.get_meta("combat_sheet", "")) == "bandit_axe", "山贼应使用 bandit_axe")
 	_check(str(battle.combat_scene._def_node.get_meta("combat_sheet_mode", "")) == "normal", "受击方应保持普通条带")
 	Combat.force_crit = false
@@ -567,7 +568,9 @@ func _check_infra() -> void:
 	]
 	for sheet in CombatScene.SHEET_IDS:
 		combat_art.append("res://art/combat/%s.png" % sheet)
-		combat_art.append("res://art/combat/%s_crit.png" % sheet)
+		for i in 4:
+			combat_art.append("res://art/combat/%s_frames/%02d.png" % [sheet, i])
+		_check(not FileAccess.file_exists("res://art/combat/%s_crit.png" % sheet), sheet + " 不应有单独暴击条带")
 		var mapped := false
 		for v in CombatScene.CLASS_SHEET.values():
 			if v == sheet:
@@ -578,8 +581,7 @@ func _check_infra() -> void:
 		_check(FileAccess.file_exists(path), "战斗资源应存在: " + path)
 	_check(CombatScene.SHEET_IDS.size() == 2, "战斗条带只保留缇娅与山贼")
 	_check(not FileAccess.file_exists("res://art/combat/archer_bow.png"), "日系整包不应留在运行时")
-	_check(CombatScene.SHEET_H == 300.0, "战斗条带高度应为 300")
-	_check(is_equal_approx(CombatScene.SHEET_SCALE, 1.0), "300px 条带应为 1:1")
+	_check(is_equal_approx(CombatScene.SPRITE_TARGET_H, 154.0), "最早风视觉高度应为 154")
 	_check(is_equal_approx(CombatScene.FEET_Y, 520.0), "脚底世界坐标应为 520")
 	var scene := CombatScene.new()
 	var probe := Unit.new()
@@ -1052,11 +1054,20 @@ func _check_combat_feet(node: Node, who: String) -> void:
 	_check(pose != null and pose.texture != null, who + "特写应挂上像素帧")
 	if pose == null or pose.texture == null:
 		return
-	var feet_local := pose.position.y + float(pose.texture.get_height()) * pose.scale.y
 	_check(pose.texture_filter == CanvasItem.TEXTURE_FILTER_NEAREST, who + "战斗立绘应为最近邻过滤")
-	_check(absf(feet_local) < 1.5, who + " 300px 脚底应贴在 FEET_Y，局部偏差 %s" % feet_local)
-	_check(is_equal_approx(pose.scale.y, CombatScene.SHEET_SCALE), who + " 条带缩放应为 1，实际 %s" % pose.scale.y)
-	_check(is_equal_approx(float(pose.texture.get_height()), CombatScene.SHEET_H), who + " 帧高应为 300，实际 %s" % pose.texture.get_height())
+	var sheet := str(node.get_meta("combat_sheet", ""))
+	var body_h: float = float(CombatScene.FRAME_BODY_H.get(sheet, 0.0))
+	var expect_sc := CombatScene.SPRITE_TARGET_H / body_h
+	_check(is_equal_approx(pose.scale.y, expect_sc), who + " 缩放应按待机身高收到 154px，实际 %s" % pose.scale.y)
+	var planted := false
+	for fr in node.get_meta("combat_frames"):
+		if fr["tex"] == pose.texture:
+			var feet: Vector2 = fr["feet"]
+			var local: Vector2 = pose.position + feet * pose.scale
+			_check(local.length() < 0.6, who + " 脚底应落在节点原点，偏差 %s" % local)
+			planted = true
+			break
+	_check(planted, who + " 当前帧应来自最早风单帧")
 
 
 func _check(cond: bool, msg: String) -> void:

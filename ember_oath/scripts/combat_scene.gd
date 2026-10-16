@@ -1,7 +1,7 @@
 class_name CombatScene
 extends CanvasLayer
-## 战斗特写演出：GBA 火纹式横版对砍（草地分层远景）。只有缇娅剑士与山贼有 300px 最早风条带，其它职业用程序 Q 版。
-## 点击 / 回车可跳过。对砍 tween 时序不在这里改，条带只在既有关键点切换。
+## 战斗特写演出：GBA 火纹式横版对砍（草地分层远景）。只有缇娅剑士与山贼有最早风单帧，其它职业用程序 Q 版。
+## 点击 / 回车可跳过。对砍 tween 时序不在这里改，帧只在既有关键点切换。
 
 signal finished
 
@@ -17,12 +17,10 @@ const ATT_X := 380.0
 const DEF_X := 900.0
 ## 角色脚底世界坐标。草地远景是 1280×720 整图，草带盖住 y=438..559，脚底就落在这条带上。
 const FEET_Y := 520.0
-## 没有条带时的程序 Q 版。像素条带不乘这个系数。
+## 没有像素帧时的程序 Q 版。像素帧不乘这个系数。
 const UNIT_SCALE := 3.2
-## 条带统一高 300px，1:1 显示。画布底边就是脚底线，缩放后对齐节点原点（世界 FEET_Y）。
-const SHEET_H := 300.0
-const SHEET_SCALE := 1.0
-const FRAME_COUNT := 4
+## 约等于 48px 地图精灵 × UNIT_SCALE。各帧按脚底缩放到这个视觉高度，挥砍时人不忽大忽小。
+const SPRITE_TARGET_H := 154.0
 const HP_BAR_W := 300.0
 
 ## 草地系（地图纹理同为 grass）。其它地形继续用色块。
@@ -34,13 +32,25 @@ const GRASS_BG := [
 	"res://art/combat/bg/ground_strip_grass.png",
 ]
 
-## 帧序：0 待机 / 1 前冲 / 2 挥砍命中 / 3 收招。
-## 暴击是单独的 {id}_crit.png，从左到右为 1,2,2,3（第 3 格复用第 2 格），不要截普通条带的第 4 帧。
+## 帧序：0 待机 / 1 前冲 / 2 挥砍命中 / 3 收招。山贼的 3 同时当作受击。
+## 最早风没有单独 _crit.png，暴击复用这四帧。横排 sheet 只是归档，运行时读单帧。
 const POSE_IDLE := 0
 const POSE_LUNGE := 1
 const POSE_STRIKE := 2
 const POSE_RECOVER := 3
-## 职业 → art/combat/{id}.png。只有这两张最早风条带；其余职业空字符串，走程序 Q 版。
+## 单帧脚底（纹理像素）。缩放后该点对齐节点原点，也就是 FEET_Y。不是画布正中。
+const FRAME_FEET := {
+	"tia_sword": [
+		Vector2(34.5, 278.0), Vector2(31.5, 263.0), Vector2(16.5, 263.0), Vector2(128.0, 269.0),
+	],
+	"bandit_axe": [
+		Vector2(173.0, 253.0), Vector2(192.0, 281.0), Vector2(274.0, 259.0), Vector2(106.0, 289.0),
+	],
+}
+## 待机帧发顶到脚底的像素高度，全帧共用。
+const FRAME_BODY_H := {"tia_sword": 275.0, "bandit_axe": 250.0}
+const HIT_FRAME := {"tia_sword": -1, "bandit_axe": 3}
+## 职业 → 最早风 id。只有这两张；其余职业空字符串，走程序 Q 版。
 const CLASS_SHEET := {
 	"剑士": "tia_sword",
 	"山贼": "bandit_axe",
@@ -225,25 +235,28 @@ func _make_fighter(u: Unit, face_left: bool) -> Unit:
 	c.draw_ring = false
 	c.draw_hp_bar = false
 	var sheet := _sheet_id_for(u)
-	var frames := _load_strip(sheet, false)
+	var frames := _load_frames(sheet)
 	if frames.is_empty():
 		c.scale = Vector2(-UNIT_SCALE if face_left else UNIT_SCALE, UNIT_SCALE)
 		return c
-	# 朝右为默认；敌方用父节点镜像。300px 条带按 SHEET_SCALE 贴地，不再乘 UNIT_SCALE。
+	# 朝右为默认；敌方用父节点镜像。像素帧自身不再乘 UNIT_SCALE。
 	c.suppress_draw = true
 	c.scale = Vector2(-1.0 if face_left else 1.0, 1.0)
+	var sc: float = SPRITE_TARGET_H / float(FRAME_BODY_H[sheet])
 	var sprite := Sprite2D.new()
 	sprite.name = "CombatPose"
 	sprite.centered = false
-	# 战斗立绘用最近邻，避免线性过滤把描边糊开。Godot 4.7 导入项没有 process/filter。
+	# 战斗立绘用最近邻。Godot 4.7 导入项没有 process/filter。
 	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	sprite.scale = Vector2(SHEET_SCALE, SHEET_SCALE)
+	sprite.scale = Vector2(sc, sc)
 	c.add_child(sprite)
 	c.set_meta("combat_sprite", sprite)
+	# 没有 {id}_crit.png：暴击换的是演出，帧仍是这四张。
 	c.set_meta("combat_frames_normal", frames)
-	c.set_meta("combat_frames_crit", _load_strip(sheet, true))
+	c.set_meta("combat_frames_crit", frames)
 	c.set_meta("combat_frames", frames)
-	c.set_meta("combat_px_scale", SHEET_SCALE)
+	c.set_meta("combat_px_scale", sc)
+	c.set_meta("combat_hit_frame", int(HIT_FRAME.get(sheet, -1)))
 	c.set_meta("combat_sheet", sheet)
 	c.set_meta("combat_sheet_mode", "normal")
 	_set_pose(c, POSE_IDLE)
@@ -268,31 +281,20 @@ func _is_sheet(id: String) -> bool:
 	return id != "" and SHEET_IDS.has(id)
 
 
-## 横排 4 帧。宽度不整除时把余数像素分给前几帧，避免最后一帧被裁掉。
-func _load_strip(sheet_id: String, crit: bool) -> Array:
-	if not _is_sheet(sheet_id):
+## 读 art/combat/{id}_frames/00–03.png。缺任一帧则整套放弃，调用方改画程序 Q 版。
+func _load_frames(sheet_id: String) -> Array:
+	if not _is_sheet(sheet_id) or not FRAME_FEET.has(sheet_id):
 		return []
-	var path := "res://art/combat/%s%s.png" % [sheet_id, "_crit" if crit else ""]
-	if not ResourceLoader.exists(path):
-		return []
-	var tex := load(path) as Texture2D
-	if tex == null:
-		return []
-	var full_w := tex.get_width()
-	var full_h := tex.get_height()
-	if full_w < FRAME_COUNT or full_h <= 0:
-		return []
-	var base_w := int(full_w / FRAME_COUNT)
-	var extra := full_w - base_w * FRAME_COUNT
+	var feet: Array = FRAME_FEET[sheet_id]
 	var frames: Array = []
-	var x := 0
-	for i in FRAME_COUNT:
-		var fw := base_w + (1 if i < extra else 0)
-		var atlas := AtlasTexture.new()
-		atlas.atlas = tex
-		atlas.region = Rect2(x, 0, fw, full_h)
-		frames.append(atlas)
-		x += fw
+	for i in feet.size():
+		var path := "res://art/combat/%s_frames/%02d.png" % [sheet_id, i]
+		if not ResourceLoader.exists(path):
+			return []
+		var tex := load(path) as Texture2D
+		if tex == null:
+			return []
+		frames.append({"tex": tex, "feet": feet[i]})
 	return frames
 
 
@@ -302,12 +304,13 @@ func _set_pose(node: Unit, pose: int) -> void:
 	var frames: Array = node.get_meta("combat_frames")
 	if frames.is_empty():
 		return
-	var atlas: AtlasTexture = frames[clampi(pose, 0, frames.size() - 1)]
+	var fr: Dictionary = frames[clampi(pose, 0, frames.size() - 1)]
 	var sprite: Sprite2D = node.get_meta("combat_sprite")
 	var sc: float = node.get_meta("combat_px_scale")
-	sprite.texture = atlas
-	# 画布底边 = 脚底线。节点原点在世界 FEET_Y，所以脚底贴地。
-	sprite.position = Vector2(-float(atlas.get_width()) * 0.5, -float(atlas.get_height())) * sc
+	var feet: Vector2 = fr["feet"]
+	sprite.texture = fr["tex"]
+	# 脚底点对齐节点原点。节点在世界 FEET_Y，所以脚踩在草带上。
+	sprite.position = Vector2(-feet.x, -feet.y) * sc
 
 
 func _use_crit_frames(node: Unit, on: bool) -> void:
