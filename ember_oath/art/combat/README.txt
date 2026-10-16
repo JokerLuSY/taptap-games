@@ -1,10 +1,10 @@
-# combat art (300px sheets)
+# combat art
 
-Path: art/combat/{id}.png — normal 4-frame horizontal strip
-      art/combat/{id}_crit.png — crit 4-frame horizontal strip
-
-All sheets are height 300px, transparent RGBA. The canvas bottom edge is the foot line
-and is placed on CombatScene.FEET_Y (520) at SHEET_SCALE 1.0.
+Pixel strips (earliest-style, tia_sword and bandit_axe only):
+- art/combat/{id}.png — normal 4-frame horizontal strip
+- art/combat/{id}_crit.png — crit strip, frame order 1,2,2,3
+Feet come from CombatScene.FRAME_FEET and land on FEET_Y (520). Sprites scale to
+SPRITE_TARGET_H (154) with nearest filtering. Other classes stay procedural.
 
 Layered backdrops live in combat/bg/. Each set is four 1280×720 layers
 (sky, mountains, mid, ground_strip), drawn with LINEAR filtering.
