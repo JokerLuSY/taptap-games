@@ -38,9 +38,10 @@ var scar := false
 var _t := 0.0
 var _phase := 0.0
 
-# 绘制开关（战斗特写的克隆体会关掉光环和 HP 条）
+# 绘制开关（战斗特写的克隆体会关掉光环和 HP 条；有像素帧时整段程序绘制关掉）
 var draw_ring := true
 var draw_hp_bar := true
+var suppress_draw := false
 
 const OUTLINE := Color(0.13, 0.11, 0.15)
 
@@ -158,11 +159,15 @@ func tile_center() -> Vector2:
 # ==================== 绘制 ====================
 
 func _process(delta: float) -> void:
+	if suppress_draw:
+		return
 	_t += delta
 	queue_redraw()
 
 
 func _draw() -> void:
+	if suppress_draw:
+		return
 	var bob := sin(_t * 2.6 + _phase) * 1.3
 	# ---- 地面阴影 + 阵营光环（不浮动） ----
 	if draw_ring:

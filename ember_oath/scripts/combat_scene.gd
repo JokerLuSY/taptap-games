@@ -1,7 +1,7 @@
 class_name CombatScene
 extends CanvasLayer
-## 战斗特写演出：GBA 火纹式横版对砍（放大 Q 版小人 + 震屏 + 伤害数字 + HP 条）
-## 点击 / 回车可跳过
+## 战斗特写演出：GBA 火纹式横版对砍（草地分层远景 + 缇娅/山贼像素帧，其余仍是放大 Q 版）
+## 点击 / 回车可跳过。对砍 tween 时序不在这里改，像素帧只在既有关键点切换。
 
 signal finished
 
@@ -15,9 +15,39 @@ const GROUND_COLORS := {
 
 const ATT_X := 380.0
 const DEF_X := 900.0
+## 角色脚底世界坐标。草地远景是 1280×720 整图，草带盖住 y=438..559，脚底就落在这条带上。
 const FEET_Y := 520.0
 const UNIT_SCALE := 3.2
+## 约等于 48px 地图精灵 × UNIT_SCALE，像素帧按脚底缩放到这个视觉高度。
+const SPRITE_TARGET_H := 154.0
 const HP_BAR_W := 300.0
+
+## 草地系（地图纹理同为 grass）。其它地形继续用色块。
+const GRASS_TERRAIN := {".": true, "H": true, "W": true}
+const GRASS_BG := [
+	"res://art/combat/bg/sky_grass.png",
+	"res://art/combat/bg/mountains_grass.png",
+	"res://art/combat/bg/mid_grass.png",
+	"res://art/combat/bg/ground_strip_grass.png",
+]
+
+## 帧序：0 待机 / 1 前冲 / 2 挥砍命中 / 3 收招。山贼的 3 同时当作受击。
+const POSE_IDLE := 0
+const POSE_LUNGE := 1
+const POSE_STRIKE := 2
+const POSE_RECOVER := 3
+## 单帧脚底中心（纹理像素）。缩放后该点对齐节点原点，也就是 FEET_Y。
+const FRAME_FEET := {
+	"tia_sword": [
+		Vector2(34.5, 278.0), Vector2(31.5, 263.0), Vector2(16.5, 263.0), Vector2(128.0, 269.0),
+	],
+	"bandit_axe": [
+		Vector2(173.0, 253.0), Vector2(192.0, 281.0), Vector2(274.0, 259.0), Vector2(106.0, 289.0),
+	],
+}
+## 待机帧发顶到脚底的像素高度，全帧共用，避免挥砍时人物缩放跳动。
+const FRAME_BODY_H := {"tia_sword": 275.0, "bandit_axe": 250.0}
+const HIT_FRAME := {"tia_sword": -1, "bandit_axe": 3}
 
 var active := false
 
@@ -62,7 +92,7 @@ func play(att: Unit, def: Unit, wi: int, events: Array, terrain_char: String) ->
 	_skip = false
 	_att_real = att
 	_def_real = def
-	_rebuild_bg(GROUND_COLORS.get(terrain_char, GROUND_COLORS["."]))
+	_rebuild_bg(GROUND_COLORS.get(terrain_char, GROUND_COLORS["."]), terrain_char)
 	_setup_units()
 	_setup_labels(wi)
 	_update_bars()
@@ -121,9 +151,12 @@ func _input(event: InputEvent) -> void:
 
 # ==================== 构建 ====================
 
-func _rebuild_bg(ground_color: Color) -> void:
+func _rebuild_bg(ground_color: Color, terrain_char: String) -> void:
 	for c in _stage.get_children():
 		c.queue_free()
+	if _use_grass_bg(terrain_char):
+		_build_grass_bg()
+		return
 	# 天空三段渐变
 	var sky_colors := [Color(0.42, 0.60, 0.84), Color(0.60, 0.76, 0.91), Color(0.76, 0.87, 0.95)]
 	for i in 3:
@@ -193,8 +226,94 @@ func _make_fighter(u: Unit, face_left: bool) -> Unit:
 	c.weapons = u.weapons.duplicate()
 	c.draw_ring = false
 	c.draw_hp_bar = false
-	c.scale = Vector2(-UNIT_SCALE if face_left else UNIT_SCALE, UNIT_SCALE)
+	var sheet := _sheet_id_for(u)
+	var frames := _load_frames(sheet)
+	if frames.is_empty():
+		c.scale = Vector2(-UNIT_SCALE if face_left else UNIT_SCALE, UNIT_SCALE)
+		return c
+	# 朝右为默认；敌方用父节点镜像。像素帧自身不再乘 UNIT_SCALE。
+	c.suppress_draw = true
+	c.scale = Vector2(-1.0 if face_left else 1.0, 1.0)
+	var sc: float = SPRITE_TARGET_H / float(FRAME_BODY_H[sheet])
+	var sprite := Sprite2D.new()
+	sprite.name = "CombatPose"
+	sprite.centered = false
+	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	sprite.scale = Vector2(sc, sc)
+	c.add_child(sprite)
+	c.set_meta("combat_sprite", sprite)
+	c.set_meta("combat_frames", frames)
+	c.set_meta("combat_px_scale", sc)
+	c.set_meta("combat_hit_frame", int(HIT_FRAME.get(sheet, -1)))
+	_set_pose(c, POSE_IDLE)
 	return c
+
+
+## 缇娅 → tia_sword；id 以 bandit 开头的山贼（含增援、被说得者）→ bandit_axe。
+## 布洛克、巴尔托、弓箭手没有对应 sheet，继续画程序小人。
+func _sheet_id_for(u: Unit) -> String:
+	if u.unit_id == "tia":
+		return "tia_sword"
+	if u.unit_id.begins_with("bandit"):
+		return "bandit_axe"
+	return ""
+
+
+func _load_frames(sheet_id: String) -> Array:
+	if sheet_id == "" or not FRAME_FEET.has(sheet_id):
+		return []
+	var feet: Array = FRAME_FEET[sheet_id]
+	var frames: Array = []
+	for i in feet.size():
+		var path := "res://art/combat/%s_frames/%02d.png" % [sheet_id, i]
+		if not ResourceLoader.exists(path):
+			return []
+		var tex := load(path) as Texture2D
+		if tex == null:
+			return []
+		frames.append({"tex": tex, "feet": feet[i]})
+	return frames
+
+
+func _set_pose(node: Unit, pose: int) -> void:
+	if node == null or not is_instance_valid(node) or not node.has_meta("combat_sprite"):
+		return
+	var frames: Array = node.get_meta("combat_frames")
+	if frames.is_empty():
+		return
+	var fr: Dictionary = frames[clampi(pose, 0, frames.size() - 1)]
+	var sprite: Sprite2D = node.get_meta("combat_sprite")
+	var sc: float = node.get_meta("combat_px_scale")
+	var feet: Vector2 = fr["feet"]
+	sprite.texture = fr["tex"]
+	sprite.position = Vector2(-feet.x, -feet.y) * sc
+
+
+func _set_hit_pose(node: Unit) -> void:
+	if node == null or not node.has_meta("combat_hit_frame"):
+		return
+	var hf: int = node.get_meta("combat_hit_frame")
+	if hf >= 0:
+		_set_pose(node, hf)
+
+
+func _use_grass_bg(terrain_char: String) -> bool:
+	if not GRASS_TERRAIN.has(terrain_char):
+		return false
+	for path in GRASS_BG:
+		if not ResourceLoader.exists(path):
+			return false
+	return true
+
+
+func _build_grass_bg() -> void:
+	for path in GRASS_BG:
+		var spr := Sprite2D.new()
+		spr.texture = load(path)
+		spr.centered = false
+		spr.position = Vector2.ZERO
+		spr.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+		_stage.add_child(spr)
 
 
 func _setup_labels(wi: int) -> void:
@@ -312,21 +431,26 @@ func _strike_melee(striker: Unit, victim: Unit, ev: Dictionary, dir: float, styl
 			await get_tree().create_timer(0.12).timeout
 			approach_time = 0.15
 		"axe":
-			# 跃起
+			# 跃起（前冲帧跟这次起跳一起换，不另加等待）
+			_set_pose(striker, POSE_LUNGE)
 			var hop := create_tween()
 			hop.tween_property(striker, "position:y", start_y - 40.0, 0.14).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 			await get_tree().create_timer(0.14).timeout
+	_set_pose(striker, POSE_LUNGE)
 	var t := create_tween()
 	t.tween_property(striker, "position:x", victim_x - dir * 110.0, approach_time).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	if style == "axe":
 		t.parallel().tween_property(striker, "position:y", start_y, approach_time).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	await get_tree().create_timer(approach_time + 0.02).timeout
+	_set_pose(striker, POSE_STRIKE)
 	_impact(striker, victim, ev, dir, style, false)
 	await get_tree().create_timer(0.24).timeout
 	# 归位
+	_set_pose(striker, POSE_RECOVER)
 	var back2 := create_tween()
 	back2.tween_property(striker, "position:x", start_x, 0.16)
 	await get_tree().create_timer(0.18).timeout
+	_set_pose(striker, POSE_IDLE)
 
 
 ## 弓手：原地拉弓, 箭矢飞行
@@ -370,14 +494,18 @@ func _strike_crit(striker: Unit, victim: Unit, ev: Dictionary, dir: float) -> vo
 	await get_tree().create_timer(0.34).timeout
 	striker.modulate = Color.WHITE
 	# 慢速突进（压迫感）
+	_set_pose(striker, POSE_LUNGE)
 	var t := create_tween()
 	t.tween_property(striker, "position:x", victim_x - dir * 110.0, 0.30).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	await get_tree().create_timer(0.32).timeout
+	_set_pose(striker, POSE_STRIKE)
 	_impact(striker, victim, ev, dir, "crit", true)
 	await get_tree().create_timer(0.36).timeout
+	_set_pose(striker, POSE_RECOVER)
 	var back2 := create_tween()
 	back2.tween_property(striker, "position:x", start_x, 0.18)
 	await get_tree().create_timer(0.20).timeout
+	_set_pose(striker, POSE_IDLE)
 
 
 ## 命中/未命中结算 + 打击特效
@@ -393,6 +521,7 @@ func _impact(striker: Unit, victim: Unit, ev: Dictionary, dir: float, style: Str
 		dg.tween_property(victim, "position:x", victim_x + dir * 30.0, 0.08)
 		dg.tween_property(victim, "position:x", victim_x, 0.12)
 		return
+	_set_hit_pose(victim)
 	_apply_damage(ev)
 	if is_crit:
 		Audio.play_sfx("crit")
@@ -418,6 +547,10 @@ func _impact(striker: Unit, victim: Unit, ev: Dictionary, dir: float, style: Str
 	var kb_dist := 34.0 if is_crit else 22.0
 	kb.tween_property(victim, "position:x", victim_x + dir * kb_dist, 0.08)
 	kb.tween_property(victim, "position:x", victim_x, 0.12)
+	kb.tween_callback(func() -> void:
+		if is_instance_valid(victim):
+			_set_pose(victim, POSE_IDLE)
+	)
 
 
 func _apply_damage(ev: Dictionary) -> void:
