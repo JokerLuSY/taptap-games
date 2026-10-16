@@ -1049,10 +1049,13 @@ func _find_button(root: Node, text: String) -> Button:
 
 ## 硬边条带：alpha 只有 0/255，导入关闭 mipmaps。Godot 4.7 没有 process/filter，最近邻在 Sprite2D 上断言。
 func _check_binary_sheet(path: String) -> void:
-	var img := Image.new()
-	var err := img.load(path)
-	_check(err == OK, "应能读取战斗条带: " + path)
-	if err != OK:
+	var tex := load(path) as Texture2D
+	_check(tex != null, "应能读取战斗条带: " + path)
+	if tex == null:
+		return
+	var img := tex.get_image()
+	_check(img != null, "战斗条带应能取回像素: " + path)
+	if img == null:
 		return
 	if img.get_format() != Image.FORMAT_RGBA8:
 		img.convert(Image.FORMAT_RGBA8)
