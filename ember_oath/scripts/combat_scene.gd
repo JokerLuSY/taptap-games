@@ -271,7 +271,9 @@ func _make_fighter(u: Unit, face_left: bool) -> Unit:
 	var sprite := Sprite2D.new()
 	sprite.name = "CombatPose"
 	sprite.centered = false
-	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	# 硬边像素条带：最近邻，避免线性过滤把二值 alpha 描成半透明碎渣。
+	# Godot 4.7 纹理导入没有 process/filter，过滤只在 CanvasItem 上生效；mipmaps 在 .import 里已关。
+	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	sprite.scale = Vector2(SHEET_SCALE, SHEET_SCALE)
 	c.add_child(sprite)
 	c.set_meta("combat_sprite", sprite)

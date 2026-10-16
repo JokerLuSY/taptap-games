@@ -568,6 +568,8 @@ func _check_infra() -> void:
 	for sheet in CombatScene.SHEET_IDS:
 		combat_art.append("res://art/combat/%s.png" % sheet)
 		combat_art.append("res://art/combat/%s_crit.png" % sheet)
+		_check_binary_sheet("res://art/combat/%s.png" % sheet)
+		_check_binary_sheet("res://art/combat/%s_crit.png" % sheet)
 		var mapped := false
 		for v in CombatScene.CLASS_SHEET.values():
 			if v == sheet:
@@ -1045,12 +1047,36 @@ func _find_button(root: Node, text: String) -> Button:
 	return null
 
 
+## 硬边条带：alpha 只有 0/255，导入关闭 mipmaps。Godot 4.7 没有 process/filter，最近邻在 Sprite2D 上断言。
+func _check_binary_sheet(path: String) -> void:
+	var img := Image.new()
+	var err := img.load(path)
+	_check(err == OK, "应能读取战斗条带: " + path)
+	if err != OK:
+		return
+	if img.get_format() != Image.FORMAT_RGBA8:
+		img.convert(Image.FORMAT_RGBA8)
+	var data := img.get_data()
+	var i := 3
+	var soft := false
+	while i < data.size():
+		var a: int = data[i]
+		if a != 0 and a != 255:
+			soft = true
+			break
+		i += 4
+	_check(not soft, path + " 应为二值 alpha（0 或 255）")
+	var imp := FileAccess.get_file_as_string(path + ".import")
+	_check(imp.contains("mipmaps/generate=false"), path + " 导入应关闭 mipmaps")
+
+
 func _check_combat_feet(node: Node, who: String) -> void:
 	var pose := node.get_node_or_null("CombatPose") as Sprite2D
 	_check(pose != null and pose.texture != null, who + "特写应挂上像素帧")
 	if pose == null or pose.texture == null:
 		return
 	var feet_local := pose.position.y + float(pose.texture.get_height()) * pose.scale.y
+	_check(pose.texture_filter == CanvasItem.TEXTURE_FILTER_NEAREST, who + "战斗立绘应为最近邻过滤")
 	_check(absf(feet_local) < 1.5, who + " 300px 脚底应贴在 FEET_Y，局部偏差 %s" % feet_local)
 	_check(is_equal_approx(pose.scale.y, CombatScene.SHEET_SCALE), who + " 条带缩放应为 1，实际 %s" % pose.scale.y)
 	_check(is_equal_approx(float(pose.texture.get_height()), CombatScene.SHEET_H), who + " 帧高应为 300，实际 %s" % pose.texture.get_height())
