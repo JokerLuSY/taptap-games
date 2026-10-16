@@ -599,6 +599,14 @@ func _check_infra() -> void:
 	_check(CombatScene.SHEET_FACES_RIGHT["tia_sword"] == true, "tia_sword 原生应朝右")
 	_check(CombatScene.SHEET_FACES_RIGHT["bandit_axe"] == false, "bandit_axe 原生应朝左")
 	_check(not FileAccess.file_exists("res://art/combat/archer_bow.png"), "日系整包不应留在运行时")
+	for sheet in CombatScene.SHEET_IDS:
+		for suffix in ["", "_crit"]:
+			var imp_path := "res://art/combat/%s%s.png.import" % [sheet, suffix]
+			var imp := FileAccess.get_file_as_string(imp_path)
+			_check(imp.contains("process/premult_alpha=false"), imp_path + " 应为直通 alpha，不要预乘")
+			_check(imp.contains("process/fix_alpha_border=false"), imp_path + " 不应把不透明 RGB 扩到透明边")
+			_check(imp.contains("mipmaps/generate=false"), imp_path + " 不应生成 mipmap")
+			_check(imp.contains("compress/mode=0"), imp_path + " 应为无损压缩")
 	_check(is_equal_approx(CombatScene.SPRITE_TARGET_H, 154.0), "最早风视觉高度应为 154")
 	_check(is_equal_approx(CombatScene.FEET_Y, 520.0), "脚底世界坐标应为 520")
 	var scene := CombatScene.new()
@@ -634,6 +642,12 @@ func _check_infra() -> void:
 		_check(scene._layered_bg_paths(plain_char) == grass_paths, "未登记地形应默认 grass 四层: " + plain_char)
 		scene._rebuild_bg(CombatScene.GROUND_COLORS.get(plain_char, CombatScene.GROUND_COLORS["."]), plain_char)
 		_check_layered_stage(scene, "grass")
+	scene._slash_effect(Vector2(400, 400), Color.WHITE, true)
+	var fx_above := false
+	for c in _live_stage_children(scene):
+		if c is Polygon2D and (c as CanvasItem).z_index == CombatScene.Z_FX:
+			fx_above = true
+	_check(fx_above, "斩击特效应画在角色之上")
 	scene.free()
 	scene = CombatScene.new()
 	var probe := Unit.new()
@@ -1119,6 +1133,7 @@ func _check_layered_stage(scene: CombatScene, tag: String) -> void:
 			var spr := c as Sprite2D
 			_check(spr.texture != null, tag + " 分层纹理应加载成功")
 			_check(spr.texture_filter == CanvasItem.TEXTURE_FILTER_LINEAR, tag + " 分层应为 LINEAR")
+			_check(spr.z_index == CombatScene.Z_BG and spr.z_index < CombatScene.Z_FIGHTER, tag + " 分层应压在角色下面")
 			_check(not spr.centered and spr.position == Vector2.ZERO, tag + " 分层应左上对齐铺满")
 		else:
 			_check(false, tag + " 分层舞台不应混入 " + c.get_class())
@@ -1152,6 +1167,7 @@ func _check_sheet_facing(scene: CombatScene) -> void:
 	_check(bandit_right.scale.x > 0.0, "朝左条带站右侧 scale.x 应为正")
 	for fighter in [tia_left, tia_right, bandit_left, bandit_right]:
 		fighter.position = Vector2(CombatScene.ATT_X, CombatScene.FEET_Y)
+		_check_combat_feet(fighter, "朝向样本")
 		for pose in [CombatScene.POSE_IDLE, CombatScene.POSE_STRIKE]:
 			scene._set_pose(fighter, pose)
 			_check_anchor_on_feet(fighter, "普通帧")
@@ -1206,6 +1222,16 @@ func _check_combat_feet(node: Node, who: String) -> void:
 	if pose == null or pose.texture == null:
 		return
 	_check(pose.texture_filter == CanvasItem.TEXTURE_FILTER_NEAREST, who + "战斗立绘应为最近邻过滤")
+	_check(pose.texture_repeat == CanvasItem.TEXTURE_REPEAT_DISABLED, who + "战斗立绘不应重复贴图")
+	_check(is_equal_approx(pose.modulate.a, 1.0) and is_equal_approx(pose.self_modulate.a, 1.0), who + "立绘自身 alpha 应为 1，实际 modulate %s self %s" % [pose.modulate.a, pose.self_modulate.a])
+	var pose_mat := pose.material as ShaderMaterial
+	_check(pose_mat != null and pose_mat.shader != null, who + "立绘应使用直通 alpha 着色器")
+	if pose_mat != null and pose_mat.shader != null:
+		var pose_code := pose_mat.shader.code
+		_check(pose_code.contains("blend_mix") and pose_code.contains("discard") and not pose_code.contains("blend_premul_alpha"), who + "立绘应为 mix 混合并丢弃半透明采样")
+	var pose_atlas := pose.texture as AtlasTexture
+	_check(pose_atlas != null and pose_atlas.filter_clip, who + "图集应裁切，避免邻帧渗色")
+	_check((node as CanvasItem).z_index == CombatScene.Z_FIGHTER and (node as CanvasItem).z_index < CombatScene.Z_FX, who + "应画在背景之上、特效之下")
 	var sheet := str(node.get_meta("combat_sheet", ""))
 	var body_h: float = float(CombatScene.FRAME_BODY_H.get(sheet, 0.0))
 	var expect_sc := CombatScene.SPRITE_TARGET_H / body_h

@@ -94,6 +94,11 @@ const SHEET_FACES_RIGHT := {
 	"tia_sword": true,
 	"bandit_axe": false,
 }
+## 背景在角色下面，斩击火花在角色上面。身体不靠绘制顺序碰运气。
+const Z_BG := 0
+const Z_FIGHTER := 10
+const Z_FX := 30
+const _POSE_SHADER := preload("res://shaders/combat_pose.gdshader")
 
 var active := false
 
@@ -247,6 +252,21 @@ func _rebuild_bg(ground_color: Color, terrain_char: String) -> void:
 		g.polygon = tri
 		g.color = grass_col
 		_stage.add_child(g)
+	_pin_stage_background()
+
+
+func _pin_stage_background() -> void:
+	for c in _stage.get_children():
+		if c is CanvasItem and not c.is_queued_for_deletion():
+			var item := c as CanvasItem
+			item.z_index = Z_BG
+			item.z_as_relative = true
+
+
+func _add_fx(node: CanvasItem) -> void:
+	node.z_index = Z_FX
+	node.z_as_relative = true
+	_stage.add_child(node)
 
 
 func _setup_units() -> void:
@@ -287,9 +307,10 @@ func _make_fighter(u: Unit, face_left: bool) -> Unit:
 	var sprite := Sprite2D.new()
 	sprite.name = "CombatPose"
 	sprite.centered = false
-	# 战斗立绘用最近邻。Godot 4.7 导入项没有 process/filter。
-	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	sprite.scale = Vector2(sc, sc)
+	_lock_combat_sprite(sprite)
+	c.z_index = Z_FIGHTER
+	c.z_as_relative = true
 	c.add_child(sprite)
 	c.set_meta("combat_sprite", sprite)
 	c.set_meta("combat_frames_normal", frames)
@@ -352,6 +373,8 @@ func _load_strip(sheet_id: String, crit: bool) -> Array:
 		var atlas := AtlasTexture.new()
 		atlas.atlas = tex
 		atlas.region = Rect2(x, 0, fw, full_h)
+		# 最近邻也不要从相邻帧渗一像素进来。
+		atlas.filter_clip = true
 		frames.append({"tex": atlas, "feet": feet[i], "src": path})
 		x += fw
 	return frames
@@ -367,9 +390,23 @@ func _set_pose(node: Unit, pose: int) -> void:
 	var sprite: Sprite2D = node.get_meta("combat_sprite")
 	var sc: float = node.get_meta("combat_px_scale")
 	var feet: Vector2 = fr["feet"]
+	_lock_combat_sprite(sprite)
 	sprite.texture = fr["tex"]
 	# 脚底点对齐节点原点。父节点 scale.x 绕原点镜像，原点不动，翻转后脚仍踩在 FEET_Y。
 	sprite.position = Vector2(-feet.x, -feet.y) * sc
+
+
+## 立绘本体：alpha 锁死为 1，最近邻，直通 alpha 的 mix 混合。
+## 镀金 / 闪白 / 阵亡淡出走父节点 modulate，不走这张精灵自己的 alpha。
+func _lock_combat_sprite(sprite: Sprite2D) -> void:
+	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	sprite.texture_repeat = CanvasItem.TEXTURE_REPEAT_DISABLED
+	sprite.modulate = Color(1, 1, 1, 1)
+	sprite.self_modulate = Color(1, 1, 1, 1)
+	if not (sprite.material is ShaderMaterial) or (sprite.material as ShaderMaterial).shader != _POSE_SHADER:
+		var mat := ShaderMaterial.new()
+		mat.shader = _POSE_SHADER
+		sprite.material = mat
 
 
 func _use_crit_frames(node: Unit, on: bool) -> void:
@@ -430,6 +467,7 @@ func _build_layered_bg(paths: Array) -> bool:
 		spr.position = Vector2.ZERO
 		spr.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 		_stage.add_child(spr)
+	_pin_stage_background()
 	return true
 
 
@@ -589,7 +627,7 @@ func _strike_bow(striker: Unit, victim: Unit, ev: Dictionary, dir: float) -> voi
 	arrow.position = from
 	arrow.rotation = (to - from).angle()
 	arrow.pivot_offset = Vector2(11, 1.5)
-	_stage.add_child(arrow)
+	_add_fx(arrow)
 	var fly := create_tween()
 	fly.tween_property(arrow, "position", to, 0.16).set_trans(Tween.TRANS_LINEAR)
 	await get_tree().create_timer(0.16).timeout
@@ -703,7 +741,7 @@ func _slash_effect(pos: Vector2, color: Color, big := false) -> void:
 		Vector2(30, 16) * s, Vector2(-2, 10) * s, Vector2(-30, 20) * s, Vector2(-10, 0) * s])
 	slash.color = Color(color.r, color.g, color.b, 0.95)
 	slash.position = pos
-	_stage.add_child(slash)
+	_add_fx(slash)
 	var t := create_tween().set_parallel(true)
 	t.tween_property(slash, "scale", Vector2(1.25, 1.25), 0.18)
 	t.tween_property(slash, "modulate:a", 0.0, 0.18)
@@ -717,7 +755,7 @@ func _thrust_effect(pos: Vector2, dir: float) -> void:
 	line.size = Vector2(56, 4)
 	line.position = pos + Vector2(-28 if dir > 0 else -28 + 56, -2)
 	line.scale.x = dir
-	_stage.add_child(line)
+	_add_fx(line)
 	var t := create_tween().set_parallel(true)
 	t.tween_property(line, "scale:x", dir * 1.4, 0.14)
 	t.tween_property(line, "modulate:a", 0.0, 0.14)
@@ -732,7 +770,7 @@ func _spark_effect(pos: Vector2, color: Color, n: int) -> void:
 		p.color = color
 		p.size = Vector2(sz, sz)
 		p.position = pos
-		_stage.add_child(p)
+		_add_fx(p)
 		var ang := randf_range(0, TAU)
 		var dist := randf_range(24, 60)
 		var t := create_tween().set_parallel(true)
