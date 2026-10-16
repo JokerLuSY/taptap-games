@@ -1,6 +1,6 @@
 class_name CombatScene
 extends CanvasLayer
-## 战斗特写演出：GBA 火纹式横版对砍（草地分层远景 + 300px 日系职业条带）
+## 战斗特写演出：GBA 火纹式横版对砍（按地形换分层远景 + 300px 日系职业条带）
 ## 点击 / 回车可跳过。对砍 tween 时序不在这里改，条带只在既有关键点切换。
 
 signal finished
@@ -15,7 +15,7 @@ const GROUND_COLORS := {
 
 const ATT_X := 380.0
 const DEF_X := 900.0
-## 角色脚底世界坐标。草地远景是 1280×720 整图，草带盖住 y=438..559，脚底就落在这条带上。
+## 角色脚底世界坐标。分层远景是 1280×720 整图，地面带盖住 y=438..559，脚底就落在这条带上。
 const FEET_Y := 520.0
 ## 没有条带时的程序 Q 版。像素条带不乘这个系数。
 const UNIT_SCALE := 3.2
@@ -25,14 +25,36 @@ const SHEET_SCALE := 1.0
 const FRAME_COUNT := 4
 const HP_BAR_W := 300.0
 
-## 草地系（地图纹理同为 grass）。其它地形继续用色块。
-const GRASS_TERRAIN := {".": true, "H": true, "W": true}
-const GRASS_BG := [
-	"res://art/combat/bg/sky_grass.png",
-	"res://art/combat/bg/mountains_grass.png",
-	"res://art/combat/bg/mid_grass.png",
-	"res://art/combat/bg/ground_strip_grass.png",
-]
+## 分层战斗背景套。从远到近四层，全部 1280×720，LINEAR，脚底仍落在 FEET_Y。
+const BG_SETS := {
+	"grass": [
+		"res://art/combat/bg/sky_grass.png",
+		"res://art/combat/bg/mountains_grass.png",
+		"res://art/combat/bg/mid_grass.png",
+		"res://art/combat/bg/ground_strip_grass.png",
+	],
+	"forest": [
+		"res://art/combat/bg/sky_forest.png",
+		"res://art/combat/bg/mountains_forest.png",
+		"res://art/combat/bg/mid_forest.png",
+		"res://art/combat/bg/ground_strip_forest.png",
+	],
+	"scorch": [
+		"res://art/combat/bg/sky_scorch.png",
+		"res://art/combat/bg/mountains_scorch.png",
+		"res://art/combat/bg/mid_scorch.png",
+		"res://art/combat/bg/ground_strip_scorch.png",
+	],
+}
+## terrain_char → 套名。未登记的字符继续走 GROUND_COLORS 色块。
+const TERRAIN_BG := {
+	".": "grass",
+	"H": "grass",
+	"W": "grass",
+	"F": "forest",
+	"f": "scorch",
+	"B": "scorch",
+}
 
 ## 帧序：0 待机 / 1 前冲 / 2 挥砍命中 / 3 收招。暴击换 {id}_crit.png，帧序相同。
 const POSE_IDLE := 0
@@ -188,8 +210,7 @@ func _input(event: InputEvent) -> void:
 func _rebuild_bg(ground_color: Color, terrain_char: String) -> void:
 	for c in _stage.get_children():
 		c.queue_free()
-	if _use_grass_bg(terrain_char):
-		_build_grass_bg()
+	if _build_layered_bg(_layered_bg_paths(terrain_char)):
 		return
 	# 天空三段渐变
 	var sky_colors := [Color(0.42, 0.60, 0.84), Color(0.60, 0.76, 0.91), Color(0.76, 0.87, 0.95)]
@@ -368,23 +389,45 @@ func _set_hit_pose(node: Unit) -> void:
 		_set_pose(node, hf)
 
 
-func _use_grass_bg(terrain_char: String) -> bool:
-	if not GRASS_TERRAIN.has(terrain_char):
+## 当前地形对应的分层路径。未登记、或任一层资源缺失时返回空数组（调用方回退色块）。
+func _layered_bg_paths(terrain_char: String) -> Array:
+	if not TERRAIN_BG.has(terrain_char):
+		return []
+	var set_name := str(TERRAIN_BG[terrain_char])
+	if not BG_SETS.has(set_name):
+		return []
+	return _usable_layered_paths(BG_SETS[set_name])
+
+
+func _usable_layered_paths(paths: Array) -> Array:
+	var out: Array = []
+	for path in paths:
+		var p := str(path)
+		if p.is_empty() or not ResourceLoader.exists(p):
+			return []
+		out.append(p)
+	return out
+
+
+## 铺四层 Sprite2D。路径为空、任一层缺失或加载失败时不改舞台，返回 false。
+func _build_layered_bg(paths: Array) -> bool:
+	var usable := _usable_layered_paths(paths)
+	if usable.is_empty():
 		return false
-	for path in GRASS_BG:
-		if not ResourceLoader.exists(path):
+	var textures: Array = []
+	for path in usable:
+		var tex = load(path)
+		if tex == null:
 			return false
-	return true
-
-
-func _build_grass_bg() -> void:
-	for path in GRASS_BG:
+		textures.append(tex)
+	for tex in textures:
 		var spr := Sprite2D.new()
-		spr.texture = load(path)
+		spr.texture = tex
 		spr.centered = false
 		spr.position = Vector2.ZERO
 		spr.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 		_stage.add_child(spr)
+	return true
 
 
 func _setup_labels(wi: int) -> void:

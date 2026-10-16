@@ -564,6 +564,14 @@ func _check_infra() -> void:
 		"res://art/combat/bg/mountains_grass.png",
 		"res://art/combat/bg/mid_grass.png",
 		"res://art/combat/bg/ground_strip_grass.png",
+		"res://art/combat/bg/sky_forest.png",
+		"res://art/combat/bg/mountains_forest.png",
+		"res://art/combat/bg/mid_forest.png",
+		"res://art/combat/bg/ground_strip_forest.png",
+		"res://art/combat/bg/sky_scorch.png",
+		"res://art/combat/bg/mountains_scorch.png",
+		"res://art/combat/bg/mid_scorch.png",
+		"res://art/combat/bg/ground_strip_scorch.png",
 	]
 	for sheet in CombatScene.SHEET_IDS:
 		combat_art.append("res://art/combat/%s.png" % sheet)
@@ -580,6 +588,31 @@ func _check_infra() -> void:
 	_check(is_equal_approx(CombatScene.SHEET_SCALE, 1.0), "300px 条带应为 1:1")
 	_check(is_equal_approx(CombatScene.FEET_Y, 520.0), "脚底世界坐标应为 520")
 	var scene := CombatScene.new()
+	add_child(scene)
+	var grass_paths: Array = scene._layered_bg_paths(".")
+	_check(grass_paths.size() == 4 and str(grass_paths[0]).ends_with("sky_grass.png") and str(grass_paths[3]).ends_with("ground_strip_grass.png"), "草地套应为四层 grass 图，实际 %s" % str(grass_paths))
+	_check(scene._layered_bg_paths("H") == grass_paths and scene._layered_bg_paths("W") == grass_paths, "H / W 应与平原共用草地套")
+	var forest_paths: Array = scene._layered_bg_paths("F")
+	_check(forest_paths.size() == 4 and str(forest_paths[0]).ends_with("sky_forest.png") and str(forest_paths[3]).ends_with("ground_strip_forest.png"), "森林 F 应为四层 forest 图，实际 %s" % str(forest_paths))
+	var scorch_paths: Array = scene._layered_bg_paths("f")
+	_check(scorch_paths.size() == 4 and str(scorch_paths[0]).ends_with("sky_scorch.png") and str(scorch_paths[3]).ends_with("ground_strip_scorch.png"), "焦土 f 应为四层 scorch 图，实际 %s" % str(scorch_paths))
+	_check(scene._layered_bg_paths("B") == scorch_paths, "B 应与焦土 f 共用 scorch 套")
+	for plain in [".", "H", "W"]:
+		scene._rebuild_bg(CombatScene.GROUND_COLORS[plain], plain)
+		_check_layered_stage(scene, "grass")
+	scene._rebuild_bg(CombatScene.GROUND_COLORS["F"], "F")
+	_check_layered_stage(scene, "forest")
+	for scorched in ["f", "B"]:
+		scene._rebuild_bg(CombatScene.GROUND_COLORS[scorched], scorched)
+		_check_layered_stage(scene, "scorch")
+	_check(scene._usable_layered_paths(["res://art/combat/bg/missing_layer.png"]).is_empty(), "任一层缺失时应放弃分层套")
+	_check(scene._usable_layered_paths(grass_paths.slice(0, 3) + ["res://art/combat/bg/missing_layer.png"]).is_empty(), "四层里缺一层时应整套回退")
+	for plain_char in ["R", "M", "X", "g", "~"]:
+		_check(scene._layered_bg_paths(plain_char).is_empty(), "未登记地形应走色块: " + plain_char)
+		scene._rebuild_bg(CombatScene.GROUND_COLORS.get(plain_char, CombatScene.GROUND_COLORS["."]), plain_char)
+		_check_color_stage(scene, plain_char)
+	scene.free()
+	scene = CombatScene.new()
 	var probe := Unit.new()
 	probe.unit_id = "tia"
 	probe.class_label = "剑士"
@@ -1043,6 +1076,45 @@ func _find_button(root: Node, text: String) -> Button:
 		if found != null:
 			return found
 	return null
+
+
+func _live_stage_children(scene: CombatScene) -> Array:
+	var live: Array = []
+	for c in scene._stage.get_children():
+		if not c.is_queued_for_deletion():
+			live.append(c)
+	return live
+
+
+func _check_layered_stage(scene: CombatScene, tag: String) -> void:
+	var live := _live_stage_children(scene)
+	var sprites := 0
+	for c in live:
+		if c is Sprite2D:
+			sprites += 1
+			var spr := c as Sprite2D
+			_check(spr.texture != null, tag + " 分层纹理应加载成功")
+			_check(spr.texture_filter == CanvasItem.TEXTURE_FILTER_LINEAR, tag + " 分层应为 LINEAR")
+			_check(not spr.centered and spr.position == Vector2.ZERO, tag + " 分层应左上对齐铺满")
+		else:
+			_check(false, tag + " 分层舞台不应混入 " + c.get_class())
+	_check(sprites == 4, tag + " 应正好四层 Sprite，实际 %d" % sprites)
+	if live.size() == 4 and live[0] is Sprite2D and live[3] is Sprite2D:
+		var sky := str((live[0] as Sprite2D).texture.resource_path)
+		var ground := str((live[3] as Sprite2D).texture.resource_path)
+		_check(sky.contains("sky_" + tag), tag + " 最远层应为 sky，实际 " + sky)
+		_check(ground.contains("ground_strip_" + tag), tag + " 最近层应为地面带，实际 " + ground)
+
+
+func _check_color_stage(scene: CombatScene, terrain_char: String) -> void:
+	var sprites := 0
+	var blocks := 0
+	for c in _live_stage_children(scene):
+		if c is Sprite2D:
+			sprites += 1
+		else:
+			blocks += 1
+	_check(sprites == 0 and blocks > 0, "地形 %s 应走色块，Sprite %d 色块 %d" % [terrain_char, sprites, blocks])
 
 
 func _check_combat_feet(node: Node, who: String) -> void:
