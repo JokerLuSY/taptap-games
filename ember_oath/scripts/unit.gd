@@ -156,6 +156,90 @@ func tile_center() -> Vector2:
 	return Vector2(grid_pos) * TILE + Vector2(TILE / 2.0, TILE / 2.0)
 
 
+func to_save() -> Dictionary:
+	return {
+		"id": unit_id,
+		"name": display_name,
+		"class": class_label,
+		"faction": faction,
+		"level": level,
+		"xp": xp,
+		"max_hp": max_hp,
+		"hp": hp,
+		"pwr": pwr,
+		"skl": skl,
+		"spd": spd,
+		"dfn": dfn,
+		"mov": mov,
+		"weapons": weapons.duplicate(),
+		"items": items.duplicate(),
+		"growths": growths.duplicate(),
+		"stationary": stationary,
+		"boss": is_boss,
+		"pos": [grid_pos.x, grid_pos.y],
+		"has_acted": has_acted,
+		"support_with": support_with.duplicate(),
+		"color": body_color.to_html(false),
+		"armor": armor_color.to_html(false),
+		"hair": hair_style,
+		"hair_color": hair_color.to_html(false),
+		"skin": skin_color.to_html(false),
+		"scar": scar,
+		"alive": is_alive(),
+	}
+
+
+func apply_save(data: Dictionary) -> void:
+	var pos_raw = data.get("pos", [0, 0])
+	var pos := Vector2i.ZERO
+	if typeof(pos_raw) == TYPE_ARRAY and pos_raw.size() >= 2:
+		pos = Vector2i(int(pos_raw[0]), int(pos_raw[1]))
+	var growths_in = data.get("growths", {})
+	var def := {
+		"id": str(data.get("id", "")),
+		"name": str(data.get("name", "?")),
+		"class": str(data.get("class", "")),
+		"faction": str(data.get("faction", "enemy")),
+		"level": int(data.get("level", 1)),
+		"hp": int(data.get("max_hp", 20)),
+		"pwr": int(data.get("pwr", 5)),
+		"skl": int(data.get("skl", 5)),
+		"spd": int(data.get("spd", 5)),
+		"dfn": int(data.get("dfn", 3)),
+		"mov": int(data.get("mov", 5)),
+		"weapons": data.get("weapons", []),
+		"items": data.get("items", []),
+		"stationary": bool(data.get("stationary", false)),
+		"boss": bool(data.get("boss", false)),
+		"pos": pos,
+		"color": _html_color(str(data.get("color", "")), Color(0.5, 0.5, 0.6)),
+		"armor": _html_color(str(data.get("armor", "")), Color(0.5, 0.5, 0.6)),
+		"hair": str(data.get("hair", "short")),
+		"hair_color": _html_color(str(data.get("hair_color", "")), Color(0.30, 0.24, 0.18)),
+		"skin": _html_color(str(data.get("skin", "")), Color(1.0, 0.86, 0.72)),
+		"scar": bool(data.get("scar", false)),
+	}
+	if growths_in is Dictionary and not (growths_in as Dictionary).is_empty():
+		def["growths"] = growths_in
+	setup(def)
+	hp = clampi(int(data.get("hp", max_hp)), 0, max_hp)
+	xp = int(data.get("xp", 0))
+	has_acted = bool(data.get("has_acted", false))
+	var sw = data.get("support_with", {})
+	support_with = sw.duplicate() if sw is Dictionary else {}
+	if not bool(data.get("alive", hp > 0)):
+		hp = 0
+		visible = false
+		modulate.a = 0.0
+	queue_redraw()
+
+
+func _html_color(hex: String, fallback: Color) -> Color:
+	if hex.is_empty():
+		return fallback
+	return Color.html(hex)
+
+
 # ==================== 绘制 ====================
 
 func _process(delta: float) -> void:

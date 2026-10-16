@@ -46,6 +46,9 @@ var end_sub: Label
 var end_btn: Button
 var dialogue: DialogueBox
 var combat_scene: CombatScene
+var system_menu
+var btn_back: Button
+var btn_menu: Button
 
 var _forecast_target: Unit = null
 var _banner_tween: Tween = null
@@ -54,10 +57,19 @@ var _banner_tween: Tween = null
 func _ready() -> void:
 	chapter.battle = self
 	_build_board()
-	_build_units()
+	var loaded := false
+	if CampaignSave.take_pending_load():
+		loaded = _apply_checkpoint(CampaignSave.read())
+	if not loaded:
+		_build_units()
 	_build_ui()
 	Audio.play_music("map")
-	_start_chapter.call_deferred()
+	if not get_tree().root.go_back_requested.is_connected(_on_android_back):
+		get_tree().root.go_back_requested.connect(_on_android_back)
+	if loaded:
+		_resume_idle.call_deferred()
+	else:
+		_start_chapter.call_deferred()
 
 
 # ==================== 构建 ====================
@@ -156,7 +168,7 @@ func _build_ui() -> void:
 	info_portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	info_portrait_frame.add_child(info_portrait)
 	info_label = _make_label(side, Vector2(16, 16), "", 20)
-	info_label.size = Vector2(320 - 16 - SafeArea.MARGIN_X, 600)
+	info_label.size = Vector2(320 - 16 - SafeArea.MARGIN_X, 540)
 	info_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	# 底部提示栏
 	var bottom := Panel.new()
@@ -208,6 +220,22 @@ func _build_ui() -> void:
 	ui.add_child(dialogue)
 	combat_scene = CombatScene.new()
 	add_child(combat_scene)
+	_build_corner_buttons()
+	system_menu = load("res://scripts/system_menu.gd").new()
+	system_menu.title_requested.connect(_on_system_title)
+	add_child(system_menu)
+
+
+func _build_corner_buttons() -> void:
+	# 右侧信息栏底部、安全区内。不盖地图格子。
+	var size := Vector2(116, SafeArea.MIN_HIT)
+	var y := 720.0 - SafeArea.MARGIN_Y - size.y
+	btn_back = _make_button(tr("返回"), Vector2(976, y), size, _on_back_pressed)
+	btn_back.name = "BackButton"
+	ui.add_child(btn_back)
+	btn_menu = _make_button(tr("菜单"), Vector2(976 + size.x + 8, y), size, _on_menu_pressed)
+	btn_menu.name = "MenuButton"
+	ui.add_child(btn_menu)
 
 
 func _build_forecast_panel() -> void:
@@ -368,6 +396,7 @@ func start_player_phase(first := false) -> void:
 	if state == S.OVER:
 		return
 	state = S.IDLE
+	CampaignSave.write_checkpoint(self)
 	hint(tr("点击我方单位行动 · 点击敌人查看其威胁范围"))
 	_update_hover_info()
 
@@ -415,6 +444,15 @@ func enemy_phase() -> void:
 # ==================== 输入 ====================
 
 func _unhandled_input(event: InputEvent) -> void:
+	# 菜单打开时场景树已暂停，引擎不会把事件送到这里。
+	# 直接调用（冒烟）或同一帧的排序仍可能进来，交给菜单自己关。
+	if system_menu != null and system_menu.is_open():
+		return
+	if event.is_action_pressed("ui_cancel"):
+		if PointerInput.accept_back():
+			_handle_system_back()
+		get_viewport().set_input_as_handled()
+		return
 	if state == S.STORY or state == S.COMBAT or state == S.ENEMY or state == S.OVER:
 		return
 	if PointerInput.is_pointer_move(event):
@@ -428,8 +466,6 @@ func _unhandled_input(event: InputEvent) -> void:
 		cancel()
 	elif event.is_action_pressed("ui_accept"):
 		click_tile(cursor.grid_pos)
-	elif event.is_action_pressed("ui_cancel"):
-		cancel()
 	elif event.is_action_pressed("ui_up"):
 		_move_cursor(Vector2i(0, -1))
 	elif event.is_action_pressed("ui_down"):
@@ -489,6 +525,100 @@ func cancel() -> void:
 			board.clear_highlights()
 
 
+func _on_android_back() -> void:
+	if not is_inside_tree():
+		return
+	if not PointerInput.accept_back():
+		return
+	_handle_system_back()
+
+
+func _handle_system_back() -> void:
+	if system_menu != null and system_menu.is_open():
+		system_menu.close()
+		return
+	if _has_cancel_layer():
+		cancel()
+		return
+	open_system_menu()
+
+
+func _has_cancel_layer() -> bool:
+	if state == S.MOVE_SEL or state == S.ACTION_MENU or state == S.WEAPON_SEL or state == S.TARGET_SEL or state == S.ITEM_MENU:
+		return true
+	if state == S.IDLE and (not board.move_tiles.is_empty() or not board.atk_tiles.is_empty()):
+		return true
+	return false
+
+
+func _on_back_pressed() -> void:
+	if system_menu != null and system_menu.is_open():
+		system_menu.close()
+		return
+	if state == S.STORY or state == S.COMBAT or state == S.ENEMY or state == S.OVER:
+		return
+	cancel()
+
+
+func _on_menu_pressed() -> void:
+	if system_menu != null and system_menu.is_open():
+		system_menu.close()
+	else:
+		open_system_menu()
+
+
+func open_system_menu() -> void:
+	if system_menu == null or system_menu.is_open():
+		return
+	system_menu.open()
+
+
+func close_system_menu() -> void:
+	if system_menu != null:
+		system_menu.close()
+
+
+func _on_system_title() -> void:
+	close_system_menu()
+	get_tree().change_scene_to_file("res://scenes/title.tscn")
+
+
+func _resume_idle() -> void:
+	state = S.IDLE
+	update_topbar()
+	hint(tr("点击我方单位行动 · 点击敌人查看其威胁范围"))
+	_update_hover_info()
+	var tia := get_unit("tia")
+	if tia != null and tia.is_alive():
+		cursor.set_grid(tia.grid_pos)
+
+
+func _apply_checkpoint(data: Dictionary) -> bool:
+	if str(data.get("chapter_id", "")) != CampaignSave.CHAPTER_ID:
+		return false
+	var list = data.get("units", [])
+	if typeof(list) != TYPE_ARRAY or list.is_empty():
+		return false
+	turn = int(data.get("turn", 1))
+	gold = int(data.get("gold", 0))
+	var sp = data.get("support_points", {})
+	support_points = sp.duplicate() if sp is Dictionary else {}
+	var flags = data.get("flags", {})
+	if flags is Dictionary:
+		chapter.import_flags(flags)
+	for raw in list:
+		if typeof(raw) != TYPE_DICTIONARY:
+			continue
+		var u := Unit.new()
+		u.apply_save(raw)
+		if u.is_alive() and board.unit_at(u.grid_pos) != null:
+			u.grid_pos = _nearest_free(u.grid_pos)
+			u.position = u.tile_center()
+		board.add_child(u)
+		units.append(u)
+	return not units.is_empty()
+
+
 # ==================== 选择与移动 ====================
 
 func _idle_click(p: Vector2i) -> void:
@@ -515,7 +645,7 @@ func select_unit(u: Unit) -> void:
 		atk.erase(t)
 	board.show_move(move_dict, atk)
 	state = S.MOVE_SEL
-	hint(tr("%s：选择移动位置（右键取消）") % tr(u.display_name))
+	hint(tr("%s：选择移动位置（返回取消）") % tr(u.display_name))
 	_update_hover_info()
 
 
@@ -568,7 +698,7 @@ func _preview_enemy(u: Unit) -> void:
 	for t in move:
 		area[t] = true
 	board.show_move({}, area)
-	hint(tr("%s 的威胁范围（右键清除）") % tr(u.display_name))
+	hint(tr("%s 的威胁范围（返回清除）") % tr(u.display_name))
 	_update_hover_info()
 
 
@@ -609,7 +739,7 @@ func _open_action_menu(u: Unit) -> void:
 	opts.append({"label": tr("待机"), "enabled": true, "cb": _on_menu_wait})
 	_fill_menu(opts)
 	_place_menu(u)
-	hint(tr("选择行动（右键返回移动）"))
+	hint(tr("选择行动（返回撤销移动）"))
 
 
 func _fill_menu(opts: Array) -> void:
@@ -650,7 +780,7 @@ func _cancel_action_menu() -> void:
 		atk.erase(t)
 	board.show_move(move_dict, atk)
 	state = S.MOVE_SEL
-	hint(tr("%s：选择移动位置（右键取消）") % tr(selected.display_name))
+	hint(tr("%s：选择移动位置（返回取消）") % tr(selected.display_name))
 
 
 func _on_menu_attack() -> void:
@@ -666,7 +796,7 @@ func _on_menu_attack() -> void:
 				"cb": func() -> void: _on_weapon_chosen(idx),
 			})
 		_fill_menu(opts)
-		hint(tr("选择武器（右键返回）"))
+		hint(tr("选择武器（返回）"))
 	else:
 		sel_weapon = 0
 		_enter_target_select()
@@ -688,7 +818,7 @@ func _enter_target_select() -> void:
 	for t in targets:
 		tiles[t.grid_pos] = true
 	board.show_move({}, tiles)
-	hint(tr("用【%s】选择攻击目标（右键返回）") % tr(selected.weapon(sel_weapon)["name"]))
+	hint(tr("用【%s】选择攻击目标（返回）") % tr(selected.weapon(sel_weapon)["name"]))
 
 
 func _target_click(p: Vector2i) -> void:
@@ -733,7 +863,7 @@ func _on_menu_item() -> void:
 		var idx := i
 		opts.append({"label": tr("%s（%s）") % [tr(item["name"]), tr(item["desc"])], "enabled": true, "cb": func() -> void: _on_use_item(idx)})
 	_fill_menu(opts)
-	hint(tr("选择要使用的道具（右键返回）"))
+	hint(tr("选择要使用的道具（返回）"))
 
 
 func _on_use_item(idx: int) -> void:
@@ -924,6 +1054,7 @@ func check_end_conditions() -> bool:
 
 func _victory() -> void:
 	state = S.OVER
+	CampaignSave.mark_cleared()
 	hide_banner()
 	update_topbar()
 	Audio.stop_music()
