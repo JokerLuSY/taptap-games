@@ -60,10 +60,10 @@ func _shoot_live(file_name: String, terrain_char: String) -> void:
 		scene.skip()
 	if scene.active:
 		await scene.finished
-	scene.free()
-	tia.free()
-	bandit.free()
-	vp.free()
+	scene.queue_free()
+	tia.queue_free()
+	bandit.queue_free()
+	vp.get_parent().queue_free()
 
 
 func _viewport() -> SubViewport:

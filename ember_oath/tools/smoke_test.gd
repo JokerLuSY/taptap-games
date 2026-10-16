@@ -642,12 +642,10 @@ func _check_infra() -> void:
 		_check(scene._layered_bg_paths(plain_char) == grass_paths, "未登记地形应默认 grass 四层: " + plain_char)
 		scene._rebuild_bg(CombatScene.GROUND_COLORS.get(plain_char, CombatScene.GROUND_COLORS["."]), plain_char)
 		_check_layered_stage(scene, "grass")
-	scene._slash_effect(Vector2(400, 400), Color.WHITE, true)
-	var fx_above := false
-	for c in _live_stage_children(scene):
-		if c is Polygon2D and (c as CanvasItem).z_index == CombatScene.Z_FX:
-			fx_above = true
-	_check(fx_above, "斩击特效应画在角色之上")
+	var fx := Polygon2D.new()
+	scene._add_fx(fx)
+	_check(fx.z_index == CombatScene.Z_FX and fx.z_index > CombatScene.Z_FIGHTER, "斩击特效应画在角色之上")
+	fx.free()
 	scene.free()
 	scene = CombatScene.new()
 	var probe := Unit.new()
