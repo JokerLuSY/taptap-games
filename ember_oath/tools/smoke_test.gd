@@ -599,6 +599,14 @@ func _check_infra() -> void:
 	_check(CombatScene.SHEET_FACES_RIGHT["tia_sword"] == true, "tia_sword 原生应朝右")
 	_check(CombatScene.SHEET_FACES_RIGHT["bandit_axe"] == false, "bandit_axe 原生应朝左")
 	_check(not FileAccess.file_exists("res://art/combat/archer_bow.png"), "日系整包不应留在运行时")
+	for sheet in CombatScene.SHEET_IDS:
+		for suffix in ["", "_crit"]:
+			var imp_path := "res://art/combat/%s%s.png.import" % [sheet, suffix]
+			var imp := FileAccess.get_file_as_string(imp_path)
+			_check(imp.contains("process/premult_alpha=false"), imp_path + " 应为直通 alpha，不要预乘")
+			_check(imp.contains("process/fix_alpha_border=false"), imp_path + " 不应把不透明 RGB 扩到透明边")
+			_check(imp.contains("mipmaps/generate=false"), imp_path + " 不应生成 mipmap")
+			_check(imp.contains("compress/mode=0"), imp_path + " 应为无损压缩")
 	_check(is_equal_approx(CombatScene.SPRITE_TARGET_H, 154.0), "最早风视觉高度应为 154")
 	_check(is_equal_approx(CombatScene.FEET_Y, 520.0), "脚底世界坐标应为 520")
 	var scene := CombatScene.new()
@@ -634,6 +642,10 @@ func _check_infra() -> void:
 		_check(scene._layered_bg_paths(plain_char) == grass_paths, "未登记地形应默认 grass 四层: " + plain_char)
 		scene._rebuild_bg(CombatScene.GROUND_COLORS.get(plain_char, CombatScene.GROUND_COLORS["."]), plain_char)
 		_check_layered_stage(scene, "grass")
+	var fx := Polygon2D.new()
+	scene._add_fx(fx)
+	_check(fx.z_index == CombatScene.Z_FX and fx.z_index > CombatScene.Z_FIGHTER, "斩击特效应画在角色之上")
+	fx.free()
 	scene.free()
 	scene = CombatScene.new()
 	var probe := Unit.new()
@@ -1119,6 +1131,7 @@ func _check_layered_stage(scene: CombatScene, tag: String) -> void:
 			var spr := c as Sprite2D
 			_check(spr.texture != null, tag + " 分层纹理应加载成功")
 			_check(spr.texture_filter == CanvasItem.TEXTURE_FILTER_LINEAR, tag + " 分层应为 LINEAR")
+			_check(spr.z_index == CombatScene.Z_BG and spr.z_index < CombatScene.Z_FIGHTER, tag + " 分层应压在角色下面")
 			_check(not spr.centered and spr.position == Vector2.ZERO, tag + " 分层应左上对齐铺满")
 		else:
 			_check(false, tag + " 分层舞台不应混入 " + c.get_class())
@@ -1152,12 +1165,18 @@ func _check_sheet_facing(scene: CombatScene) -> void:
 	_check(bandit_right.scale.x > 0.0, "朝左条带站右侧 scale.x 应为正")
 	for fighter in [tia_left, tia_right, bandit_left, bandit_right]:
 		fighter.position = Vector2(CombatScene.ATT_X, CombatScene.FEET_Y)
+		_check_combat_feet(fighter, "朝向样本")
 		for pose in [CombatScene.POSE_IDLE, CombatScene.POSE_STRIKE]:
 			scene._set_pose(fighter, pose)
 			_check_anchor_on_feet(fighter, "普通帧")
+		_check_no_body_slit(fighter, "普通挥砍")
+		if int(fighter.get_meta("combat_hit_frame", -1)) >= 0:
+			scene._set_hit_pose(fighter)
+			_check_no_body_slit(fighter, "受击")
 		scene._use_crit_frames(fighter, true)
 		scene._set_pose(fighter, CombatScene.POSE_STRIKE)
 		_check_anchor_on_feet(fighter, "必杀挥砍")
+		_check_no_body_slit(fighter, "必杀挥砍")
 		fighter.free()
 	var plain := Unit.new()
 	plain.unit_id = "nobody"
@@ -1169,9 +1188,67 @@ func _check_sheet_facing(scene: CombatScene) -> void:
 	_check(is_equal_approx(q_left.scale.y, CombatScene.UNIT_SCALE), "无条带纵向缩放应保持")
 	q_left.free()
 	q_right.free()
+	_check_waist_occluder(scene)
 	tia.free()
 	bandit.free()
 	plain.free()
+
+
+## 实机腰腹挡板：未缩放帧边上的采样点必须是身体色，不能是灌丛绿。
+func _check_waist_occluder(scene: CombatScene) -> void:
+	var tia := Unit.new()
+	tia.unit_id = "tia"
+	tia.class_label = "剑士"
+	var bandit := Unit.new()
+	bandit.unit_id = "bandit1"
+	bandit.class_label = "山贼"
+	var att := scene._make_fighter(tia, false)
+	var def := scene._make_fighter(bandit, true)
+	att.position = Vector2(CombatScene.DEF_X - 110.0, CombatScene.FEET_Y)
+	def.position = Vector2(CombatScene.DEF_X, CombatScene.FEET_Y)
+	scene._use_crit_frames(att, true)
+	scene._set_pose(att, CombatScene.POSE_STRIKE)
+	scene._set_hit_pose(def)
+	var img := scene.build_waist_occluder([att, def])
+	var left := [Vector2i(764, 440), Vector2i(770, 440), Vector2i(780, 450)]
+	var right := [Vector2i(1020, 440), Vector2i(1040, 440), Vector2i(1066, 440)]
+	for p in left:
+		_check_not_bush(img, p, "腰腹左")
+	for p in right:
+		_check_not_bush(img, p, "腰腹右")
+	var bush := 0
+	for y in range(430, 456):
+		for x in range(764, 1067):
+			var c := img.get_pixel(x, y)
+			if c.a < 0.5:
+				continue
+			if _is_bush_rgb(int(round(c.r * 255.0)), int(round(c.g * 255.0)), int(round(c.b * 255.0))):
+				bush += 1
+	_check(bush == 0, "腰腹挡板轮廓内不应有灌丛绿，实际 %d" % bush)
+	att.free()
+	def.free()
+	tia.free()
+	bandit.free()
+
+
+func _check_not_bush(img: Image, p: Vector2i, tag: String) -> void:
+	var c := img.get_pixel(p.x, p.y)
+	var r := int(round(c.r * 255.0))
+	var g := int(round(c.g * 255.0))
+	var b := int(round(c.b * 255.0))
+	_check(c.a > 0.5 and not _is_bush_rgb(r, g, b), "%s (%d,%d) 应为身体色，实际 %d,%d,%d" % [tag, p.x, p.y, r, g, b])
+
+
+func _is_bush_rgb(r: int, g: int, b: int) -> bool:
+	if r == 46 and g == 77 and b == 41:
+		return true
+	if r == 29 and g == 63 and b == 37:
+		return true
+	if r == 56 and g == 96 and b == 48:
+		return true
+	if r == 36 and g == 80 and b == 44:
+		return true
+	return false
 
 
 func _fighter_faces_right(node: Node) -> bool:
@@ -1200,12 +1277,140 @@ func _check_anchor_on_feet(node: Node, tag: String) -> void:
 	_check(planted, tag + " 当前帧应能对上脚底点")
 
 
+## 轮廓内的透明洞，以及上下都是实心的横缝，会让灌丛硬边穿进腰腹、躯干、头发。
+func _check_no_body_slit(node: Node, tag: String) -> void:
+	var pose := node.get_node_or_null("CombatPose") as Sprite2D
+	if pose == null or not (pose.texture is AtlasTexture):
+		_check(false, tag + " 应有图集帧")
+		return
+	var atlas := pose.texture as AtlasTexture
+	var img := atlas.atlas.get_image()
+	_check(img != null, tag + " 补实后的条带应能读回像素")
+	if img == null:
+		return
+	var region := atlas.region
+	var x0 := int(region.position.x)
+	var y0 := int(region.position.y)
+	var fw := int(region.size.x)
+	var fh := int(region.size.y)
+	var view := img.get_region(Rect2i(x0, y0, fw, fh))
+	if view.get_format() != Image.FORMAT_RGBA8:
+		view.convert(Image.FORMAT_RGBA8)
+	var bytes := view.get_data()
+	var n := fw * fh
+	var opaque := PackedByteArray()
+	opaque.resize(n)
+	var slits := 0
+	for i in n:
+		opaque[i] = 1 if bytes[i * 4 + 3] >= 128 else 0
+	for y in range(1, fh - 1):
+		for x in fw:
+			var i := y * fw + x
+			if opaque[i] == 1:
+				continue
+			if opaque[i - fw] == 1 and opaque[i + fw] == 1:
+				slits += 1
+	_check(slits == 0, tag + " 身体不应留下透明横缝，实际 %d" % slits)
+	var gaps := _count_large_span_gaps(opaque, fw, fh, CombatScene.BODY_FILL_MIN)
+	_check(gaps == 0, tag + " 身体轮廓内不应留下透明洞，实际 %d" % gaps)
+	var holes := CombatScene.count_hull_holes(opaque, fw, fh)
+	_check(holes == 0, tag + " 身体凸包内不应透出背景，实际 %d" % holes)
+	var bush := 0
+	for i in n:
+		if opaque[i] == 0:
+			continue
+		var r := bytes[i * 4]
+		var g := bytes[i * 4 + 1]
+		var b := bytes[i * 4 + 2]
+		if (r == 46 and g == 77 and b == 41) or (r == 29 and g == 63 and b == 37):
+			bush += 1
+	_check(bush == 0, tag + " 身体填色不应是灌丛绿，实际 %d" % bush)
+
+
+## 够大的色块在每一行、每一列上，首尾不透明像素之间不得再透明。
+func _count_large_span_gaps(opaque: PackedByteArray, w: int, h: int, min_size: int) -> int:
+	var n := w * h
+	var labels := PackedInt32Array()
+	labels.resize(n)
+	var sizes := PackedInt32Array()
+	sizes.append(0)
+	var stack := PackedInt32Array()
+	for i in n:
+		if opaque[i] == 0 or labels[i] != 0:
+			continue
+		var label := sizes.size()
+		sizes.append(0)
+		stack.resize(0)
+		stack.append(i)
+		labels[i] = label
+		var count := 0
+		var sp := 0
+		while sp < stack.size():
+			var p := stack[sp]
+			sp += 1
+			count += 1
+			var x := p % w
+			var y := int(p / w)
+			if x > 0 and opaque[p - 1] == 1 and labels[p - 1] == 0:
+				labels[p - 1] = label
+				stack.append(p - 1)
+			if x + 1 < w and opaque[p + 1] == 1 and labels[p + 1] == 0:
+				labels[p + 1] = label
+				stack.append(p + 1)
+			if y > 0 and opaque[p - w] == 1 and labels[p - w] == 0:
+				labels[p - w] = label
+				stack.append(p - w)
+			if y + 1 < h and opaque[p + w] == 1 and labels[p + w] == 0:
+				labels[p + w] = label
+				stack.append(p + w)
+		sizes[label] = count
+	var gaps := 0
+	for y in h:
+		var left := -1
+		var right := -1
+		var row := y * w
+		for x in w:
+			var i := row + x
+			if opaque[i] == 1 and sizes[labels[i]] >= min_size:
+				if left < 0:
+					left = x
+				right = x
+		if left >= 0:
+			for x in range(left, right + 1):
+				if opaque[row + x] == 0:
+					gaps += 1
+	for x in w:
+		var top := -1
+		var bottom := -1
+		for y in h:
+			var i := y * w + x
+			if opaque[i] == 1 and sizes[labels[i]] >= min_size:
+				if top < 0:
+					top = y
+				bottom = y
+		if top >= 0:
+			for y in range(top, bottom + 1):
+				if opaque[y * w + x] == 0:
+					gaps += 1
+	return gaps
+
+
 func _check_combat_feet(node: Node, who: String) -> void:
 	var pose := node.get_node_or_null("CombatPose") as Sprite2D
 	_check(pose != null and pose.texture != null, who + "特写应挂上像素帧")
 	if pose == null or pose.texture == null:
 		return
 	_check(pose.texture_filter == CanvasItem.TEXTURE_FILTER_NEAREST, who + "战斗立绘应为最近邻过滤")
+	_check(pose.texture_repeat == CanvasItem.TEXTURE_REPEAT_DISABLED, who + "战斗立绘不应重复贴图")
+	_check(is_equal_approx(pose.modulate.a, 1.0) and is_equal_approx(pose.self_modulate.a, 1.0), who + "立绘自身 alpha 应为 1，实际 modulate %s self %s" % [pose.modulate.a, pose.self_modulate.a])
+	var pose_mat := pose.material as ShaderMaterial
+	_check(pose_mat != null and pose_mat.shader != null, who + "立绘应使用直通 alpha 着色器")
+	if pose_mat != null and pose_mat.shader != null:
+		var pose_code := pose_mat.shader.code
+		_check(pose_code.contains("blend_mix") and pose_code.contains("discard") and not pose_code.contains("blend_premul_alpha"), who + "立绘应为 mix 混合并丢弃半透明采样")
+	var pose_atlas := pose.texture as AtlasTexture
+	_check(pose_atlas != null and pose_atlas.filter_clip, who + "图集应裁切，避免邻帧渗色")
+	_check((node as CanvasItem).z_index == CombatScene.Z_FIGHTER and (node as CanvasItem).z_index < CombatScene.Z_FX, who + "应画在背景之上、特效之下")
 	var sheet := str(node.get_meta("combat_sheet", ""))
 	var body_h: float = float(CombatScene.FRAME_BODY_H.get(sheet, 0.0))
 	var expect_sc := CombatScene.SPRITE_TARGET_H / body_h

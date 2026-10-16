@@ -94,6 +94,21 @@ const SHEET_FACES_RIGHT := {
 	"tia_sword": true,
 	"bandit_axe": false,
 }
+## 背景在角色下面，斩击火花在角色上面。身体不靠绘制顺序碰运气。
+const Z_BG := 0
+const Z_FIGHTER := 10
+const Z_FX := 30
+## 挥砍/受击把身体切成互不相连的色块，块与块之间的透明缝比 16px 宽。
+## 中景灌丛的硬下沿会从腰腹、躯干、头发这些缝里穿出来。扁长闭运算补不住。
+## 按帧把够大的色块在本帧轮廓里先按行、再按列、再按行填实。
+## 不到这个面积的火花不参与拉轮廓，也不和邻帧粘在一起。磁盘上的 earliest 正稿不改。
+## 贴在身体上的碎片并进轮廓后还要再补一轮。按行填完，腰腹左右的凹湾仍在身体凸包里，灌丛绿会留在那里。
+## 最后按本帧凸包补实。孤立火花不拉轮廓，也不和邻帧粘在一起。
+const BODY_FILL_MIN := 80
+const BODY_FILL_ROUNDS := 4
+const _POSE_SHADER := preload("res://shaders/combat_pose.gdshader")
+
+static var _sealed_tex: Dictionary = {}
 
 var active := false
 
@@ -247,6 +262,21 @@ func _rebuild_bg(ground_color: Color, terrain_char: String) -> void:
 		g.polygon = tri
 		g.color = grass_col
 		_stage.add_child(g)
+	_pin_stage_background()
+
+
+func _pin_stage_background() -> void:
+	for c in _stage.get_children():
+		if c is CanvasItem and not c.is_queued_for_deletion():
+			var item := c as CanvasItem
+			item.z_index = Z_BG
+			item.z_as_relative = true
+
+
+func _add_fx(node: CanvasItem) -> void:
+	node.z_index = Z_FX
+	node.z_as_relative = true
+	_stage.add_child(node)
 
 
 func _setup_units() -> void:
@@ -287,9 +317,10 @@ func _make_fighter(u: Unit, face_left: bool) -> Unit:
 	var sprite := Sprite2D.new()
 	sprite.name = "CombatPose"
 	sprite.centered = false
-	# 战斗立绘用最近邻。Godot 4.7 导入项没有 process/filter。
-	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	sprite.scale = Vector2(sc, sc)
+	_lock_combat_sprite(sprite)
+	c.z_index = Z_FIGHTER
+	c.z_as_relative = true
 	c.add_child(sprite)
 	c.set_meta("combat_sprite", sprite)
 	c.set_meta("combat_frames_normal", frames)
@@ -343,6 +374,7 @@ func _load_strip(sheet_id: String, crit: bool) -> Array:
 	var full_h := tex.get_height()
 	if full_w < feet.size() or full_h <= 0:
 		return []
+	var sealed := _sealed_texture(tex, path, feet.size())
 	var base_w := int(full_w / feet.size())
 	var extra := full_w - base_w * feet.size()
 	var frames: Array = []
@@ -350,11 +382,455 @@ func _load_strip(sheet_id: String, crit: bool) -> Array:
 	for i in feet.size():
 		var fw := base_w + (1 if i < extra else 0)
 		var atlas := AtlasTexture.new()
-		atlas.atlas = tex
+		atlas.atlas = sealed
 		atlas.region = Rect2(x, 0, fw, full_h)
+		# 最近邻也不要从相邻帧渗一像素进来。
+		atlas.filter_clip = true
 		frames.append({"tex": atlas, "feet": feet[i], "src": path})
 		x += fw
 	return frames
+
+
+## 每张条带只补一次。分帧处理，避免相邻帧的身体被补到一起。
+func _sealed_texture(tex: Texture2D, path: String, frame_count: int) -> Texture2D:
+	if _sealed_tex.has(path):
+		return _sealed_tex[path]
+	var src := tex.get_image()
+	if src == null:
+		return tex
+	if src.is_compressed():
+		src.decompress()
+	var sealed := _seal_strip(src, frame_count)
+	var out := ImageTexture.create_from_image(sealed)
+	_sealed_tex[path] = out
+	return out
+
+
+func _seal_strip(src: Image, frame_count: int) -> Image:
+	var out := src.duplicate()
+	var full_w := src.get_width()
+	var h := src.get_height()
+	var base_w := int(full_w / frame_count)
+	var extra := full_w - base_w * frame_count
+	var x0 := 0
+	for i in frame_count:
+		var fw := base_w + (1 if i < extra else 0)
+		_seal_rect(out, x0, fw, h)
+		x0 += fw
+	return out
+
+
+## 只处理这一格。左右邻帧的轮廓不会被这条缝拉到一起。
+func _seal_rect(img: Image, x0: int, w: int, h: int) -> void:
+	if w <= 0 or h <= 0:
+		return
+	var local := Image.create(w, h, false, Image.FORMAT_RGBA8)
+	local.blit_rect(img, Rect2i(x0, 0, w, h), Vector2i.ZERO)
+	if local.get_format() != Image.FORMAT_RGBA8:
+		local.convert(Image.FORMAT_RGBA8)
+	var bytes := local.get_data()
+	var n := w * h
+	if bytes.size() < n * 4:
+		return
+	var opaque := PackedByteArray()
+	opaque.resize(n)
+	for i in n:
+		opaque[i] = 1 if bytes[i * 4 + 3] >= 128 else 0
+	var mask := opaque.duplicate()
+	for _round in BODY_FILL_ROUNDS:
+		var labels := PackedInt32Array()
+		labels.resize(n)
+		var sizes := PackedInt32Array()
+		sizes.append(0)
+		var stack := PackedInt32Array()
+		for i in n:
+			if mask[i] == 0 or labels[i] != 0:
+				continue
+			var label := sizes.size()
+			sizes.append(0)
+			stack.resize(0)
+			stack.append(i)
+			labels[i] = label
+			var count := 0
+			var sp := 0
+			while sp < stack.size():
+				var p := stack[sp]
+				sp += 1
+				count += 1
+				var x := p % w
+				var y := int(p / w)
+				if x > 0:
+					var left := p - 1
+					if mask[left] == 1 and labels[left] == 0:
+						labels[left] = label
+						stack.append(left)
+				if x + 1 < w:
+					var right := p + 1
+					if mask[right] == 1 and labels[right] == 0:
+						labels[right] = label
+						stack.append(right)
+				if y > 0:
+					var up := p - w
+					if mask[up] == 1 and labels[up] == 0:
+						labels[up] = label
+						stack.append(up)
+				if y + 1 < h:
+					var down := p + w
+					if mask[down] == 1 and labels[down] == 0:
+						labels[down] = label
+						stack.append(down)
+			sizes[label] = count
+		var solid := PackedByteArray()
+		solid.resize(n)
+		for i in n:
+			if mask[i] == 1 and sizes[labels[i]] >= BODY_FILL_MIN:
+				solid[i] = 1
+		for pass_i in 3:
+			if pass_i == 1:
+				for x in w:
+					var top := -1
+					var bottom := -1
+					for y in h:
+						if solid[y * w + x] != 0:
+							if top < 0:
+								top = y
+							bottom = y
+					if top < 0:
+						continue
+					for y in range(top, bottom + 1):
+						solid[y * w + x] = 1
+			else:
+				for y in h:
+					var left_x := -1
+					var right_x := -1
+					var row := y * w
+					for x in w:
+						if solid[row + x] != 0:
+							if left_x < 0:
+								left_x = x
+							right_x = x
+					if left_x < 0:
+						continue
+					for x in range(left_x, right_x + 1):
+						solid[row + x] = 1
+		for y in range(1, h - 1):
+			var row := y * w
+			for x in w:
+				if solid[row + x] != 0 or mask[row + x] != 0:
+					continue
+				var above := solid[row - w + x] != 0 or mask[row - w + x] != 0
+				var below := solid[row + w + x] != 0 or mask[row + w + x] != 0
+				if above and below:
+					solid[row + x] = 1
+		for y in h:
+			var row := y * w
+			for x in range(1, w - 1):
+				if solid[row + x] != 0 or mask[row + x] != 0:
+					continue
+				if (solid[row + x - 1] != 0 or mask[row + x - 1] != 0) and (solid[row + x + 1] != 0 or mask[row + x + 1] != 0):
+					solid[row + x] = 1
+		var changed := false
+		var nxt := PackedByteArray()
+		nxt.resize(n)
+		for i in n:
+			var on := 1 if (solid[i] != 0 or opaque[i] != 0) else 0
+			nxt[i] = on
+			if on != mask[i]:
+				changed = true
+		mask = nxt
+		if not changed:
+			break
+	mask = _seal_fill_hull(mask, w, h)
+	var queue := PackedInt32Array()
+	var colored := PackedByteArray()
+	colored.resize(n)
+	for i in n:
+		if opaque[i] == 1 and mask[i] == 0:
+			bytes[i * 4 + 3] = 0
+		elif opaque[i] == 1:
+			bytes[i * 4 + 3] = 255
+			colored[i] = 1
+			queue.append(i)
+	var head := 0
+	while head < queue.size():
+		var p := queue[head]
+		head += 1
+		var x := p % w
+		var y := int(p / w)
+		var base := p * 4
+		var cr := bytes[base]
+		var cg := bytes[base + 1]
+		var cb := bytes[base + 2]
+		if x > 0:
+			var j := p - 1
+			if mask[j] != 0 and colored[j] == 0:
+				var jb := j * 4
+				bytes[jb] = cr
+				bytes[jb + 1] = cg
+				bytes[jb + 2] = cb
+				bytes[jb + 3] = 255
+				colored[j] = 1
+				queue.append(j)
+		if x + 1 < w:
+			var j2 := p + 1
+			if mask[j2] != 0 and colored[j2] == 0:
+				var jb2 := j2 * 4
+				bytes[jb2] = cr
+				bytes[jb2 + 1] = cg
+				bytes[jb2 + 2] = cb
+				bytes[jb2 + 3] = 255
+				colored[j2] = 1
+				queue.append(j2)
+		if y > 0:
+			var j3 := p - w
+			if mask[j3] != 0 and colored[j3] == 0:
+				var jb3 := j3 * 4
+				bytes[jb3] = cr
+				bytes[jb3 + 1] = cg
+				bytes[jb3 + 2] = cb
+				bytes[jb3 + 3] = 255
+				colored[j3] = 1
+				queue.append(j3)
+		if y + 1 < h:
+			var j4 := p + w
+			if mask[j4] != 0 and colored[j4] == 0:
+				var jb4 := j4 * 4
+				bytes[jb4] = cr
+				bytes[jb4 + 1] = cg
+				bytes[jb4 + 2] = cb
+				bytes[jb4 + 3] = 255
+				colored[j4] = 1
+				queue.append(j4)
+	local.set_data(w, h, false, Image.FORMAT_RGBA8, bytes)
+	img.blit_rect(local, Rect2i(0, 0, w, h), Vector2i(x0, 0))
+
+
+## 返回新数组。只读入参，避免改到调用方那份拷贝。
+func _seal_fill_hull(mask: PackedByteArray, w: int, h: int) -> PackedByteArray:
+	var n := w * h
+	var labels := PackedInt32Array()
+	labels.resize(n)
+	var sizes := PackedInt32Array()
+	sizes.append(0)
+	var stack := PackedInt32Array()
+	for i in n:
+		if mask[i] == 0 or labels[i] != 0:
+			continue
+		var label := sizes.size()
+		sizes.append(0)
+		stack.resize(0)
+		stack.append(i)
+		labels[i] = label
+		var count := 0
+		var sp := 0
+		while sp < stack.size():
+			var p := stack[sp]
+			sp += 1
+			count += 1
+			var x := p % w
+			var y := int(p / w)
+			if x > 0 and mask[p - 1] == 1 and labels[p - 1] == 0:
+				labels[p - 1] = label
+				stack.append(p - 1)
+			if x + 1 < w and mask[p + 1] == 1 and labels[p + 1] == 0:
+				labels[p + 1] = label
+				stack.append(p + 1)
+			if y > 0 and mask[p - w] == 1 and labels[p - w] == 0:
+				labels[p - w] = label
+				stack.append(p - w)
+			if y + 1 < h and mask[p + w] == 1 and labels[p + w] == 0:
+				labels[p + w] = label
+				stack.append(p + w)
+		sizes[label] = count
+	var pts: Array[Vector2i] = []
+	for y in h:
+		var row := y * w
+		for x in w:
+			var i := row + x
+			if mask[i] == 0 or sizes[labels[i]] < BODY_FILL_MIN:
+				continue
+			var edge := x == 0 or y == 0 or x == w - 1 or y == h - 1
+			if not edge:
+				if mask[i - 1] == 0 or mask[i + 1] == 0 or mask[i - w] == 0 or mask[i + w] == 0:
+					edge = true
+			if edge:
+				# 顶点用像素中心。和下面的内点测试同一套坐标，复查时轮廓才不会再向外长一圈。
+				pts.append(Vector2i(x * 2 + 1, y * 2 + 1))
+	var hull := _convex_hull(pts)
+	var out := PackedByteArray()
+	out.resize(n)
+	for i in n:
+		if mask[i] != 0 and sizes[labels[i]] >= BODY_FILL_MIN:
+			out[i] = 1
+	if hull.size() >= 3:
+		var inside := _hull_centers(hull, w, h)
+		for i in n:
+			if inside[i] != 0:
+				out[i] = 1
+	# 贴在凸包边上的小碎片会把轮廓再撑出一圈透底。整块丢掉，避免只抠掉中间一像素留下横缝。
+	# 离身体远的火花仍整块保留。
+	var drop := PackedByteArray()
+	drop.resize(sizes.size())
+	for y in h:
+		var row := y * w
+		for x in w:
+			var i := row + x
+			if mask[i] == 0 or out[i] != 0 or sizes[labels[i]] >= BODY_FILL_MIN:
+				continue
+			var touch := false
+			if x > 0 and out[i - 1] != 0:
+				touch = true
+			elif x + 1 < w and out[i + 1] != 0:
+				touch = true
+			elif y > 0 and out[i - w] != 0:
+				touch = true
+			elif y + 1 < h and out[i + w] != 0:
+				touch = true
+			if touch:
+				drop[labels[i]] = 1
+	for i in n:
+		if mask[i] == 0 or out[i] != 0:
+			continue
+		if drop[labels[i]] == 0:
+			out[i] = 1
+	return out
+
+
+static func count_hull_holes(mask: PackedByteArray, w: int, h: int) -> int:
+	var n := w * h
+	var labels := PackedInt32Array()
+	labels.resize(n)
+	var sizes := PackedInt32Array()
+	sizes.append(0)
+	var stack := PackedInt32Array()
+	for i in n:
+		if mask[i] == 0 or labels[i] != 0:
+			continue
+		var label := sizes.size()
+		sizes.append(0)
+		stack.resize(0)
+		stack.append(i)
+		labels[i] = label
+		var count := 0
+		var sp := 0
+		while sp < stack.size():
+			var p := stack[sp]
+			sp += 1
+			count += 1
+			var x := p % w
+			var y := int(p / w)
+			if x > 0 and mask[p - 1] == 1 and labels[p - 1] == 0:
+				labels[p - 1] = label
+				stack.append(p - 1)
+			if x + 1 < w and mask[p + 1] == 1 and labels[p + 1] == 0:
+				labels[p + 1] = label
+				stack.append(p + 1)
+			if y > 0 and mask[p - w] == 1 and labels[p - w] == 0:
+				labels[p - w] = label
+				stack.append(p - w)
+			if y + 1 < h and mask[p + w] == 1 and labels[p + w] == 0:
+				labels[p + w] = label
+				stack.append(p + w)
+		sizes[label] = count
+	var pts: Array[Vector2i] = []
+	for y in h:
+		var row := y * w
+		for x in w:
+			var i := row + x
+			if mask[i] == 0 or sizes[labels[i]] < BODY_FILL_MIN:
+				continue
+			var edge := x == 0 or y == 0 or x == w - 1 or y == h - 1
+			if not edge:
+				if mask[i - 1] == 0 or mask[i + 1] == 0 or mask[i - w] == 0 or mask[i + w] == 0:
+					edge = true
+			if edge:
+				pts.append(Vector2i(x * 2 + 1, y * 2 + 1))
+	var hull := _convex_hull(pts)
+	if hull.size() < 3:
+		return 0
+	var inside := _hull_centers(hull, w, h)
+	var holes := 0
+	for i in n:
+		if inside[i] != 0 and mask[i] == 0:
+			holes += 1
+	return holes
+
+
+static func _convex_hull(pts: Array[Vector2i]) -> PackedVector2Array:
+	var hull := PackedVector2Array()
+	if pts.size() <= 1:
+		for p in pts:
+			hull.append(Vector2(p))
+		return hull
+	pts.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
+		if a.x == b.x:
+			return a.y < b.y
+		return a.x < b.x
+	)
+	var lower: Array[Vector2i] = []
+	for p in pts:
+		while lower.size() >= 2 and _hull_cross(lower[lower.size() - 2], lower[lower.size() - 1], p) <= 0:
+			lower.remove_at(lower.size() - 1)
+		lower.append(p)
+	var upper: Array[Vector2i] = []
+	for i in range(pts.size() - 1, -1, -1):
+		var p: Vector2i = pts[i]
+		while upper.size() >= 2 and _hull_cross(upper[upper.size() - 2], upper[upper.size() - 1], p) <= 0:
+			upper.remove_at(upper.size() - 1)
+		upper.append(p)
+	for i in lower.size() - 1:
+		hull.append(Vector2(lower[i]))
+	for i in upper.size() - 1:
+		hull.append(Vector2(upper[i]))
+	return hull
+
+
+static func _hull_cross(o: Vector2i, a: Vector2i, b: Vector2i) -> int:
+	return (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x)
+
+
+## 像素中心在凸包内才算身体。顶点也是像素中心（坐标乘 2 再加 1）。
+## 不用扫描线向外取整，避免轮廓一圈圈变大。
+static func _hull_centers(hull: PackedVector2Array, w: int, h: int) -> PackedByteArray:
+	var inside := PackedByteArray()
+	inside.resize(w * h)
+	var n := hull.size()
+	var xmin := w
+	var xmax := 0
+	var ymin := h
+	var ymax := 0
+	for i in n:
+		var hx := int(floor(hull[i].x / 2.0))
+		var hy := int(floor(hull[i].y / 2.0))
+		xmin = mini(xmin, hx)
+		xmax = maxi(xmax, hx)
+		ymin = mini(ymin, hy)
+		ymax = maxi(ymax, hy)
+	xmin = clampi(xmin, 0, w - 1)
+	xmax = clampi(xmax, 0, w - 1)
+	ymin = clampi(ymin, 0, h - 1)
+	ymax = clampi(ymax, 0, h - 1)
+	for y in range(ymin, ymax + 1):
+		var py := float(y * 2 + 1)
+		for x in range(xmin, xmax + 1):
+			var px := float(x * 2 + 1)
+			var sign := 0
+			var ok := true
+			for i in n:
+				var a := hull[i]
+				var b := hull[(i + 1) % n]
+				var c := (b.x - a.x) * (py - a.y) - (b.y - a.y) * (px - a.x)
+				if absf(c) <= 0.001:
+					continue
+				var s := 1 if c > 0.0 else -1
+				if sign == 0:
+					sign = s
+				elif s != sign:
+					ok = false
+					break
+			if ok:
+				inside[y * w + x] = 1
+	return inside
 
 
 func _set_pose(node: Unit, pose: int) -> void:
@@ -367,9 +843,25 @@ func _set_pose(node: Unit, pose: int) -> void:
 	var sprite: Sprite2D = node.get_meta("combat_sprite")
 	var sc: float = node.get_meta("combat_px_scale")
 	var feet: Vector2 = fr["feet"]
+	_lock_combat_sprite(sprite)
 	sprite.texture = fr["tex"]
 	# 脚底点对齐节点原点。父节点 scale.x 绕原点镜像，原点不动，翻转后脚仍踩在 FEET_Y。
 	sprite.position = Vector2(-feet.x, -feet.y) * sc
+	if node.is_inside_tree():
+		_refresh_body_occluder()
+
+
+## 立绘本体：alpha 锁死为 1，最近邻，直通 alpha 的 mix 混合。
+## 镀金 / 闪白 / 阵亡淡出走父节点 modulate，不走这张精灵自己的 alpha。
+func _lock_combat_sprite(sprite: Sprite2D) -> void:
+	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	sprite.texture_repeat = CanvasItem.TEXTURE_REPEAT_DISABLED
+	sprite.modulate = Color(1, 1, 1, 1)
+	sprite.self_modulate = Color(1, 1, 1, 1)
+	if not (sprite.material is ShaderMaterial) or (sprite.material as ShaderMaterial).shader != _POSE_SHADER:
+		var mat := ShaderMaterial.new()
+		mat.shader = _POSE_SHADER
+		sprite.material = mat
 
 
 func _use_crit_frames(node: Unit, on: bool) -> void:
@@ -382,6 +874,263 @@ func _use_crit_frames(node: Unit, on: bool) -> void:
 	else:
 		node.set_meta("combat_frames", node.get_meta("combat_frames_normal"))
 		node.set_meta("combat_sheet_mode", "normal")
+
+
+## 154px 缩放之后，腰腹左右还露着未缩放帧边。灌丛硬边就从那条边上穿出来。
+## 挡板跟角色走，盖住本帧身体和未缩放帧腰线之间的凸包，颜色仍取身体原色。
+const WAIST_EDGE_DY := [84, 80, 77, 70]
+var _occluder: Sprite2D
+
+
+func _refresh_body_occluder() -> void:
+	if _stage == null or _att_node == null or _def_node == null:
+		return
+	if not is_instance_valid(_att_node) or not is_instance_valid(_def_node):
+		return
+	if not _att_node.is_inside_tree():
+		return
+	var img := build_waist_occluder([_att_node, _def_node])
+	if _occluder == null or not is_instance_valid(_occluder):
+		_occluder = Sprite2D.new()
+		_occluder.name = "BodyOccluder"
+		_occluder.centered = false
+		_occluder.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		_occluder.texture_repeat = CanvasItem.TEXTURE_REPEAT_DISABLED
+		_stage.add_child(_occluder)
+	_occluder.z_index = Z_FIGHTER - 1
+	_occluder.z_as_relative = true
+	_occluder.texture = ImageTexture.create_from_image(img)
+
+
+## 返回一张和视口同大的挡板。调用方自己挂到舞台上。冒烟可以直接读像素。
+func build_waist_occluder(nodes: Array) -> Image:
+	var w := 1280
+	var h := 720
+	var n := w * h
+	var color := PackedByteArray()
+	color.resize(n * 4)
+	var opaque := PackedByteArray()
+	opaque.resize(n)
+	var extras: Array[Vector2i] = []
+	for node in nodes:
+		if not (node is Node2D):
+			continue
+		var body := node as Node2D
+		if not body.has_meta("combat_sprite"):
+			continue
+		var sprite: Sprite2D = body.get_meta("combat_sprite")
+		if sprite == null or not (sprite.texture is AtlasTexture):
+			continue
+		var atlas := sprite.texture as AtlasTexture
+		var src := atlas.atlas.get_image()
+		if src == null:
+			continue
+		if src.is_compressed():
+			src.decompress()
+		if src.get_format() != Image.FORMAT_RGBA8:
+			src.convert(Image.FORMAT_RGBA8)
+		var region := atlas.region
+		var x0 := int(region.position.x)
+		var y0 := int(region.position.y)
+		var fw := int(region.size.x)
+		var fh := int(region.size.y)
+		var full_w := src.get_width()
+		var bytes := src.get_data()
+		var sc := sprite.scale
+		var sp := sprite.position
+		var us := body.scale
+		var up := body.position
+		for y in fh:
+			var row := (y0 + y) * full_w + x0
+			for x in fw:
+				var si := (row + x) * 4
+				if si + 3 >= bytes.size() or bytes[si + 3] < 128:
+					continue
+				var lx := sp.x + (float(x) + 0.5) * sc.x
+				var ly := sp.y + (float(y) + 0.5) * sc.y
+				var sx := int(floor(up.x + lx * us.x))
+				var sy := int(floor(up.y + ly * us.y))
+				if sx < 0 or sy < 0 or sx >= w or sy >= h:
+					continue
+				var di := sy * w + sx
+				opaque[di] = 1
+				var db := di * 4
+				color[db] = bytes[si]
+				color[db + 1] = bytes[si + 1]
+				color[db + 2] = bytes[si + 2]
+				color[db + 3] = 255
+		var feet_x := 0.0
+		if absf(sc.x) > 0.001:
+			feet_x = -sp.x / sc.x
+		for dy in WAIST_EDGE_DY:
+			var ey := int(floor(up.y - float(dy)))
+			var ex0 := int(floor(up.x + (0.0 - feet_x) * us.x))
+			var ex1 := int(floor(up.x + (float(fw) - feet_x) * us.x))
+			if ey >= 0 and ey < h:
+				if ex0 >= 0 and ex0 < w:
+					extras.append(Vector2i(ex0, ey))
+				if ex1 >= 0 and ex1 < w:
+					extras.append(Vector2i(ex1, ey))
+	var pts: Array[Vector2i] = []
+	for y in h:
+		var row := y * w
+		for x in w:
+			if opaque[row + x] == 0:
+				continue
+			var edge := x == 0 or y == 0 or x == w - 1 or y == h - 1
+			if not edge:
+				if opaque[row + x - 1] == 0 or opaque[row + x + 1] == 0 or opaque[row - w + x] == 0 or opaque[row + w + x] == 0:
+					edge = true
+			if edge:
+				pts.append(Vector2i(x, y))
+	for p in extras:
+		pts.append(p)
+	var hull := _convex_hull(pts)
+	var mask := _mask_hull_span(hull, w, h)
+	for i in n:
+		if opaque[i] != 0:
+			mask[i] = 1
+	for p in extras:
+		var ei := p.y * w + p.x
+		if ei >= 0 and ei < n:
+			mask[ei] = 1
+	# 帧边顶点落在像素中心外侧时，扫描线会留一像素灌丛。向外补两像素，边上的采样才进得了身子。
+	var grown := PackedByteArray()
+	grown.resize(n)
+	for y in h:
+		var row := y * w
+		for x in w:
+			if mask[row + x] == 0:
+				continue
+			for dy in range(-2, 3):
+				var ny := y + dy
+				if ny < 0 or ny >= h:
+					continue
+				var nrow := ny * w
+				for dx in range(-2, 3):
+					var nx := x + dx
+					if nx < 0 or nx >= w:
+						continue
+					grown[nrow + nx] = 1
+	mask = grown
+	var queue := PackedInt32Array()
+	var colored := PackedByteArray()
+	colored.resize(n)
+	for i in n:
+		if opaque[i] == 0:
+			continue
+		colored[i] = 1
+		queue.append(i)
+	var head := 0
+	while head < queue.size():
+		var p := queue[head]
+		head += 1
+		var x := p % w
+		var y := int(p / w)
+		var base := p * 4
+		var cr := color[base]
+		var cg := color[base + 1]
+		var cb := color[base + 2]
+		if x > 0:
+			var j := p - 1
+			if mask[j] != 0 and colored[j] == 0:
+				var jb := j * 4
+				color[jb] = cr
+				color[jb + 1] = cg
+				color[jb + 2] = cb
+				color[jb + 3] = 255
+				colored[j] = 1
+				queue.append(j)
+		if x + 1 < w:
+			var j2 := p + 1
+			if mask[j2] != 0 and colored[j2] == 0:
+				var jb2 := j2 * 4
+				color[jb2] = cr
+				color[jb2 + 1] = cg
+				color[jb2 + 2] = cb
+				color[jb2 + 3] = 255
+				colored[j2] = 1
+				queue.append(j2)
+		if y > 0:
+			var j3 := p - w
+			if mask[j3] != 0 and colored[j3] == 0:
+				var jb3 := j3 * 4
+				color[jb3] = cr
+				color[jb3 + 1] = cg
+				color[jb3 + 2] = cb
+				color[jb3 + 3] = 255
+				colored[j3] = 1
+				queue.append(j3)
+		if y + 1 < h:
+			var j4 := p + w
+			if mask[j4] != 0 and colored[j4] == 0:
+				var jb4 := j4 * 4
+				color[jb4] = cr
+				color[jb4 + 1] = cg
+				color[jb4 + 2] = cb
+				color[jb4 + 3] = 255
+				colored[j4] = 1
+				queue.append(j4)
+	var img := Image.create(w, h, false, Image.FORMAT_RGBA8)
+	img.set_data(w, h, false, Image.FORMAT_RGBA8, color)
+	return img
+
+
+static func _mask_hull_span(hull: PackedVector2Array, w: int, h: int) -> PackedByteArray:
+	var mask := PackedByteArray()
+	mask.resize(w * h)
+	var n := hull.size()
+	if n < 3:
+		return mask
+	var ymin := h
+	var ymax := 0
+	for i in n:
+		ymin = mini(ymin, int(floor(hull[i].y)))
+		ymax = maxi(ymax, int(floor(hull[i].y)))
+	ymin = clampi(ymin, 0, h - 1)
+	ymax = clampi(ymax, 0, h - 1)
+	for y in range(ymin, ymax + 1):
+		var py := float(y) + 0.5
+		var lo := 100000.0
+		var hi := -100000.0
+		var hit := 0
+		for i in n:
+			var a := hull[i]
+			var b := hull[(i + 1) % n]
+			var ay := a.y
+			var by := b.y
+			var ax := a.x
+			var bx := b.x
+			if ay > by:
+				var ty := ay
+				ay = by
+				by = ty
+				var tx := ax
+				ax = bx
+				bx = tx
+			if py < ay or py > by:
+				continue
+			var x := ax
+			if absf(by - ay) >= 0.0001:
+				var t := (py - ay) / (by - ay)
+				x = ax + (bx - ax) * t
+			else:
+				lo = minf(lo, minf(ax, bx))
+				hi = maxf(hi, maxf(ax, bx))
+			lo = minf(lo, x)
+			hi = maxf(hi, x)
+			hit += 1
+		if hit < 2:
+			continue
+		var x0 := clampi(int(floor(lo)), 0, w - 1)
+		var x1 := clampi(int(floor(hi)), 0, w - 1)
+		for x in range(x0, x1 + 1):
+			mask[y * w + x] = 1
+	for i in n:
+		var vx := clampi(int(floor(hull[i].x)), 0, w - 1)
+		var vy := clampi(int(floor(hull[i].y)), 0, h - 1)
+		mask[vy * w + vx] = 1
+	return mask
 
 
 func _set_hit_pose(node: Unit) -> void:
@@ -430,6 +1179,7 @@ func _build_layered_bg(paths: Array) -> bool:
 		spr.position = Vector2.ZERO
 		spr.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 		_stage.add_child(spr)
+	_pin_stage_background()
 	return true
 
 
@@ -589,7 +1339,7 @@ func _strike_bow(striker: Unit, victim: Unit, ev: Dictionary, dir: float) -> voi
 	arrow.position = from
 	arrow.rotation = (to - from).angle()
 	arrow.pivot_offset = Vector2(11, 1.5)
-	_stage.add_child(arrow)
+	_add_fx(arrow)
 	var fly := create_tween()
 	fly.tween_property(arrow, "position", to, 0.16).set_trans(Tween.TRANS_LINEAR)
 	await get_tree().create_timer(0.16).timeout
@@ -703,7 +1453,7 @@ func _slash_effect(pos: Vector2, color: Color, big := false) -> void:
 		Vector2(30, 16) * s, Vector2(-2, 10) * s, Vector2(-30, 20) * s, Vector2(-10, 0) * s])
 	slash.color = Color(color.r, color.g, color.b, 0.95)
 	slash.position = pos
-	_stage.add_child(slash)
+	_add_fx(slash)
 	var t := create_tween().set_parallel(true)
 	t.tween_property(slash, "scale", Vector2(1.25, 1.25), 0.18)
 	t.tween_property(slash, "modulate:a", 0.0, 0.18)
@@ -717,7 +1467,7 @@ func _thrust_effect(pos: Vector2, dir: float) -> void:
 	line.size = Vector2(56, 4)
 	line.position = pos + Vector2(-28 if dir > 0 else -28 + 56, -2)
 	line.scale.x = dir
-	_stage.add_child(line)
+	_add_fx(line)
 	var t := create_tween().set_parallel(true)
 	t.tween_property(line, "scale:x", dir * 1.4, 0.14)
 	t.tween_property(line, "modulate:a", 0.0, 0.14)
@@ -732,7 +1482,7 @@ func _spark_effect(pos: Vector2, color: Color, n: int) -> void:
 		p.color = color
 		p.size = Vector2(sz, sz)
 		p.position = pos
-		_stage.add_child(p)
+		_add_fx(p)
 		var ang := randf_range(0, TAU)
 		var dist := randf_range(24, 60)
 		var t := create_tween().set_parallel(true)
