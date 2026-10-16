@@ -44,6 +44,9 @@ var end_overlay: ColorRect
 var end_title: Label
 var end_sub: Label
 var end_btn: Button
+var end_restart: Button
+var lbl_win: Label
+var lbl_lose: Label
 var dialogue: DialogueBox
 var combat_scene: CombatScene
 var system_menu
@@ -150,9 +153,26 @@ func _build_ui() -> void:
 	side.size = Vector2(320, 640)
 	_style_panel(side, Color(0.08, 0.10, 0.16, 0.92))
 	ui.add_child(side)
-	# 立绘框（默认隐藏）
+	# 胜负条件常驻在信息栏顶部，不随回合提示或结算消失。
+	var obj_w := 320.0 - 16.0 - SafeArea.MARGIN_X
+	lbl_win = _make_label(side, Vector2(16, 8), "", 16)
+	lbl_win.name = "WinCondition"
+	lbl_win.size = Vector2(obj_w, 36)
+	lbl_win.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	lbl_win.clip_text = true
+	lbl_win.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	lbl_win.add_theme_color_override("font_color", Color(0.96, 0.86, 0.45))
+	lbl_lose = _make_label(side, Vector2(16, 46), "", 16)
+	lbl_lose.name = "LoseCondition"
+	lbl_lose.size = Vector2(obj_w, 40)
+	lbl_lose.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	lbl_lose.clip_text = true
+	lbl_lose.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	lbl_lose.add_theme_color_override("font_color", Color(0.95, 0.62, 0.48))
+	_refresh_objectives()
+	# 立绘框（默认隐藏），让出上方胜负条件
 	info_portrait_frame = Panel.new()
-	info_portrait_frame.position = Vector2(16, 16)
+	info_portrait_frame.position = Vector2(16, 96)
 	info_portrait_frame.size = Vector2(128, 128)
 	info_portrait_frame.visible = false
 	var ipb := StyleBoxFlat.new()
@@ -167,7 +187,7 @@ func _build_ui() -> void:
 	info_portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	info_portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	info_portrait_frame.add_child(info_portrait)
-	info_label = _make_label(side, Vector2(16, 16), "", 20)
+	info_label = _make_label(side, Vector2(16, 96), "", 20)
 	info_label.size = Vector2(320 - 16 - SafeArea.MARGIN_X, 540)
 	info_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	# 底部提示栏
@@ -337,11 +357,21 @@ func _build_end_overlay() -> void:
 	end_sub.add_theme_color_override("font_color", Color(0.8, 0.78, 0.72))
 	end_overlay.add_child(end_sub)
 	end_btn = Button.new()
+	end_btn.name = "EndTitleButton"
 	end_btn.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
-	end_btn.custom_minimum_size = Vector2(220, maxi(56, SafeArea.MIN_HIT))
-	end_btn.position = Vector2(530, 460)
+	end_btn.custom_minimum_size = Vector2(420, maxi(56, SafeArea.MIN_HIT))
+	end_btn.position = Vector2(430, 460)
 	end_btn.add_theme_font_size_override("font_size", 26)
+	end_btn.visible = false
 	end_overlay.add_child(end_btn)
+	end_restart = Button.new()
+	end_restart.name = "RestartButton"
+	end_restart.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	end_restart.custom_minimum_size = Vector2(420, maxi(56, SafeArea.MIN_HIT))
+	end_restart.position = Vector2(430, 420)
+	end_restart.add_theme_font_size_override("font_size", 26)
+	end_restart.visible = false
+	end_overlay.add_child(end_restart)
 
 
 func _style_panel(p: Panel, c: Color) -> void:
@@ -1061,7 +1091,11 @@ func _victory() -> void:
 	Audio.play_sfx("victory")
 	await get_tree().create_timer(0.7).timeout
 	await chapter.on_victory()
-	_show_end(tr("第一章 · 完"), tr("缇娅的身世之谜，才刚刚开始……"), tr("回到标题"), "res://scenes/title.tscn")
+	end_restart.visible = false
+	end_btn.visible = true
+	end_btn.text = tr("回到标题")
+	_bind_pressed(end_btn, _on_end_title_pressed)
+	_show_end(tr("第一章 · 完"), tr("缇娅的身世之谜，才刚刚开始……"))
 
 
 func _game_over() -> void:
@@ -1071,17 +1105,73 @@ func _game_over() -> void:
 	Audio.play_sfx("defeat")
 	await get_tree().create_timer(0.6).timeout
 	await chapter.on_defeat()
-	_show_end(tr("战  败"), tr("灰岩村的命运，到此为止……"), tr("重试本章"), "res://scenes/battle.tscn")
+	end_restart.visible = true
+	end_restart.text = tr("重开本关")
+	_bind_pressed(end_restart, _on_restart_pressed)
+	end_btn.visible = true
+	end_btn.text = tr("回到标题")
+	_bind_pressed(end_btn, _on_end_title_pressed)
+	_show_end(tr("战  败"), tr("灰岩村的命运，到此为止……"))
 
 
-func _show_end(title: String, sub: String, btn_text: String, scene: String) -> void:
+func _show_end(title: String, sub: String) -> void:
 	end_title.text = title
 	end_sub.text = sub
-	end_btn.text = btn_text
-	for c in end_btn.pressed.get_connections():
-		end_btn.pressed.disconnect(c["callable"])
-	end_btn.pressed.connect(func() -> void: get_tree().change_scene_to_file(scene))
+	hide_banner()
+	_layout_end_buttons()
 	end_overlay.visible = true
+
+
+func _layout_end_buttons() -> void:
+	var shown: Array[Button] = []
+	if end_restart != null and end_restart.visible:
+		shown.append(end_restart)
+	if end_btn != null and end_btn.visible:
+		shown.append(end_btn)
+	var w := 420.0
+	var h := maxf(56.0, float(SafeArea.MIN_HIT))
+	var gap := 16.0
+	var y := 460.0 if shown.size() <= 1 else 420.0
+	for b in shown:
+		b.custom_minimum_size = Vector2(w, h)
+		b.size = Vector2(w, h)
+		b.position = Vector2((1280.0 - w) * 0.5, y)
+		y += h + gap
+
+
+func _bind_pressed(btn: Button, cb: Callable) -> void:
+	for c in btn.pressed.get_connections():
+		btn.pressed.disconnect(c["callable"])
+	btn.pressed.connect(cb)
+
+
+func _on_end_title_pressed() -> void:
+	var tree := get_tree()
+	if tree == null:
+		return
+	tree.paused = false
+	tree.change_scene_to_file("res://scenes/title.tscn")
+
+
+## 重开本关：丢掉本关检查点，从本章开场重打。不走 pending_load。
+func _on_restart_pressed() -> void:
+	restart_chapter()
+
+
+func restart_chapter() -> void:
+	var tree := get_tree()
+	if tree == null:
+		return
+	tree.paused = false
+	CampaignSave.clear()
+	tree.change_scene_to_file("res://scenes/battle.tscn")
+
+
+func _refresh_objectives() -> void:
+	if lbl_win == null or lbl_lose == null:
+		return
+	lbl_win.text = tr("胜利") + "  " + chapter.win_condition()
+	lbl_lose.text = tr("败北") + "  " + chapter.lose_condition()
 
 
 func get_unit(id: String) -> Unit:
@@ -1206,14 +1296,14 @@ func _update_hover_info() -> void:
 		if portrait_key != "":
 			info_portrait.texture = load("res://art/portraits/%s.jpg" % portrait_key)
 			info_portrait_frame.visible = true
-			info_label.position = Vector2(16, 156)
+			info_label.position = Vector2(16, 236)
 		else:
 			info_portrait_frame.visible = false
-			info_label.position = Vector2(16, 16)
+			info_label.position = Vector2(16, 96)
 		info_label.text = _unit_info_text(u)
 	else:
 		info_portrait_frame.visible = false
-		info_label.position = Vector2(16, 16)
+		info_label.position = Vector2(16, 96)
 		var t: Dictionary = board.terrain(cursor.grid_pos)
 		var lv := board.level_at(cursor.grid_pos)
 		info_label.text = tr("【%s】 高度 Lv%d") % [tr(t["name"]), lv] + "\n" + tr("守备 +%d   回避 +%d") % [t["dfn"], t["avo"]]

@@ -61,6 +61,7 @@ func _run() -> void:
 	_check(battle.state == battle.S.IDLE, "开场剧情后应进入 IDLE, 实际 %d" % battle.state)
 	_check(battle.turn == 1, "应为第 1 回合, 实际 %d" % battle.turn)
 	_check(battle.units.size() == 11, "初始应有 11 个单位, 实际 %d" % battle.units.size())
+	_check_objectives(true)
 	_shot("01_map.png")
 	await _check_save_pause_back()
 
@@ -332,6 +333,7 @@ func _run() -> void:
 	_check(battle.get_unit("bandit_r1") != null, "第 3 回合应有增援 bandit_r1")
 	_check(battle.get_unit("bandit_r2") != null, "第 3 回合应有增援 bandit_r2")
 	_check(battle.chapter.f_reinforce, "第 3 回合增援标志 f_reinforce 应为 true")
+	_check_objectives(true)
 	var r1 = battle.get_unit("bandit_r1")
 	var r2 = battle.get_unit("bandit_r2")
 	if r1 != null:
@@ -372,6 +374,8 @@ func _run() -> void:
 	ok = await _wait_cond(func() -> bool: return battle.end_overlay.visible, 15.0)
 	_check(ok, "胜利后应显示结算界面")
 	_check("完" in battle.end_title.text, "结算标题应为「第一章 完」, 实际: " + battle.end_title.text)
+	_check(battle.end_btn.visible and battle.end_btn.text == "回到标题", "胜利结算应能回到标题，实际 " + battle.end_btn.text)
+	_check(battle.end_restart == null or not battle.end_restart.visible, "胜利结算不应显示重开本关")
 	_check(CampaignSave.is_cleared(), "章节胜利后存档应标为已通关")
 	var cleared_payload := CampaignSave.read()
 	_check(int(cleared_payload.get("turn", -1)) == battle.turn, "通关标记应保留获胜回合的检查点，实际回合 %s" % str(cleared_payload.get("turn", -1)))
@@ -391,12 +395,16 @@ func _run() -> void:
 	_check("败" in battle.end_title.text, "结算标题应为「战败」, 实际: " + battle.end_title.text)
 	_check("灰岩村" in battle.end_sub.text, "缇娅败北副标题应含灰岩村, 实际: " + battle.end_sub.text)
 	_check(_phase_banner_hidden(), "缇娅败北结算时相位横幅应不可见, vis=%s a=%s text=%s" % _banner_state())
+	_check_defeat_actions()
+	_check_objectives(true)
 	_shot("09_gameover.png")
+	await _restart_from_defeat()
 
 	# ---- 战败: 新开一局, 巴尔托阵亡 ----
 	_mark("巴尔托阵亡败北")
-	battle.queue_free()
-	await _frames(3)
+	if is_instance_valid(battle) and not battle.is_queued_for_deletion():
+		battle.queue_free()
+		await _frames(3)
 	await _spawn_battle()
 	var balto2 = battle.get_unit("balto")
 	var tia3 = battle.get_unit("tia")
@@ -409,6 +417,7 @@ func _run() -> void:
 	_check("败" in battle.end_title.text, "结算标题应为「战败」, 实际: " + battle.end_title.text)
 	_check("灰岩村" in battle.end_sub.text, "巴尔托败北副标题应含灰岩村, 实际: " + battle.end_sub.text)
 	_check(_phase_banner_hidden(), "巴尔托败北结算时相位横幅应不可见, vis=%s a=%s text=%s" % _banner_state())
+	_check_defeat_actions()
 	_shot("10_gameover_balto.png")
 	await _check_save_roundtrip()
 
@@ -520,7 +529,8 @@ func _check_infra() -> void:
 	var en_keys: Array = [
 		"攻击", "待机", "访问", "对话", "支援", "说得", "道具",
 		"回合结束", "我方回合", "敌方回合", "危险范围 (T)",
-		"第一章 · 边境的少女", "战  败", "第一章 · 完", "重试本章", "回到标题",
+		"第一章 · 边境的少女", "战  败", "第一章 · 完", "重开本关", "回到标题",
+		"胜利", "败北", "击败所有敌人", "缇娅或巴尔托阵亡",
 		"敌方增援！", "点击我方单位行动 · 点击敌人查看其威胁范围",
 		"确认攻击", "取消", "必 杀 !", "攻击 %d", "命中 %d   必杀 %d",
 		"我方", "敌方", "铁剑", "银枪", "伤药", "剑士", "圣骑士", "弓箭手", "平原", "森林",
@@ -581,6 +591,14 @@ func _check_en_topbar() -> void:
 		if gold_label != null:
 			var gold_right := gold_label.position.x + maxf(gold_label.size.x, gold_label.get_minimum_size().x)
 			_check(gold_right <= threat.position.x + 0.01, "英文金钱标不应压到危险范围，右缘 %s 按钮 %s" % [gold_right, threat.position.x])
+	var win: Label = probe.lbl_win
+	var lose: Label = probe.lbl_lose
+	_check(win != null and win.visible and win.text.begins_with("Victory") and "Defeat all enemies" in win.text, "英文胜利条件不符，实际 %s" % (win.text if win != null else "null"))
+	_check(lose != null and lose.visible and lose.text.begins_with("Defeat") and "Tia or Balto falls" in lose.text, "英文败北条件不符，实际 %s" % (lose.text if lose != null else "null"))
+	if win != null:
+		_check(not _has_cjk(win.text), "英文胜利条件不应含中文，实际 " + win.text)
+	if lose != null:
+		_check(not _has_cjk(lose.text), "英文败北条件不应含中文，实际 " + lose.text)
 	probe.queue_free()
 	await _frames(2)
 	GameLocale.set_code("zh_CN")
@@ -744,6 +762,93 @@ func _check_save_roundtrip() -> void:
 	_check(battle.chapter.f_talk, "读档应恢复对话旗标")
 	_check(battle.chapter.visited.has(Vector2i(9, 1)), "读档应恢复民居访问")
 	_check(battle.units.size() == 11, "读档单位数量应为 11，实际 %d" % battle.units.size())
+
+
+func _check_objectives(zh: bool) -> void:
+	var win: Label = battle.lbl_win if battle != null else null
+	var lose: Label = battle.lbl_lose if battle != null else null
+	_check(win != null and lose != null, "应有胜负条件标签")
+	if win == null or lose == null:
+		return
+	_check(win.visible and lose.visible, "胜负条件应在战斗中保持可见")
+	if zh:
+		_check(win.text.begins_with("胜利") and "击败所有敌人" in win.text, "胜利条件文案不符，实际 " + win.text)
+		_check(lose.text.begins_with("败北") and "缇娅或巴尔托阵亡" in lose.text, "败北条件文案不符，实际 " + lose.text)
+	var back: Button = battle.btn_back
+	if back != null:
+		var win_rect := win.get_global_rect()
+		var lose_rect := lose.get_global_rect()
+		var back_rect := back.get_global_rect()
+		_check(win_rect.size.y > 8.0 and lose_rect.size.y > 8.0, "胜负条件应有可见高度")
+		_check(lose_rect.end.y <= back_rect.position.y + 0.01, "胜负条件不应压到返回按钮，底 %s 返回 %s" % [lose_rect.end.y, back_rect.position.y])
+		_check(win_rect.position.x >= 960.0, "胜负条件应在右侧信息栏，x=%s" % win_rect.position.x)
+		_check(win_rect.end.x <= 1280.0 - SafeArea.MARGIN_X + 1.0, "胜利条件应避开右安全区，右缘 %s" % win_rect.end.x)
+
+
+func _check_defeat_actions() -> void:
+	var restart: Button = battle.end_restart
+	var title_btn: Button = battle.end_btn
+	_check(restart != null and restart.visible and restart.text == "重开本关", "败北应显示重开本关，实际 %s" % (restart.text if restart != null else "null"))
+	_check(title_btn != null and title_btn.visible and title_btn.text == "回到标题", "败北应保留回到标题，实际 %s" % (title_btn.text if title_btn != null else "null"))
+	if restart != null:
+		_check(restart.custom_minimum_size.y >= SafeArea.MIN_HIT, "重开本关热区应 ≥ 48")
+		_check(_pressed_method(restart) == "_on_restart_pressed", "重开按钮应接到重开本关，实际 " + _pressed_method(restart))
+	if title_btn != null:
+		_check(title_btn.custom_minimum_size.y >= SafeArea.MIN_HIT, "回到标题热区应 ≥ 48")
+		_check(_pressed_method(title_btn) == "_on_end_title_pressed", "标题按钮应接到回标题，实际 " + _pressed_method(title_btn))
+
+
+func _pressed_method(btn: Button) -> String:
+	var conns := btn.pressed.get_connections()
+	if conns.is_empty():
+		return ""
+	return str(conns[0]["callable"].get_method())
+
+
+## 败北界面上的重开会清档并 change_scene。冒烟节点不是战斗场景时，
+## 先把当前场景指到这场战斗，再按按钮，这样只卸掉战斗、测试节点还在。
+func _restart_from_defeat() -> void:
+	if battle == null or battle.end_restart == null:
+		_check(false, "无法重开：缺少败北按钮")
+		return
+	battle.gold = 777
+	battle.turn = 4
+	CampaignSave.write_checkpoint(battle)
+	CampaignSave.request_continue()
+	var old = battle
+	get_tree().current_scene = battle
+	battle.end_restart.pressed.emit()
+	var t := 0.0
+	while t < 5.0:
+		await get_tree().create_timer(0.1).timeout
+		t += 0.1
+		var cur = get_tree().current_scene
+		if cur != null and cur != old and is_instance_valid(cur) and cur.name == "Battle":
+			battle = cur
+			break
+	_check(is_instance_valid(battle) and battle != old, "重开本关应载入新的战斗场景")
+	if not is_instance_valid(battle) or battle == old:
+		return
+	battle.set_process_unhandled_input(false)
+	await _skip_story()
+	var tia = battle.get_unit("tia")
+	var balto = battle.get_unit("balto")
+	_check(battle.state == battle.S.IDLE, "重开后应进入本章开场后的 IDLE，实际 %d" % battle.state)
+	_check(battle.turn == 1, "重开后应为第 1 回合，实际 %d" % battle.turn)
+	_check(battle.gold == 0, "重开不应读入失败检查点的金钱，实际 %d" % battle.gold)
+	_check(tia != null and tia.is_alive() and tia.hp == 20, "重开后缇娅应满血存活")
+	_check(balto != null and balto.is_alive(), "重开后巴尔托应存活")
+	_check(battle.units.size() == 11, "重开后应回到 11 个初始单位，实际 %d" % battle.units.size())
+	var alive := 0
+	for u in battle.units:
+		if u.is_alive():
+			alive += 1
+	_check(alive == 11, "重开后应全员存活，实际 %d" % alive)
+	_check(not CampaignSave.pending_load, "重开不应留下读档请求")
+	var payload := CampaignSave.read()
+	_check(int(payload.get("turn", -1)) == 1 and int(payload.get("gold", -1)) == 0, "重开后的检查点应是第 1 回合空金，实际 %s" % str(payload))
+	_check(not bool(payload.get("cleared", true)), "重开不应沿用通关标记")
+	_check_objectives(true)
 
 
 func _phase_banner_hidden() -> bool:

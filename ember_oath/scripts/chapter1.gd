@@ -294,6 +294,15 @@ func on_defeat() -> void:
 		await battle.play_dialogue(_defeat_balto())
 
 
+## 常驻胜负文案。判定本身在 battle.check_end_conditions。
+func win_condition() -> String:
+	return tr("击败所有敌人")
+
+
+func lose_condition() -> String:
+	return tr("缇娅或巴尔托阵亡")
+
+
 # ============ 台词 ============
 
 func _l(n: String, c: Color, t: String) -> Dictionary:
