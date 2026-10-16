@@ -86,8 +86,9 @@ const CLASS_SHEET := {
 	"山贼": "bandit_axe",
 }
 const SHEET_IDS: Array[String] = ["bandit_axe", "tia_sword"]
-## 条带画布上的原生朝向。true = 朝右。
-## tia_sword 朝右；bandit_axe 是最早风，按火纹敌方位朝左画。缺省朝右。
+## 条带画布上的原生朝向。true = 朝右。缺省朝右。
+## tia_sword 与 tia_sword_crit 朝右；bandit_axe 与 bandit_axe_crit 朝左（火纹敌方位）。
+## 必杀条和普通条挂在同一个父节点上，共用这一次翻转，不再按帧单独镜像。
 const SHEET_FACES_RIGHT := {
 	"tia_sword": true,
 	"bandit_axe": false,
