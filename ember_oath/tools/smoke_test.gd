@@ -1188,9 +1188,67 @@ func _check_sheet_facing(scene: CombatScene) -> void:
 	_check(is_equal_approx(q_left.scale.y, CombatScene.UNIT_SCALE), "无条带纵向缩放应保持")
 	q_left.free()
 	q_right.free()
+	_check_waist_occluder(scene)
 	tia.free()
 	bandit.free()
 	plain.free()
+
+
+## 实机腰腹挡板：未缩放帧边上的采样点必须是身体色，不能是灌丛绿。
+func _check_waist_occluder(scene: CombatScene) -> void:
+	var tia := Unit.new()
+	tia.unit_id = "tia"
+	tia.class_label = "剑士"
+	var bandit := Unit.new()
+	bandit.unit_id = "bandit1"
+	bandit.class_label = "山贼"
+	var att := scene._make_fighter(tia, false)
+	var def := scene._make_fighter(bandit, true)
+	att.position = Vector2(CombatScene.DEF_X - 110.0, CombatScene.FEET_Y)
+	def.position = Vector2(CombatScene.DEF_X, CombatScene.FEET_Y)
+	scene._use_crit_frames(att, true)
+	scene._set_pose(att, CombatScene.POSE_STRIKE)
+	scene._set_hit_pose(def)
+	var img := scene.build_waist_occluder([att, def])
+	var left := [Vector2i(764, 440), Vector2i(770, 440), Vector2i(780, 450)]
+	var right := [Vector2i(1020, 440), Vector2i(1040, 440), Vector2i(1066, 440)]
+	for p in left:
+		_check_not_bush(img, p, "腰腹左")
+	for p in right:
+		_check_not_bush(img, p, "腰腹右")
+	var bush := 0
+	for y in range(430, 456):
+		for x in range(764, 1067):
+			var c := img.get_pixel(x, y)
+			if c.a < 0.5:
+				continue
+			if _is_bush_rgb(int(round(c.r * 255.0)), int(round(c.g * 255.0)), int(round(c.b * 255.0))):
+				bush += 1
+	_check(bush == 0, "腰腹挡板轮廓内不应有灌丛绿，实际 %d" % bush)
+	att.free()
+	def.free()
+	tia.free()
+	bandit.free()
+
+
+func _check_not_bush(img: Image, p: Vector2i, tag: String) -> void:
+	var c := img.get_pixel(p.x, p.y)
+	var r := int(round(c.r * 255.0))
+	var g := int(round(c.g * 255.0))
+	var b := int(round(c.b * 255.0))
+	_check(c.a > 0.5 and not _is_bush_rgb(r, g, b), "%s (%d,%d) 应为身体色，实际 %d,%d,%d" % [tag, p.x, p.y, r, g, b])
+
+
+func _is_bush_rgb(r: int, g: int, b: int) -> bool:
+	if r == 46 and g == 77 and b == 41:
+		return true
+	if r == 29 and g == 63 and b == 37:
+		return true
+	if r == 56 and g == 96 and b == 48:
+		return true
+	if r == 36 and g == 80 and b == 44:
+		return true
+	return false
 
 
 func _fighter_faces_right(node: Node) -> bool:

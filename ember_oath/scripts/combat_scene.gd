@@ -847,6 +847,8 @@ func _set_pose(node: Unit, pose: int) -> void:
 	sprite.texture = fr["tex"]
 	# 脚底点对齐节点原点。父节点 scale.x 绕原点镜像，原点不动，翻转后脚仍踩在 FEET_Y。
 	sprite.position = Vector2(-feet.x, -feet.y) * sc
+	if node.is_inside_tree():
+		_refresh_body_occluder()
 
 
 ## 立绘本体：alpha 锁死为 1，最近邻，直通 alpha 的 mix 混合。
@@ -872,6 +874,263 @@ func _use_crit_frames(node: Unit, on: bool) -> void:
 	else:
 		node.set_meta("combat_frames", node.get_meta("combat_frames_normal"))
 		node.set_meta("combat_sheet_mode", "normal")
+
+
+## 154px 缩放之后，腰腹左右还露着未缩放帧边。灌丛硬边就从那条边上穿出来。
+## 挡板跟角色走，盖住本帧身体和未缩放帧腰线之间的凸包，颜色仍取身体原色。
+const WAIST_EDGE_DY := [84, 80, 77, 70]
+var _occluder: Sprite2D
+
+
+func _refresh_body_occluder() -> void:
+	if _stage == null or _att_node == null or _def_node == null:
+		return
+	if not is_instance_valid(_att_node) or not is_instance_valid(_def_node):
+		return
+	if not _att_node.is_inside_tree():
+		return
+	var img := build_waist_occluder([_att_node, _def_node])
+	if _occluder == null or not is_instance_valid(_occluder):
+		_occluder = Sprite2D.new()
+		_occluder.name = "BodyOccluder"
+		_occluder.centered = false
+		_occluder.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		_occluder.texture_repeat = CanvasItem.TEXTURE_REPEAT_DISABLED
+		_stage.add_child(_occluder)
+	_occluder.z_index = Z_FIGHTER - 1
+	_occluder.z_as_relative = true
+	_occluder.texture = ImageTexture.create_from_image(img)
+
+
+## 返回一张和视口同大的挡板。调用方自己挂到舞台上。冒烟可以直接读像素。
+func build_waist_occluder(nodes: Array) -> Image:
+	var w := 1280
+	var h := 720
+	var n := w * h
+	var color := PackedByteArray()
+	color.resize(n * 4)
+	var opaque := PackedByteArray()
+	opaque.resize(n)
+	var extras: Array[Vector2i] = []
+	for node in nodes:
+		if not (node is Node2D):
+			continue
+		var body := node as Node2D
+		if not body.has_meta("combat_sprite"):
+			continue
+		var sprite: Sprite2D = body.get_meta("combat_sprite")
+		if sprite == null or not (sprite.texture is AtlasTexture):
+			continue
+		var atlas := sprite.texture as AtlasTexture
+		var src := atlas.atlas.get_image()
+		if src == null:
+			continue
+		if src.is_compressed():
+			src.decompress()
+		if src.get_format() != Image.FORMAT_RGBA8:
+			src.convert(Image.FORMAT_RGBA8)
+		var region := atlas.region
+		var x0 := int(region.position.x)
+		var y0 := int(region.position.y)
+		var fw := int(region.size.x)
+		var fh := int(region.size.y)
+		var full_w := src.get_width()
+		var bytes := src.get_data()
+		var sc := sprite.scale
+		var sp := sprite.position
+		var us := body.scale
+		var up := body.position
+		for y in fh:
+			var row := (y0 + y) * full_w + x0
+			for x in fw:
+				var si := (row + x) * 4
+				if si + 3 >= bytes.size() or bytes[si + 3] < 128:
+					continue
+				var lx := sp.x + (float(x) + 0.5) * sc.x
+				var ly := sp.y + (float(y) + 0.5) * sc.y
+				var sx := int(floor(up.x + lx * us.x))
+				var sy := int(floor(up.y + ly * us.y))
+				if sx < 0 or sy < 0 or sx >= w or sy >= h:
+					continue
+				var di := sy * w + sx
+				opaque[di] = 1
+				var db := di * 4
+				color[db] = bytes[si]
+				color[db + 1] = bytes[si + 1]
+				color[db + 2] = bytes[si + 2]
+				color[db + 3] = 255
+		var feet_x := 0.0
+		if absf(sc.x) > 0.001:
+			feet_x = -sp.x / sc.x
+		for dy in WAIST_EDGE_DY:
+			var ey := int(floor(up.y - float(dy)))
+			var ex0 := int(floor(up.x + (0.0 - feet_x) * us.x))
+			var ex1 := int(floor(up.x + (float(fw) - feet_x) * us.x))
+			if ey >= 0 and ey < h:
+				if ex0 >= 0 and ex0 < w:
+					extras.append(Vector2i(ex0, ey))
+				if ex1 >= 0 and ex1 < w:
+					extras.append(Vector2i(ex1, ey))
+	var pts: Array[Vector2i] = []
+	for y in h:
+		var row := y * w
+		for x in w:
+			if opaque[row + x] == 0:
+				continue
+			var edge := x == 0 or y == 0 or x == w - 1 or y == h - 1
+			if not edge:
+				if opaque[row + x - 1] == 0 or opaque[row + x + 1] == 0 or opaque[row - w + x] == 0 or opaque[row + w + x] == 0:
+					edge = true
+			if edge:
+				pts.append(Vector2i(x, y))
+	for p in extras:
+		pts.append(p)
+	var hull := _convex_hull(pts)
+	var mask := _mask_hull_span(hull, w, h)
+	for i in n:
+		if opaque[i] != 0:
+			mask[i] = 1
+	for p in extras:
+		var ei := p.y * w + p.x
+		if ei >= 0 and ei < n:
+			mask[ei] = 1
+	# 帧边顶点落在像素中心外侧时，扫描线会留一像素灌丛。向外补两像素，边上的采样才进得了身子。
+	var grown := PackedByteArray()
+	grown.resize(n)
+	for y in h:
+		var row := y * w
+		for x in w:
+			if mask[row + x] == 0:
+				continue
+			for dy in range(-2, 3):
+				var ny := y + dy
+				if ny < 0 or ny >= h:
+					continue
+				var nrow := ny * w
+				for dx in range(-2, 3):
+					var nx := x + dx
+					if nx < 0 or nx >= w:
+						continue
+					grown[nrow + nx] = 1
+	mask = grown
+	var queue := PackedInt32Array()
+	var colored := PackedByteArray()
+	colored.resize(n)
+	for i in n:
+		if opaque[i] == 0:
+			continue
+		colored[i] = 1
+		queue.append(i)
+	var head := 0
+	while head < queue.size():
+		var p := queue[head]
+		head += 1
+		var x := p % w
+		var y := int(p / w)
+		var base := p * 4
+		var cr := color[base]
+		var cg := color[base + 1]
+		var cb := color[base + 2]
+		if x > 0:
+			var j := p - 1
+			if mask[j] != 0 and colored[j] == 0:
+				var jb := j * 4
+				color[jb] = cr
+				color[jb + 1] = cg
+				color[jb + 2] = cb
+				color[jb + 3] = 255
+				colored[j] = 1
+				queue.append(j)
+		if x + 1 < w:
+			var j2 := p + 1
+			if mask[j2] != 0 and colored[j2] == 0:
+				var jb2 := j2 * 4
+				color[jb2] = cr
+				color[jb2 + 1] = cg
+				color[jb2 + 2] = cb
+				color[jb2 + 3] = 255
+				colored[j2] = 1
+				queue.append(j2)
+		if y > 0:
+			var j3 := p - w
+			if mask[j3] != 0 and colored[j3] == 0:
+				var jb3 := j3 * 4
+				color[jb3] = cr
+				color[jb3 + 1] = cg
+				color[jb3 + 2] = cb
+				color[jb3 + 3] = 255
+				colored[j3] = 1
+				queue.append(j3)
+		if y + 1 < h:
+			var j4 := p + w
+			if mask[j4] != 0 and colored[j4] == 0:
+				var jb4 := j4 * 4
+				color[jb4] = cr
+				color[jb4 + 1] = cg
+				color[jb4 + 2] = cb
+				color[jb4 + 3] = 255
+				colored[j4] = 1
+				queue.append(j4)
+	var img := Image.create(w, h, false, Image.FORMAT_RGBA8)
+	img.set_data(w, h, false, Image.FORMAT_RGBA8, color)
+	return img
+
+
+static func _mask_hull_span(hull: PackedVector2Array, w: int, h: int) -> PackedByteArray:
+	var mask := PackedByteArray()
+	mask.resize(w * h)
+	var n := hull.size()
+	if n < 3:
+		return mask
+	var ymin := h
+	var ymax := 0
+	for i in n:
+		ymin = mini(ymin, int(floor(hull[i].y)))
+		ymax = maxi(ymax, int(floor(hull[i].y)))
+	ymin = clampi(ymin, 0, h - 1)
+	ymax = clampi(ymax, 0, h - 1)
+	for y in range(ymin, ymax + 1):
+		var py := float(y) + 0.5
+		var lo := 100000.0
+		var hi := -100000.0
+		var hit := 0
+		for i in n:
+			var a := hull[i]
+			var b := hull[(i + 1) % n]
+			var ay := a.y
+			var by := b.y
+			var ax := a.x
+			var bx := b.x
+			if ay > by:
+				var ty := ay
+				ay = by
+				by = ty
+				var tx := ax
+				ax = bx
+				bx = tx
+			if py < ay or py > by:
+				continue
+			var x := ax
+			if absf(by - ay) >= 0.0001:
+				var t := (py - ay) / (by - ay)
+				x = ax + (bx - ax) * t
+			else:
+				lo = minf(lo, minf(ax, bx))
+				hi = maxf(hi, maxf(ax, bx))
+			lo = minf(lo, x)
+			hi = maxf(hi, x)
+			hit += 1
+		if hit < 2:
+			continue
+		var x0 := clampi(int(floor(lo)), 0, w - 1)
+		var x1 := clampi(int(floor(hi)), 0, w - 1)
+		for x in range(x0, x1 + 1):
+			mask[y * w + x] = 1
+	for i in n:
+		var vx := clampi(int(floor(hull[i].x)), 0, w - 1)
+		var vy := clampi(int(floor(hull[i].y)), 0, h - 1)
+		mask[vy * w + vx] = 1
+	return mask
 
 
 func _set_hit_pose(node: Unit) -> void:
