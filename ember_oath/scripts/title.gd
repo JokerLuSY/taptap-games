@@ -106,8 +106,8 @@ func _label(size: int, color: Color, pos: Vector2, box: Vector2) -> Label:
 
 
 func _apply_locale(_code: String) -> void:
-	_title.text = tr("余烬之誓")
-	_sub.text = tr("Vow of Embers · 战棋原型")
+	_title.text = tr("炎烬之誓")
+	_sub.text = tr("Emberflame Oath · 战棋原型")
 	_note.text = tr("第一章 · 边境的少女（原型 v0.1）")
 	_start.text = tr("开始游戏")
 	_lang.text = tr("LANG_SWITCH")

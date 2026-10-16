@@ -1,4 +1,4 @@
-# 《余烬之誓》Android 横屏 debug 包
+# 《炎烬之誓》Android 横屏 debug 包
 
 试包范围 C：横屏 debug APK，能装能开。不签名上架，不要求 AAB。
 

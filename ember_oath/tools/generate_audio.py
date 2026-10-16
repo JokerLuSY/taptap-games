@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""《余烬之誓》程序生成音效与 BGM (WAV, 无第三方素材)
+"""《炎烬之誓》程序生成音效与 BGM (WAV, 无第三方素材)
 用法: python ember_oath/tools/generate_audio.py
 """
 import math
