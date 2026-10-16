@@ -44,7 +44,8 @@ const BG_SETS := {
 		"res://art/combat/bg/ground_strip_scorch.png",
 	],
 }
-## terrain_char → 套名。未登记的字符继续走 GROUND_COLORS 色块。
+## terrain_char → 套名。表里没有的字符（道路等）默认 grass，不再铺纯色扁底。
+const DEFAULT_BG_SET := "grass"
 const TERRAIN_BG := {
 	".": "grass",
 	"H": "grass",
@@ -391,11 +392,11 @@ func _set_hit_pose(node: Unit) -> void:
 		_set_pose(node, hf)
 
 
-## 当前地形对应的分层路径。未登记、或任一层资源缺失时返回空数组（调用方回退色块）。
+## 当前地形对应的分层路径。未登记字符默认 grass。任一层资源缺失时返回空数组（那时才回退色块）。
 func _layered_bg_paths(terrain_char: String) -> Array:
-	if not TERRAIN_BG.has(terrain_char):
-		return []
-	var set_name := str(TERRAIN_BG[terrain_char])
+	var set_name := str(TERRAIN_BG.get(terrain_char, DEFAULT_BG_SET))
+	if not BG_SETS.has(set_name):
+		set_name = DEFAULT_BG_SET
 	if not BG_SETS.has(set_name):
 		return []
 	return _usable_layered_paths(BG_SETS[set_name])
