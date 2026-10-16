@@ -125,6 +125,24 @@ func heal(n: int) -> void:
 	queue_redraw()
 
 
+## 剧情转职：等级重置为 1，经验清零，保留当前能力并加上 bonus。不消耗道具。
+func promote(to_class: String, bonus: Dictionary, new_weapons: Array = []) -> void:
+	class_label = to_class
+	level = 1
+	xp = 0
+	var add_hp := int(bonus.get("hp", 0))
+	max_hp += add_hp
+	hp = mini(hp + add_hp, max_hp)
+	pwr += int(bonus.get("pwr", 0))
+	skl += int(bonus.get("skl", 0))
+	spd += int(bonus.get("spd", 0))
+	dfn += int(bonus.get("dfn", 0))
+	mov += int(bonus.get("mov", 0))
+	if not new_weapons.is_empty():
+		weapons = new_weapons.duplicate()
+	queue_redraw()
+
+
 ## 返回升级信息（空 dict = 未升级）
 func gain_xp(n: int) -> Dictionary:
 	xp += n
@@ -369,12 +387,15 @@ func _draw_weapon() -> void:
 	var gold := Color(0.85, 0.70, 0.30)
 	match weapon_kind():
 		"sword":
+			var blade := steel
+			if not weapons.is_empty() and str(weapons[0]) == "ember_blade":
+				blade = Color(1.0, 0.55, 0.22)
 			draw_rect(Rect2(12.4, -11, 4.4, 18), OUTLINE)
-			draw_rect(Rect2(13.2, -10, 2.8, 16), steel)
+			draw_rect(Rect2(13.2, -10, 2.8, 16), blade)
 			var tip := PackedVector2Array([Vector2(13.2, -10), Vector2(16, -10), Vector2(14.6, -14)])
 			draw_colored_polygon(tip, OUTLINE)
 			var tip_in := PackedVector2Array([Vector2(13.8, -10), Vector2(15.5, -10), Vector2(14.6, -12.8)])
-			draw_colored_polygon(tip_in, steel)
+			draw_colored_polygon(tip_in, blade)
 			draw_rect(Rect2(10.5, 6, 8, 3.4), OUTLINE)
 			draw_rect(Rect2(11.3, 6.7, 6.4, 2), gold)
 			draw_rect(Rect2(13.8, 9.4, 1.8, 5), wood)

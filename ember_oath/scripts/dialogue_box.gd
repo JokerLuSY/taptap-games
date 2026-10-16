@@ -13,6 +13,11 @@ const PORTRAITS := {
 	"哈洛": "portrait_villager",
 	"村民": "portrait_villager",
 	"老奶奶": "portrait_granny",
+	# TODO(M3): 「缇娅·觉醒」专用立绘未到，暂复用第一章 portrait_tia。
+	"缇娅·觉醒": "portrait_tia",
+	# TODO(M3): 探子 / 马尔科没有新立绘，暂复用山贼，不挡通关。
+	"探子": "portrait_bandit",
+	"马尔科": "portrait_bandit",
 }
 
 const BODY_FONT_SIZE := 22
@@ -142,8 +147,11 @@ func _show_line() -> void:
 	var with_portrait := PORTRAITS.has(speaker)
 	if with_portrait:
 		_portrait.texture = _get_portrait(PORTRAITS[speaker])
+		# TODO(M3): 暖色调制只是觉醒立绘缺图时的临时区分，正式立绘到位后去掉。
+		_portrait.modulate = Color(1.0, 0.78, 0.62) if speaker == "缇娅·觉醒" else Color.WHITE
 		_portrait_frame.visible = true
 	else:
+		_portrait.modulate = Color.WHITE
 		_portrait_frame.visible = false
 	_layout_body(with_portrait)
 	_line_text = str(line.get("text", ""))

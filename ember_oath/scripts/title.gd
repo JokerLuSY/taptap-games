@@ -9,6 +9,7 @@ var _sub: Label
 var _note: Label
 var _start: Button
 var _continue: Button
+var _chapter2: Button
 var _lang: Button
 var _menu: Button
 var _system
@@ -93,6 +94,16 @@ func _ready() -> void:
 	_start.pressed.connect(_on_start)
 	add_child(_start)
 
+	var ch2_size := Vector2(240, maxf(56, SafeArea.MIN_HIT))
+	_chapter2 = Button.new()
+	_chapter2.name = "Chapter2Button"
+	_chapter2.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	_chapter2.custom_minimum_size = ch2_size
+	_chapter2.size = ch2_size
+	_chapter2.add_theme_font_size_override("font_size", 26)
+	_chapter2.pressed.connect(_on_chapter2)
+	add_child(_chapter2)
+
 	var lang_size := Vector2(160, SafeArea.MIN_HIT)
 	_lang = Button.new()
 	_lang.name = "LangButton"
@@ -145,6 +156,7 @@ func _apply_locale(_code: String) -> void:
 	_note.text = tr("第一章 · 边境的少女（原型 v0.1）")
 	_start.text = tr("新游戏")
 	_continue.text = tr("继续游戏")
+	_chapter2.text = tr("第二章")
 	_lang.text = tr("LANG_SWITCH")
 	_menu.text = tr("菜单")
 	_confirm_label.text = tr("开始新游戏会覆盖当前存档，确定吗？")
@@ -163,6 +175,8 @@ func _place_main_buttons() -> void:
 		_start.position = Vector2(start_x, 484)
 	else:
 		_start.position = Vector2(start_x, 450)
+	var ch2_x := clampf((1280.0 - _chapter2.size.x) * 0.5, SafeArea.EDGE_ACTION, 1280.0 - SafeArea.EDGE_ACTION - _chapter2.size.x)
+	_chapter2.position = Vector2(ch2_x, _start.position.y + start_size.y + 16)
 
 
 func _process(delta: float) -> void:
@@ -196,6 +210,7 @@ func _on_start() -> void:
 func _on_continue() -> void:
 	if not CampaignSave.has_save():
 		return
+	load("res://scripts/battle.gd").queue_chapter(null)
 	CampaignSave.request_continue()
 	get_tree().change_scene_to_file("res://scenes/battle.tscn")
 
@@ -203,6 +218,7 @@ func _on_continue() -> void:
 func _begin_new_game() -> void:
 	_confirm.visible = false
 	CampaignSave.clear()
+	load("res://scripts/battle.gd").queue_chapter(null)
 	get_tree().change_scene_to_file("res://scenes/narration.tscn")
 
 
@@ -268,3 +284,8 @@ func _build_confirm() -> void:
 	_confirm_no.add_theme_font_size_override("font_size", 24)
 	_confirm_no.pressed.connect(func() -> void: _confirm.visible = false)
 	_confirm.add_child(_confirm_no)
+
+
+func _on_chapter2() -> void:
+	load("res://scripts/battle.gd").queue_chapter(load("res://scripts/chapter2.gd"))
+	get_tree().change_scene_to_file("res://scenes/battle.tscn")

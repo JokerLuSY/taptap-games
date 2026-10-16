@@ -17,6 +17,9 @@ const BASE_COLORS := {
 	"f": Color(0.56, 0.44, 0.29),
 	"W": Color(0.47, 0.61, 0.35),
 	"X": Color(0.50, 0.47, 0.42),
+	"C": Color(0.20, 0.14, 0.11),
+	"E": Color(0.45, 0.12, 0.04),
+	"Z": Color(0.34, 0.28, 0.24),
 }
 
 ## AI 手绘纹理（res://art/terrain/<base>_<0..3>.png）
@@ -301,6 +304,40 @@ func _fill(p: Vector2i, c: Color) -> void:
 	draw_rect(Rect2(Vector2(p) * TILE, Vector2(TILE, TILE)), c)
 
 
+## 焦土 / 火焰 / 废墟：程序色块，不新增精灵图集。火焰每帧随 _t 闪动。
+func _draw_scorch(p: Vector2i, c: Vector2) -> void:
+	_fill(p, Color(0.20, 0.14, 0.11))
+	var h := _hash(p)
+	draw_rect(Rect2(c + Vector2(6 + h % 5, 12), Vector2(22, 8)), Color(0.10, 0.08, 0.07, 0.85))
+	draw_rect(Rect2(c + Vector2(28, 34 + h % 6), Vector2(26, 7)), Color(0.12, 0.09, 0.08, 0.75))
+	draw_circle(c + Vector2(46, 18), 3.0, Color(0.40, 0.18, 0.08, 0.55))
+
+
+func _draw_flame(p: Vector2i, c: Vector2) -> void:
+	var h := _hash(p)
+	var flick := 0.5 + 0.5 * sin(_t * 6.0 + float(h) * 0.2)
+	_fill(p, Color(0.22, 0.06, 0.03))
+	draw_rect(Rect2(c + Vector2(6, 40), Vector2(52, 18)), Color(0.35, 0.10, 0.04))
+	var cols := [Color(0.95, 0.32, 0.05, 0.92), Color(1.0, 0.62, 0.12, 0.88), Color(1.0, 0.88, 0.45, 0.75)]
+	for i in 3:
+		var cx := c.x + 16.0 + float(i) * 16.0
+		var base_y := c.y + 50.0
+		var top_y := c.y + 14.0 - flick * 10.0 - float(i % 2) * 6.0
+		draw_colored_polygon(PackedVector2Array([
+			Vector2(cx - 9, base_y),
+			Vector2(cx + 9, base_y),
+			Vector2(cx, top_y),
+		]), cols[i])
+
+
+func _draw_ruin(p: Vector2i, c: Vector2) -> void:
+	_fill(p, Color(0.33, 0.27, 0.23))
+	draw_rect(Rect2(c + Vector2(8, 32), Vector2(42, 20)), Color(0.20, 0.16, 0.14))
+	draw_rect(Rect2(c + Vector2(14, 14), Vector2(10, 30)), Color(0.45, 0.38, 0.34))
+	draw_rect(Rect2(c + Vector2(38, 22), Vector2(8, 22)), Color(0.40, 0.34, 0.30))
+	draw_line(c + Vector2(8, 36), c + Vector2(52, 18), Color(0.14, 0.11, 0.10), 3.0)
+
+
 func _hash(p: Vector2i) -> int:
 	return (p.x * 73 + p.y * 149 + p.x * p.y * 31) % 100
 
@@ -371,6 +408,12 @@ func _draw_tile(p: Vector2i) -> void:
 		"W":
 			_fill_tex(p, ".")
 			_draw_well(c)
+		"C":
+			_draw_scorch(p, c)
+		"E":
+			_draw_flame(p, c)
+		"Z":
+			_draw_ruin(p, c)
 		_:
 			_fill(p, Color.MAGENTA)
 	# 岸边装饰

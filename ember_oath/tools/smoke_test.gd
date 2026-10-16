@@ -425,6 +425,8 @@ func _run() -> void:
 	_shot("10_gameover_balto.png")
 	await _check_save_roundtrip()
 
+	await _check_chapter2()
+
 	print("========================================")
 	if _failures.is_empty():
 		print("SMOKE TEST: ALL PASS")
@@ -433,6 +435,88 @@ func _run() -> void:
 		for f_ in _failures:
 			print("  FAIL: " + f_)
 	get_tree().quit()
+
+
+## 第二章：进图 → 开场强制觉醒转职 → 击杀最后一名敌人通关。
+func _check_chapter2() -> void:
+	_mark("第二章")
+	if battle != null and is_instance_valid(battle):
+		battle.queue_free()
+		await _frames(3)
+	GameLocale.set_code("en")
+	_check(tr("第二章 · 燃烧的村庄") == "Chapter 2 · The Burning Village", "英文章节名未译出: " + tr("第二章 · 燃烧的村庄"))
+	_check(tr("缇娅转职为炎刃使！") == "Tia promotes to Flame Blade!", "觉醒提示未译出: " + tr("缇娅转职为炎刃使！"))
+	_check(tr("……不。这火听我的。") == "…No. This fire answers to me.", "觉醒台词未译出: " + tr("……不。这火听我的。"))
+	GameLocale.set_code("zh_CN")
+	load("res://scripts/battle.gd").queue_chapter(load("res://scripts/chapter2.gd"))
+	battle = load("res://scenes/battle.tscn").instantiate()
+	get_tree().root.add_child(battle)
+	battle.set_process_unhandled_input(false)
+	await _frames(6)
+	_check(battle.board.width == 15 and battle.board.height == 10, "第二章地图应为 15×10，实际 %d×%d" % [battle.board.width, battle.board.height])
+	_check(Board.TILE == 64 and battle.TILE == 64, "格子应为 64")
+	_check(battle.board.bg_texture == null, "第二章不应依赖新地图底图")
+	_check(not battle.board.terrain(Vector2i(4, 0))["pass"], "火焰格应不可通行")
+	_check(battle.board.terrain(Vector2i(1, 0))["pass"], "焦土应可通行")
+	_check(battle.board.terrain(Vector2i(3, 0))["name"] == "废墟", "废墟地形名应为废墟")
+	_check(battle.units.size() == 7, "第二章初始应有 7 个单位，实际 %d" % battle.units.size())
+	var chapter_label := battle.ui.find_child("ChapterLabel", true, false) as Label
+	_check(chapter_label != null and chapter_label.text == "第二章 · 燃烧的村庄", "章节名应为燃烧的村庄，实际 " + (chapter_label.text if chapter_label != null else "null"))
+	var tia = battle.get_unit("tia")
+	_check(tia != null and tia.class_label == "剑士", "进图时缇娅应为剑士")
+	_check(not battle.chapter.f_awaken, "进图对话未结束时不应已觉醒")
+	_check(Audio._current_music == "map", "第二章 BGM 应复用第一章 map")
+	_check(Audio._current_loop == "fire", "进图应叠火焰 loop")
+	_check(Audio._streams.get("awaken") != null, "觉醒 stinger 应已加载（可为静音占位）")
+	_check(Audio._streams.get("loop:fire") != null, "火焰 loop 应已加载（可为静音占位）")
+	# 跳过村庄被焚，停在觉醒台词上，此时尚未改职业。
+	battle.dialogue.skip_all()
+	await _frames(2)
+	_check(not battle.chapter.f_awaken, "觉醒台词期间尚未转职")
+	_check(tia.class_label == "剑士", "觉醒台词期间职业仍是剑士，实际 " + tia.class_label)
+	_check("火焰扑上缇娅的剑" in battle.dialogue._line_text or "这火听我的" in battle.dialogue._line_text, "应停在觉醒台词，实际 " + battle.dialogue._line_text)
+	battle.dialogue.skip_all()
+	await _frames(4)
+	_check(battle.chapter.f_awaken, "跳过觉醒台词后应完成转职")
+	_check(tia.class_label == "炎刃使", "缇娅应转职为炎刃使，实际 " + tia.class_label)
+	_check(battle.combat_scene._sheet_id_for(tia) == "tia_flameblade", "觉醒后战斗立绘应走 tia_flameblade")
+	_check(tia.level == 1 and tia.xp == 0, "转职后应为 Lv1 且经验清零，Lv%d xp%d" % [tia.level, tia.xp])
+	_check(tia.max_hp == 23 and tia.pwr == 7 and tia.dfn == 4, "转职加成应为 HP23 力7 防4，实际 HP%d 力%d 防%d" % [tia.max_hp, tia.pwr, tia.dfn])
+	_check(tia.skl == 6 and tia.spd == 7, "未写进加成的技速应保留")
+	_check(tia.weapons == ["ember_blade"], "转职后武器应为炎刃，实际 %s" % str(tia.weapons))
+	_check("vulnerary" in tia.items, "剧情转职不应吃掉道具")
+	var ok: bool = await _wait_cond(func() -> bool: return battle.state == battle.S.IDLE, 8.0)
+	_check(ok, "觉醒后应进入我方回合，state=%d" % battle.state)
+	# 只留一名残血山贼，缇娅贴身击杀，走通关结算。
+	for e in battle.units:
+		if e.is_player() or not e.is_alive():
+			continue
+		if e.unit_id == "bandit1":
+			e.hp = 1
+			e.grid_pos = Vector2i(5, 7)
+			e.position = e.tile_center()
+		else:
+			e.take_damage(999)
+	tia.has_acted = false
+	battle.click_tile(tia.grid_pos)
+	await _frames(2)
+	battle.click_tile(tia.grid_pos)
+	ok = await _wait_cond(func() -> bool: return battle.state == battle.S.ACTION_MENU, 5.0)
+	_check(ok, "觉醒后缇娅应能打开行动菜单")
+	battle._on_menu_attack()
+	await _frames(2)
+	_check(battle.state == battle.S.TARGET_SEL, "炎刃单武器应直接进入选目标，实际 %d" % battle.state)
+	battle.click_tile(Vector2i(5, 7))
+	await _frames(2)
+	_check(battle.forecast_panel.visible, "应出现战斗预报")
+	battle._on_forecast_ok()
+	ok = await _wait_cond(func() -> bool: return battle.state == battle.S.OVER, 15.0)
+	_check(ok, "击杀最后敌人应通关，state=%d" % battle.state)
+	ok = await _wait_cond(func() -> bool: return battle.end_overlay.visible, 15.0)
+	_check(ok, "通关后应显示结算")
+	_check("第二章" in battle.end_title.text and "完" in battle.end_title.text, "结算标题应为第二章完，实际 " + battle.end_title.text)
+	_check("炎刃" in tia.class_label, "通关时缇娅应仍是炎刃使")
+	load("res://scripts/battle.gd").queue_chapter(null)
 
 
 func _spawn_battle() -> void:
@@ -654,6 +738,12 @@ func _check_title_and_narration() -> void:
 	_check(start.text == "新游戏", "标题新游戏按钮默认中文，实际 " + start.text)
 	var cont0 := title.get_node_or_null("ContinueButton") as Button
 	_check(cont0 != null and not cont0.visible, "没有存档时不应显示继续游戏")
+	var ch2 := title.get_node("Chapter2Button") as Button
+	_check(ch2 != null and ch2.text == "第二章", "标题应有第二章入口，实际 " + (ch2.text if ch2 != null else "null"))
+	if ch2 != null:
+		_check(ch2.position.y >= start.position.y + start.size.y - 0.01, "第二章按钮应在开始按钮下方")
+		_check(ch2.size.y >= SafeArea.MIN_HIT, "第二章按钮热区应 ≥ 48")
+		_check(ch2.position.y >= 520.0, "第二章按钮应落在标题立绘下沿之下，避免改动马尾裁切")
 	_check(lang.text == "English", "中文界面的语言按钮应写 English，实际 " + lang.text)
 	var lang_right := lang.position.x + lang.size.x
 	_check(lang_right <= 1280.0 - SafeArea.EDGE_ACTION + 0.01, "语言按钮应避开右缘 80px，右缘 %s" % lang_right)
@@ -661,6 +751,7 @@ func _check_title_and_narration() -> void:
 	_check(start.size.y >= SafeArea.MIN_HIT, "开始按钮热区应 ≥ 48")
 	GameLocale.toggle()
 	_check(start.text == "New Game", "切换英文后新游戏按钮应为 New Game，实际 " + start.text)
+	_check(ch2 != null and ch2.text == "Chapter 2", "英文第二章按钮应为 Chapter 2，实际 " + (ch2.text if ch2 != null else "null"))
 	_check(lang.text == "中文", "英文界面的语言按钮应写 中文，实际 " + lang.text)
 	_check(tr("新游戏") == "New Game", "切换后 tr(新游戏) 应为 New Game")
 	GameLocale.toggle()

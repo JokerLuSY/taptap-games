@@ -11,7 +11,9 @@ var cursor: MapCursor
 var units: Array = []
 var turn := 1
 var gold := 0
-var chapter := Chapter1.new()
+## 进战斗前由标题写入。null = 第一章。重试本章不清除，回到标题再开第一章时由标题清掉。
+static var pending_chapter: Script = null
+var chapter = null
 var support_points := {}          # {支援对 key: 点数}
 
 var selected: Unit = null
@@ -57,7 +59,13 @@ var _forecast_target: Unit = null
 var _banner_tween: Tween = null
 
 
+static func queue_chapter(chapter_script) -> void:
+	pending_chapter = chapter_script
+
+
 func _ready() -> void:
+	var script: Script = pending_chapter if pending_chapter != null else load("res://scripts/chapter1.gd")
+	chapter = script.new()
 	chapter.battle = self
 	_build_board()
 	var loaded := false
@@ -73,6 +81,10 @@ func _ready() -> void:
 		_resume_idle.call_deferred()
 	else:
 		_start_chapter.call_deferred()
+
+
+func _exit_tree() -> void:
+	Audio.stop_loop()
 
 
 # ==================== 构建 ====================
@@ -129,7 +141,7 @@ func _build_ui() -> void:
 	top.size = Vector2(1280, SafeArea.MARGIN_Y)
 	_style_panel(top, Color(0.08, 0.10, 0.16, 0.95))
 	ui.add_child(top)
-	lbl_chapter = _make_label(top, Vector2(SafeArea.MARGIN_X, 12), tr("第一章 · 边境的少女"), 22)
+	lbl_chapter = _make_label(top, Vector2(SafeArea.MARGIN_X, 12), tr(chapter.CHAPTER_TITLE), 22)
 	lbl_chapter.name = "ChapterLabel"
 	lbl_turn = _make_label(top, Vector2(SafeArea.MARGIN_X, 12), "", 22)
 	lbl_turn.name = "TurnLabel"
@@ -426,7 +438,8 @@ func start_player_phase(first := false) -> void:
 	if state == S.OVER:
 		return
 	state = S.IDLE
-	CampaignSave.write_checkpoint(self)
+	if pending_chapter == null:
+		CampaignSave.write_checkpoint(self)
 	hint(tr("点击我方单位行动 · 点击敌人查看其威胁范围"))
 	_update_hover_info()
 
@@ -1084,10 +1097,12 @@ func check_end_conditions() -> bool:
 
 func _victory() -> void:
 	state = S.OVER
-	CampaignSave.mark_cleared()
+	if pending_chapter == null:
+		CampaignSave.mark_cleared()
 	hide_banner()
 	update_topbar()
 	Audio.stop_music()
+	Audio.stop_loop()
 	Audio.play_sfx("victory")
 	await get_tree().create_timer(0.7).timeout
 	await chapter.on_victory()
@@ -1095,13 +1110,14 @@ func _victory() -> void:
 	end_btn.visible = true
 	end_btn.text = tr("回到标题")
 	_bind_pressed(end_btn, _on_end_title_pressed)
-	_show_end(tr("第一章 · 完"), tr("缇娅的身世之谜，才刚刚开始……"))
+	_show_end(tr(chapter.VICTORY_TITLE), tr(chapter.VICTORY_SUB))
 
 
 func _game_over() -> void:
 	state = S.OVER
 	hide_banner()
 	Audio.stop_music()
+	Audio.stop_loop()
 	Audio.play_sfx("defeat")
 	await get_tree().create_timer(0.6).timeout
 	await chapter.on_defeat()
@@ -1111,7 +1127,7 @@ func _game_over() -> void:
 	end_btn.visible = true
 	end_btn.text = tr("回到标题")
 	_bind_pressed(end_btn, _on_end_title_pressed)
-	_show_end(tr("战  败"), tr("灰岩村的命运，到此为止……"))
+	_show_end(tr("战  败"), tr(chapter.DEFEAT_SUB))
 
 
 func _show_end(title: String, sub: String) -> void:
@@ -1163,7 +1179,8 @@ func restart_chapter() -> void:
 	if tree == null:
 		return
 	tree.paused = false
-	CampaignSave.clear()
+	if pending_chapter == null:
+		CampaignSave.clear()
 	tree.change_scene_to_file("res://scenes/battle.tscn")
 
 
@@ -1250,7 +1267,7 @@ func update_topbar() -> void:
 func _layout_topbar() -> void:
 	var gap := 16.0
 	var row_h := 28.0
-	var zh_w := _top_text_width("第一章 · 边境的少女")
+	var zh_w := _top_text_width(chapter.CHAPTER_TITLE)
 	var chapter_w := _top_text_width(lbl_chapter.text)
 	var slot := maxf(zh_w * 1.3, chapter_w)
 	var player_w := _top_text_width(tr("第 %d 回合 · %s") % [turn, tr("我方回合")])
@@ -1312,11 +1329,15 @@ func _update_hover_info() -> void:
 func _unit_portrait_key(u: Unit) -> String:
 	match u.unit_id:
 		"tia":
+			# TODO(M3): 觉醒后仍用第一章立绘。专用「缇娅·觉醒」未到。
 			return "portrait_tia"
 		"balto":
 			return "portrait_balto"
 		"brock":
 			return "portrait_brock"
+		"scout1", "marco":
+			# TODO(M3): 探子立绘未到，暂用山贼，不挡通关。
+			return "portrait_bandit"
 	if u.unit_id.begins_with("bandit"):
 		return "portrait_bandit"
 	return ""

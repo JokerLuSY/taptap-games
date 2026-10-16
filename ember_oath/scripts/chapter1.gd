@@ -2,6 +2,11 @@ class_name Chapter1
 extends RefCounted
 ## 第一章「边境的少女」：地图、单位配置、全部剧情事件
 
+const CHAPTER_TITLE := "第一章 · 边境的少女"
+const VICTORY_TITLE := "第一章 · 完"
+const VICTORY_SUB := "缇娅的身世之谜，才刚刚开始……"
+const DEFEAT_SUB := "灰岩村的命运，到此为止……"
+
 ## AI 手绘地图背景（tools/render_map_reference.py + compose_map.py 生成）
 const BG := "res://art/maps/ch1_bg.png"
 
