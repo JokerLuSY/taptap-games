@@ -1255,6 +1255,18 @@ func _check_no_body_slit(node: Node, tag: String) -> void:
 	_check(slits == 0, tag + " 身体不应留下透明横缝，实际 %d" % slits)
 	var gaps := _count_large_span_gaps(opaque, fw, fh, CombatScene.BODY_FILL_MIN)
 	_check(gaps == 0, tag + " 身体轮廓内不应留下透明洞，实际 %d" % gaps)
+	var holes := CombatScene.count_hull_holes(opaque, fw, fh)
+	_check(holes == 0, tag + " 身体凸包内不应透出背景，实际 %d" % holes)
+	var bush := 0
+	for i in n:
+		if opaque[i] == 0:
+			continue
+		var r := bytes[i * 4]
+		var g := bytes[i * 4 + 1]
+		var b := bytes[i * 4 + 2]
+		if (r == 46 and g == 77 and b == 41) or (r == 29 and g == 63 and b == 37):
+			bush += 1
+	_check(bush == 0, tag + " 身体填色不应是灌丛绿，实际 %d" % bush)
 
 
 ## 够大的色块在每一行、每一列上，首尾不透明像素之间不得再透明。

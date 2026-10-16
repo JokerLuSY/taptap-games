@@ -102,7 +102,8 @@ const Z_FX := 30
 ## 中景灌丛的硬下沿会从腰腹、躯干、头发这些缝里穿出来。扁长闭运算补不住。
 ## 按帧把够大的色块在本帧轮廓里先按行、再按列、再按行填实。
 ## 不到这个面积的火花不参与拉轮廓，也不和邻帧粘在一起。磁盘上的 earliest 正稿不改。
-## 贴在身体上的碎片并进轮廓后还要再补一轮，腰腹上的湾才关得上。孤立火花不拉边。
+## 贴在身体上的碎片并进轮廓后还要再补一轮。按行填完，腰腹左右的凹湾仍在身体凸包里，灌丛绿会留在那里。
+## 最后按本帧凸包补实。孤立火花不拉轮廓，也不和邻帧粘在一起。
 const BODY_FILL_MIN := 80
 const BODY_FILL_ROUNDS := 4
 const _POSE_SHADER := preload("res://shaders/combat_pose.gdshader")
@@ -539,11 +540,14 @@ func _seal_rect(img: Image, x0: int, w: int, h: int) -> void:
 		mask = nxt
 		if not changed:
 			break
+	mask = _seal_fill_hull(mask, w, h)
 	var queue := PackedInt32Array()
 	var colored := PackedByteArray()
 	colored.resize(n)
 	for i in n:
-		if opaque[i] == 1:
+		if opaque[i] == 1 and mask[i] == 0:
+			bytes[i * 4 + 3] = 0
+		elif opaque[i] == 1:
 			bytes[i * 4 + 3] = 255
 			colored[i] = 1
 			queue.append(i)
@@ -599,6 +603,234 @@ func _seal_rect(img: Image, x0: int, w: int, h: int) -> void:
 				queue.append(j4)
 	local.set_data(w, h, false, Image.FORMAT_RGBA8, bytes)
 	img.blit_rect(local, Rect2i(0, 0, w, h), Vector2i(x0, 0))
+
+
+## 返回新数组。只读入参，避免改到调用方那份拷贝。
+func _seal_fill_hull(mask: PackedByteArray, w: int, h: int) -> PackedByteArray:
+	var n := w * h
+	var labels := PackedInt32Array()
+	labels.resize(n)
+	var sizes := PackedInt32Array()
+	sizes.append(0)
+	var stack := PackedInt32Array()
+	for i in n:
+		if mask[i] == 0 or labels[i] != 0:
+			continue
+		var label := sizes.size()
+		sizes.append(0)
+		stack.resize(0)
+		stack.append(i)
+		labels[i] = label
+		var count := 0
+		var sp := 0
+		while sp < stack.size():
+			var p := stack[sp]
+			sp += 1
+			count += 1
+			var x := p % w
+			var y := int(p / w)
+			if x > 0 and mask[p - 1] == 1 and labels[p - 1] == 0:
+				labels[p - 1] = label
+				stack.append(p - 1)
+			if x + 1 < w and mask[p + 1] == 1 and labels[p + 1] == 0:
+				labels[p + 1] = label
+				stack.append(p + 1)
+			if y > 0 and mask[p - w] == 1 and labels[p - w] == 0:
+				labels[p - w] = label
+				stack.append(p - w)
+			if y + 1 < h and mask[p + w] == 1 and labels[p + w] == 0:
+				labels[p + w] = label
+				stack.append(p + w)
+		sizes[label] = count
+	var pts: Array[Vector2i] = []
+	for y in h:
+		var row := y * w
+		for x in w:
+			var i := row + x
+			if mask[i] == 0 or sizes[labels[i]] < BODY_FILL_MIN:
+				continue
+			var edge := x == 0 or y == 0 or x == w - 1 or y == h - 1
+			if not edge:
+				if mask[i - 1] == 0 or mask[i + 1] == 0 or mask[i - w] == 0 or mask[i + w] == 0:
+					edge = true
+			if edge:
+				# 顶点用像素中心。和下面的内点测试同一套坐标，复查时轮廓才不会再向外长一圈。
+				pts.append(Vector2i(x * 2 + 1, y * 2 + 1))
+	var hull := _convex_hull(pts)
+	var out := PackedByteArray()
+	out.resize(n)
+	for i in n:
+		if mask[i] != 0 and sizes[labels[i]] >= BODY_FILL_MIN:
+			out[i] = 1
+	if hull.size() >= 3:
+		var inside := _hull_centers(hull, w, h)
+		for i in n:
+			if inside[i] != 0:
+				out[i] = 1
+	# 贴在凸包边上的小碎片会把轮廓再撑出一圈透底。整块丢掉，避免只抠掉中间一像素留下横缝。
+	# 离身体远的火花仍整块保留。
+	var drop := PackedByteArray()
+	drop.resize(sizes.size())
+	for y in h:
+		var row := y * w
+		for x in w:
+			var i := row + x
+			if mask[i] == 0 or out[i] != 0 or sizes[labels[i]] >= BODY_FILL_MIN:
+				continue
+			var touch := false
+			if x > 0 and out[i - 1] != 0:
+				touch = true
+			elif x + 1 < w and out[i + 1] != 0:
+				touch = true
+			elif y > 0 and out[i - w] != 0:
+				touch = true
+			elif y + 1 < h and out[i + w] != 0:
+				touch = true
+			if touch:
+				drop[labels[i]] = 1
+	for i in n:
+		if mask[i] == 0 or out[i] != 0:
+			continue
+		if drop[labels[i]] == 0:
+			out[i] = 1
+	return out
+
+
+static func count_hull_holes(mask: PackedByteArray, w: int, h: int) -> int:
+	var n := w * h
+	var labels := PackedInt32Array()
+	labels.resize(n)
+	var sizes := PackedInt32Array()
+	sizes.append(0)
+	var stack := PackedInt32Array()
+	for i in n:
+		if mask[i] == 0 or labels[i] != 0:
+			continue
+		var label := sizes.size()
+		sizes.append(0)
+		stack.resize(0)
+		stack.append(i)
+		labels[i] = label
+		var count := 0
+		var sp := 0
+		while sp < stack.size():
+			var p := stack[sp]
+			sp += 1
+			count += 1
+			var x := p % w
+			var y := int(p / w)
+			if x > 0 and mask[p - 1] == 1 and labels[p - 1] == 0:
+				labels[p - 1] = label
+				stack.append(p - 1)
+			if x + 1 < w and mask[p + 1] == 1 and labels[p + 1] == 0:
+				labels[p + 1] = label
+				stack.append(p + 1)
+			if y > 0 and mask[p - w] == 1 and labels[p - w] == 0:
+				labels[p - w] = label
+				stack.append(p - w)
+			if y + 1 < h and mask[p + w] == 1 and labels[p + w] == 0:
+				labels[p + w] = label
+				stack.append(p + w)
+		sizes[label] = count
+	var pts: Array[Vector2i] = []
+	for y in h:
+		var row := y * w
+		for x in w:
+			var i := row + x
+			if mask[i] == 0 or sizes[labels[i]] < BODY_FILL_MIN:
+				continue
+			var edge := x == 0 or y == 0 or x == w - 1 or y == h - 1
+			if not edge:
+				if mask[i - 1] == 0 or mask[i + 1] == 0 or mask[i - w] == 0 or mask[i + w] == 0:
+					edge = true
+			if edge:
+				pts.append(Vector2i(x * 2 + 1, y * 2 + 1))
+	var hull := _convex_hull(pts)
+	if hull.size() < 3:
+		return 0
+	var inside := _hull_centers(hull, w, h)
+	var holes := 0
+	for i in n:
+		if inside[i] != 0 and mask[i] == 0:
+			holes += 1
+	return holes
+
+
+static func _convex_hull(pts: Array[Vector2i]) -> PackedVector2Array:
+	var hull := PackedVector2Array()
+	if pts.size() <= 1:
+		for p in pts:
+			hull.append(Vector2(p))
+		return hull
+	pts.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
+		if a.x == b.x:
+			return a.y < b.y
+		return a.x < b.x
+	)
+	var lower: Array[Vector2i] = []
+	for p in pts:
+		while lower.size() >= 2 and _hull_cross(lower[lower.size() - 2], lower[lower.size() - 1], p) <= 0:
+			lower.remove_at(lower.size() - 1)
+		lower.append(p)
+	var upper: Array[Vector2i] = []
+	for i in range(pts.size() - 1, -1, -1):
+		var p: Vector2i = pts[i]
+		while upper.size() >= 2 and _hull_cross(upper[upper.size() - 2], upper[upper.size() - 1], p) <= 0:
+			upper.remove_at(upper.size() - 1)
+		upper.append(p)
+	for i in lower.size() - 1:
+		hull.append(Vector2(lower[i]))
+	for i in upper.size() - 1:
+		hull.append(Vector2(upper[i]))
+	return hull
+
+
+static func _hull_cross(o: Vector2i, a: Vector2i, b: Vector2i) -> int:
+	return (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x)
+
+
+## 像素中心在凸包内才算身体。顶点也是像素中心（坐标乘 2 再加 1）。
+## 不用扫描线向外取整，避免轮廓一圈圈变大。
+static func _hull_centers(hull: PackedVector2Array, w: int, h: int) -> PackedByteArray:
+	var inside := PackedByteArray()
+	inside.resize(w * h)
+	var n := hull.size()
+	var xmin := w
+	var xmax := 0
+	var ymin := h
+	var ymax := 0
+	for i in n:
+		var hx := int(floor(hull[i].x / 2.0))
+		var hy := int(floor(hull[i].y / 2.0))
+		xmin = mini(xmin, hx)
+		xmax = maxi(xmax, hx)
+		ymin = mini(ymin, hy)
+		ymax = maxi(ymax, hy)
+	xmin = clampi(xmin, 0, w - 1)
+	xmax = clampi(xmax, 0, w - 1)
+	ymin = clampi(ymin, 0, h - 1)
+	ymax = clampi(ymax, 0, h - 1)
+	for y in range(ymin, ymax + 1):
+		var py := float(y * 2 + 1)
+		for x in range(xmin, xmax + 1):
+			var px := float(x * 2 + 1)
+			var sign := 0
+			var ok := true
+			for i in n:
+				var a := hull[i]
+				var b := hull[(i + 1) % n]
+				var c := (b.x - a.x) * (py - a.y) - (b.y - a.y) * (px - a.x)
+				if absf(c) <= 0.001:
+					continue
+				var s := 1 if c > 0.0 else -1
+				if sign == 0:
+					sign = s
+				elif s != sign:
+					ok = false
+					break
+			if ok:
+				inside[y * w + x] = 1
+	return inside
 
 
 func _set_pose(node: Unit, pose: int) -> void:
