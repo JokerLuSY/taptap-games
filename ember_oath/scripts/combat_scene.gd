@@ -1,6 +1,6 @@
 class_name CombatScene
 extends CanvasLayer
-## 战斗特写演出：GBA 火纹式横版对砍（草地分层远景 + 300px 日系职业条带）
+## 战斗特写演出：GBA 火纹式横版对砍（草地分层远景）。只有缇娅剑士与山贼有 300px 最早风条带，其它职业用程序 Q 版。
 ## 点击 / 回车可跳过。对砍 tween 时序不在这里改，条带只在既有关键点切换。
 
 signal finished
@@ -34,54 +34,18 @@ const GRASS_BG := [
 	"res://art/combat/bg/ground_strip_grass.png",
 ]
 
-## 帧序：0 待机 / 1 前冲 / 2 挥砍命中 / 3 收招。暴击换 {id}_crit.png，帧序相同。
+## 帧序：0 待机 / 1 前冲 / 2 挥砍命中 / 3 收招。
+## 暴击是单独的 {id}_crit.png，从左到右为 1,2,2,3（第 3 格复用第 2 格），不要截普通条带的第 4 帧。
 const POSE_IDLE := 0
 const POSE_LUNGE := 1
 const POSE_STRIKE := 2
 const POSE_RECOVER := 3
-## 职业 / 专属 id → art/combat/{id}.png。键是单位 class_label（中文职业名）。
+## 职业 → art/combat/{id}.png。只有这两张最早风条带；其余职业空字符串，走程序 Q 版。
 const CLASS_SHEET := {
 	"剑士": "tia_sword",
-	"剑圣": "swordmaster_sword",
-	"佣兵": "mercenary_sword",
-	"勇者": "hero_sword",
-	"战士": "fighter_axe",
-	"勇士": "warrior_axe",
 	"山贼": "bandit_axe",
-	"山贼头目": "brock_axe",
-	"狂战士": "berserker_axe",
-	"枪兵": "soldier_lance",
-	"枪斗士": "halberdier_lance",
-	"骑士": "knight_lance",
-	"圣骑士": "balto_lance",
-	"重甲兵": "armor_lance",
-	"将军": "general_lance",
-	"弓箭手": "archer_bow",
-	"狙击手": "sniper_bow",
-	"天马骑士": "pegasus_lance",
-	"隼骑士": "falcoknight_lance",
-	"盗贼": "thief_sword",
-	"刺客": "assassin_sword",
-	"龙骑士": "wyvern_lance",
-	"龙骑主": "wyvernlord_lance",
-	"修女": "cleric_staff",
-	"司祭": "bishop_staff",
-	"魔道士": "mage_anima",
-	"贤者": "sage_anima",
-	"暗法师": "darkmage_dark",
-	"德鲁伊": "druid_dark",
-	"炎刃使": "tia_flameblade",
-	"不灭巫女": "tia_immortal_priestess",
 }
-const SHEET_IDS: Array[String] = [
-	"archer_bow", "armor_lance", "assassin_sword", "balto_lance", "bandit_axe",
-	"berserker_axe", "bishop_staff", "brock_axe", "cleric_staff", "darkmage_dark",
-	"druid_dark", "falcoknight_lance", "fighter_axe", "general_lance", "halberdier_lance",
-	"hero_sword", "knight_lance", "mage_anima", "mercenary_sword", "pegasus_lance",
-	"sage_anima", "sniper_bow", "soldier_lance", "swordmaster_sword", "thief_sword",
-	"tia_flameblade", "tia_immortal_priestess", "tia_sword", "warrior_axe", "wyvern_lance",
-	"wyvernlord_lance",
-]
+const SHEET_IDS: Array[String] = ["bandit_axe", "tia_sword"]
 
 var active := false
 
@@ -286,20 +250,17 @@ func _make_fighter(u: Unit, face_left: bool) -> Unit:
 	return c
 
 
-## 职业名优先（含魔法与缇娅专属）。id 仍兜底：缇娅、bandit*、archer*，或 id 本身就是条带名。
+## 剑士 / 山贼用最早风条带。已转职或其它职业不借用这两张皮，走程序 Q 版。
 func _sheet_id_for(u: Unit) -> String:
 	if CLASS_SHEET.has(u.class_label):
 		return CLASS_SHEET[u.class_label]
-	if u.unit_id == "tia":
-		return "tia_sword"
-	if u.unit_id.begins_with("bandit"):
-		return "bandit_axe"
-	if u.unit_id.begins_with("archer"):
-		return "archer_bow"
+	if u.class_label == "":
+		if u.unit_id == "tia":
+			return "tia_sword"
+		if u.unit_id.begins_with("bandit"):
+			return "bandit_axe"
 	if _is_sheet(u.unit_id):
 		return u.unit_id
-	if _is_sheet(u.class_label):
-		return u.class_label
 	return ""
 
 

@@ -479,7 +479,7 @@ func _check_chapter2() -> void:
 	await _frames(4)
 	_check(battle.chapter.f_awaken, "跳过觉醒台词后应完成转职")
 	_check(tia.class_label == "炎刃使", "缇娅应转职为炎刃使，实际 " + tia.class_label)
-	_check(battle.combat_scene._sheet_id_for(tia) == "tia_flameblade", "觉醒后战斗立绘应走 tia_flameblade")
+	_check(battle.combat_scene._sheet_id_for(tia) == "", "觉醒后炎刃使应走程序 Q 版")
 	_check(tia.level == 1 and tia.xp == 0, "转职后应为 Lv1 且经验清零，Lv%d xp%d" % [tia.level, tia.xp])
 	_check(tia.max_hp == 23 and tia.pwr == 7 and tia.dfn == 4, "转职加成应为 HP23 力7 防4，实际 HP%d 力%d 防%d" % [tia.max_hp, tia.pwr, tia.dfn])
 	_check(tia.skl == 6 and tia.spd == 7, "未写进加成的技速应保留")
@@ -576,6 +576,8 @@ func _check_infra() -> void:
 		_check(mapped, "条带应有职业映射: " + sheet)
 	for path in combat_art:
 		_check(FileAccess.file_exists(path), "战斗资源应存在: " + path)
+	_check(CombatScene.SHEET_IDS.size() == 2, "战斗条带只保留缇娅与山贼")
+	_check(not FileAccess.file_exists("res://art/combat/archer_bow.png"), "日系整包不应留在运行时")
 	_check(CombatScene.SHEET_H == 300.0, "战斗条带高度应为 300")
 	_check(is_equal_approx(CombatScene.SHEET_SCALE, 1.0), "300px 条带应为 1:1")
 	_check(is_equal_approx(CombatScene.FEET_Y, 520.0), "脚底世界坐标应为 520")
@@ -585,21 +587,21 @@ func _check_infra() -> void:
 	probe.class_label = "剑士"
 	_check(scene._sheet_id_for(probe) == "tia_sword", "缇娅剑士应映射 tia_sword")
 	probe.class_label = "炎刃使"
-	_check(scene._sheet_id_for(probe) == "tia_flameblade", "缇娅炎刃使应映射 tia_flameblade")
+	_check(scene._sheet_id_for(probe) == "", "缇娅炎刃使应走程序 Q 版")
 	probe.class_label = "不灭巫女"
-	_check(scene._sheet_id_for(probe) == "tia_immortal_priestess", "缇娅不灭巫女应映射 tia_immortal_priestess")
+	_check(scene._sheet_id_for(probe) == "", "缇娅不灭巫女应走程序 Q 版")
 	probe.unit_id = "bandit_r1"
 	probe.class_label = ""
-	_check(scene._sheet_id_for(probe) == "bandit_axe", "山贼 id 前缀应映射 bandit_axe")
+	_check(scene._sheet_id_for(probe) == "bandit_axe", "未标职业的山贼 id 应映射 bandit_axe")
 	probe.unit_id = "archer2"
 	probe.class_label = ""
-	_check(scene._sheet_id_for(probe) == "archer_bow", "弓箭手 id 前缀应映射 archer_bow")
+	_check(scene._sheet_id_for(probe) == "", "弓箭手不应再映射日系条带")
 	probe.unit_id = "balto"
 	probe.class_label = "圣骑士"
-	_check(scene._sheet_id_for(probe) == "balto_lance", "巴尔托应映射 balto_lance")
+	_check(scene._sheet_id_for(probe) == "", "巴尔托应走程序 Q 版")
 	probe.unit_id = "brock"
 	probe.class_label = "山贼头目"
-	_check(scene._sheet_id_for(probe) == "brock_axe", "布洛克应映射 brock_axe")
+	_check(scene._sheet_id_for(probe) == "", "山贼头目应走程序 Q 版")
 	probe.unit_id = "probe"
 	for label in CombatScene.CLASS_SHEET:
 		probe.class_label = label
