@@ -1,7 +1,7 @@
 class_name CombatScene
 extends CanvasLayer
-## 战斗特写演出：GBA 火纹式横版对砍（草地分层远景 + 缇娅/山贼像素帧，其余仍是放大 Q 版）
-## 点击 / 回车可跳过。对砍 tween 时序不在这里改，像素帧只在既有关键点切换。
+## 战斗特写演出：GBA 火纹式横版对砍（草地分层远景 + 300px 日系职业条带）
+## 点击 / 回车可跳过。对砍 tween 时序不在这里改，条带只在既有关键点切换。
 
 signal finished
 
@@ -17,9 +17,12 @@ const ATT_X := 380.0
 const DEF_X := 900.0
 ## 角色脚底世界坐标。草地远景是 1280×720 整图，草带盖住 y=438..559，脚底就落在这条带上。
 const FEET_Y := 520.0
+## 没有条带时的程序 Q 版。像素条带不乘这个系数。
 const UNIT_SCALE := 3.2
-## 约等于 48px 地图精灵 × UNIT_SCALE，像素帧按脚底缩放到这个视觉高度。
-const SPRITE_TARGET_H := 154.0
+## 条带统一高 300px，1:1 显示。画布底边就是脚底线，缩放后对齐节点原点（世界 FEET_Y）。
+const SHEET_H := 300.0
+const SHEET_SCALE := 1.0
+const FRAME_COUNT := 4
 const HP_BAR_W := 300.0
 
 ## 草地系（地图纹理同为 grass）。其它地形继续用色块。
@@ -31,23 +34,54 @@ const GRASS_BG := [
 	"res://art/combat/bg/ground_strip_grass.png",
 ]
 
-## 帧序：0 待机 / 1 前冲 / 2 挥砍命中 / 3 收招。山贼的 3 同时当作受击。
+## 帧序：0 待机 / 1 前冲 / 2 挥砍命中 / 3 收招。暴击换 {id}_crit.png，帧序相同。
 const POSE_IDLE := 0
 const POSE_LUNGE := 1
 const POSE_STRIKE := 2
 const POSE_RECOVER := 3
-## 单帧脚底中心（纹理像素）。缩放后该点对齐节点原点，也就是 FEET_Y。
-const FRAME_FEET := {
-	"tia_sword": [
-		Vector2(34.5, 278.0), Vector2(31.5, 263.0), Vector2(16.5, 263.0), Vector2(128.0, 269.0),
-	],
-	"bandit_axe": [
-		Vector2(173.0, 253.0), Vector2(192.0, 281.0), Vector2(274.0, 259.0), Vector2(106.0, 289.0),
-	],
+## 职业 / 专属 id → art/combat/{id}.png。键是单位 class_label（中文职业名）。
+const CLASS_SHEET := {
+	"剑士": "tia_sword",
+	"剑圣": "swordmaster_sword",
+	"佣兵": "mercenary_sword",
+	"勇者": "hero_sword",
+	"战士": "fighter_axe",
+	"勇士": "warrior_axe",
+	"山贼": "bandit_axe",
+	"山贼头目": "brock_axe",
+	"狂战士": "berserker_axe",
+	"枪兵": "soldier_lance",
+	"枪斗士": "halberdier_lance",
+	"骑士": "knight_lance",
+	"圣骑士": "balto_lance",
+	"重甲兵": "armor_lance",
+	"将军": "general_lance",
+	"弓箭手": "archer_bow",
+	"狙击手": "sniper_bow",
+	"天马骑士": "pegasus_lance",
+	"隼骑士": "falcoknight_lance",
+	"盗贼": "thief_sword",
+	"刺客": "assassin_sword",
+	"龙骑士": "wyvern_lance",
+	"龙骑主": "wyvernlord_lance",
+	"修女": "cleric_staff",
+	"司祭": "bishop_staff",
+	"魔道士": "mage_anima",
+	"贤者": "sage_anima",
+	"暗法师": "darkmage_dark",
+	"德鲁伊": "druid_dark",
+	"炎刃使": "tia_flameblade",
+	"不灭巫女": "tia_immortal_priestess",
 }
-## 待机帧发顶到脚底的像素高度，全帧共用，避免挥砍时人物缩放跳动。
-const FRAME_BODY_H := {"tia_sword": 275.0, "bandit_axe": 250.0}
-const HIT_FRAME := {"tia_sword": -1, "bandit_axe": 3}
+const SHEET_IDS: Array[String] = [
+	"archer_bow", "armor_lance", "assassin_sword", "balto_lance", "bandit_axe",
+	"berserker_axe", "bishop_staff", "brock_axe", "cleric_staff", "darkmage_dark",
+	"druid_dark", "falcoknight_lance", "fighter_axe", "general_lance", "halberdier_lance",
+	"hero_sword", "knight_lance", "mage_anima", "mercenary_sword", "pegasus_lance",
+	"sage_anima", "sniper_bow", "soldier_lance", "swordmaster_sword", "thief_sword",
+	"tia_flameblade", "tia_immortal_priestess", "tia_sword", "warrior_axe", "wyvern_lance",
+	"wyvernlord_lance",
+]
 
 var active := false
 
@@ -227,51 +261,76 @@ func _make_fighter(u: Unit, face_left: bool) -> Unit:
 	c.draw_ring = false
 	c.draw_hp_bar = false
 	var sheet := _sheet_id_for(u)
-	var frames := _load_frames(sheet)
+	var frames := _load_strip(sheet, false)
 	if frames.is_empty():
 		c.scale = Vector2(-UNIT_SCALE if face_left else UNIT_SCALE, UNIT_SCALE)
 		return c
-	# 朝右为默认；敌方用父节点镜像。像素帧自身不再乘 UNIT_SCALE。
+	# 朝右为默认；敌方用父节点镜像。300px 条带按 SHEET_SCALE 贴地，不再乘 UNIT_SCALE。
 	c.suppress_draw = true
 	c.scale = Vector2(-1.0 if face_left else 1.0, 1.0)
-	var sc: float = SPRITE_TARGET_H / float(FRAME_BODY_H[sheet])
 	var sprite := Sprite2D.new()
 	sprite.name = "CombatPose"
 	sprite.centered = false
 	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
-	sprite.scale = Vector2(sc, sc)
+	sprite.scale = Vector2(SHEET_SCALE, SHEET_SCALE)
 	c.add_child(sprite)
 	c.set_meta("combat_sprite", sprite)
+	c.set_meta("combat_frames_normal", frames)
+	c.set_meta("combat_frames_crit", _load_strip(sheet, true))
 	c.set_meta("combat_frames", frames)
-	c.set_meta("combat_px_scale", sc)
-	c.set_meta("combat_hit_frame", int(HIT_FRAME.get(sheet, -1)))
+	c.set_meta("combat_px_scale", SHEET_SCALE)
+	c.set_meta("combat_sheet", sheet)
+	c.set_meta("combat_sheet_mode", "normal")
 	_set_pose(c, POSE_IDLE)
 	return c
 
 
-## 缇娅 → tia_sword；id 以 bandit 开头的山贼（含增援、被说得者）→ bandit_axe。
-## 布洛克、巴尔托、弓箭手没有对应 sheet，继续画程序小人。
+## 职业名优先（含魔法与缇娅专属）。id 仍兜底：缇娅、bandit*、archer*，或 id 本身就是条带名。
 func _sheet_id_for(u: Unit) -> String:
+	if CLASS_SHEET.has(u.class_label):
+		return CLASS_SHEET[u.class_label]
 	if u.unit_id == "tia":
 		return "tia_sword"
 	if u.unit_id.begins_with("bandit"):
 		return "bandit_axe"
+	if u.unit_id.begins_with("archer"):
+		return "archer_bow"
+	if _is_sheet(u.unit_id):
+		return u.unit_id
+	if _is_sheet(u.class_label):
+		return u.class_label
 	return ""
 
 
-func _load_frames(sheet_id: String) -> Array:
-	if sheet_id == "" or not FRAME_FEET.has(sheet_id):
+func _is_sheet(id: String) -> bool:
+	return id != "" and SHEET_IDS.has(id)
+
+
+## 横排 4 帧。宽度不整除时把余数像素分给前几帧，避免最后一帧被裁掉。
+func _load_strip(sheet_id: String, crit: bool) -> Array:
+	if not _is_sheet(sheet_id):
 		return []
-	var feet: Array = FRAME_FEET[sheet_id]
+	var path := "res://art/combat/%s%s.png" % [sheet_id, "_crit" if crit else ""]
+	if not ResourceLoader.exists(path):
+		return []
+	var tex := load(path) as Texture2D
+	if tex == null:
+		return []
+	var full_w := tex.get_width()
+	var full_h := tex.get_height()
+	if full_w < FRAME_COUNT or full_h <= 0:
+		return []
+	var base_w := int(full_w / FRAME_COUNT)
+	var extra := full_w - base_w * FRAME_COUNT
 	var frames: Array = []
-	for i in feet.size():
-		var path := "res://art/combat/%s_frames/%02d.png" % [sheet_id, i]
-		if not ResourceLoader.exists(path):
-			return []
-		var tex := load(path) as Texture2D
-		if tex == null:
-			return []
-		frames.append({"tex": tex, "feet": feet[i]})
+	var x := 0
+	for i in FRAME_COUNT:
+		var fw := base_w + (1 if i < extra else 0)
+		var atlas := AtlasTexture.new()
+		atlas.atlas = tex
+		atlas.region = Rect2(x, 0, fw, full_h)
+		frames.append(atlas)
+		x += fw
 	return frames
 
 
@@ -281,12 +340,24 @@ func _set_pose(node: Unit, pose: int) -> void:
 	var frames: Array = node.get_meta("combat_frames")
 	if frames.is_empty():
 		return
-	var fr: Dictionary = frames[clampi(pose, 0, frames.size() - 1)]
+	var atlas: AtlasTexture = frames[clampi(pose, 0, frames.size() - 1)]
 	var sprite: Sprite2D = node.get_meta("combat_sprite")
 	var sc: float = node.get_meta("combat_px_scale")
-	var feet: Vector2 = fr["feet"]
-	sprite.texture = fr["tex"]
-	sprite.position = Vector2(-feet.x, -feet.y) * sc
+	sprite.texture = atlas
+	# 画布底边 = 脚底线。节点原点在世界 FEET_Y，所以脚底贴地。
+	sprite.position = Vector2(-float(atlas.get_width()) * 0.5, -float(atlas.get_height())) * sc
+
+
+func _use_crit_frames(node: Unit, on: bool) -> void:
+	if node == null or not is_instance_valid(node) or not node.has_meta("combat_frames_normal"):
+		return
+	var crit: Array = node.get_meta("combat_frames_crit")
+	if on and not crit.is_empty():
+		node.set_meta("combat_frames", crit)
+		node.set_meta("combat_sheet_mode", "crit")
+	else:
+		node.set_meta("combat_frames", node.get_meta("combat_frames_normal"))
+		node.set_meta("combat_sheet_mode", "normal")
 
 
 func _set_hit_pose(node: Unit) -> void:
@@ -488,7 +559,9 @@ func _strike_bow(striker: Unit, victim: Unit, ev: Dictionary, dir: float) -> voi
 func _strike_crit(striker: Unit, victim: Unit, ev: Dictionary, dir: float) -> void:
 	var start_x: float = striker.position.x
 	var victim_x: float = victim.position.x
-	# 蓄力：全身金光 + 大字
+	# 蓄力：全身金光 + 大字。暴击条带只换皮，时序不动。
+	_use_crit_frames(striker, true)
+	_set_pose(striker, POSE_IDLE)
 	striker.modulate = Color(1.6, 1.3, 0.5)
 	_big_text(tr("必 杀 !"), Color(1.0, 0.85, 0.25))
 	await get_tree().create_timer(0.34).timeout
@@ -505,6 +578,7 @@ func _strike_crit(striker: Unit, victim: Unit, ev: Dictionary, dir: float) -> vo
 	var back2 := create_tween()
 	back2.tween_property(striker, "position:x", start_x, 0.18)
 	await get_tree().create_timer(0.20).timeout
+	_use_crit_frames(striker, false)
 	_set_pose(striker, POSE_IDLE)
 
 

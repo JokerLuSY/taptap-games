@@ -139,8 +139,12 @@ func _run() -> void:
 	battle._on_forecast_ok()
 	await get_tree().create_timer(1.05).timeout
 	_shot("04b_combat_scene.png")  # 暴击特写演出中
-	_check(battle.combat_scene._att_node.get_node_or_null("CombatPose") != null, "缇娅特写应挂上像素帧")
-	_check(battle.combat_scene._def_node.get_node_or_null("CombatPose") != null, "山贼特写应挂上像素帧")
+	_check_combat_feet(battle.combat_scene._att_node, "缇娅")
+	_check_combat_feet(battle.combat_scene._def_node, "山贼")
+	_check(str(battle.combat_scene._att_node.get_meta("combat_sheet", "")) == "tia_sword", "缇娅应使用 tia_sword")
+	_check(str(battle.combat_scene._att_node.get_meta("combat_sheet_mode", "")) == "crit", "暴击中攻击方应使用 crit 条带")
+	_check(str(battle.combat_scene._def_node.get_meta("combat_sheet", "")) == "bandit_axe", "山贼应使用 bandit_axe")
+	_check(str(battle.combat_scene._def_node.get_meta("combat_sheet_mode", "")) == "normal", "受击方应保持普通条带")
 	Combat.force_crit = false
 	var ok: bool = await _wait_cond(func() -> bool: return battle.state == battle.S.IDLE, 15.0)
 	_check(ok, "战斗应结束并回到 IDLE")
@@ -472,18 +476,54 @@ func _check_infra() -> void:
 	_check(SafeArea.MARGIN_X >= 64 and SafeArea.MARGIN_Y >= 48, "安全区左右应 ≥ 64、上下应 ≥ 48")
 	_check(SafeArea.EDGE_ACTION >= 80 and SafeArea.MIN_HIT >= 48, "主操作内缩应 ≥ 80、热区应 ≥ 48")
 	var combat_art: Array = [
-		"res://art/combat/tia_sword.png",
-		"res://art/combat/bandit_axe.png",
 		"res://art/combat/bg/sky_grass.png",
 		"res://art/combat/bg/mountains_grass.png",
 		"res://art/combat/bg/mid_grass.png",
 		"res://art/combat/bg/ground_strip_grass.png",
 	]
-	for i in 4:
-		combat_art.append("res://art/combat/tia_sword_frames/%02d.png" % i)
-		combat_art.append("res://art/combat/bandit_axe_frames/%02d.png" % i)
+	for sheet in CombatScene.SHEET_IDS:
+		combat_art.append("res://art/combat/%s.png" % sheet)
+		combat_art.append("res://art/combat/%s_crit.png" % sheet)
+		var mapped := false
+		for v in CombatScene.CLASS_SHEET.values():
+			if v == sheet:
+				mapped = true
+				break
+		_check(mapped, "条带应有职业映射: " + sheet)
 	for path in combat_art:
 		_check(FileAccess.file_exists(path), "战斗资源应存在: " + path)
+	_check(CombatScene.SHEET_H == 300.0, "战斗条带高度应为 300")
+	_check(is_equal_approx(CombatScene.SHEET_SCALE, 1.0), "300px 条带应为 1:1")
+	_check(is_equal_approx(CombatScene.FEET_Y, 520.0), "脚底世界坐标应为 520")
+	var scene := CombatScene.new()
+	var probe := Unit.new()
+	probe.unit_id = "tia"
+	probe.class_label = "剑士"
+	_check(scene._sheet_id_for(probe) == "tia_sword", "缇娅剑士应映射 tia_sword")
+	probe.class_label = "炎刃使"
+	_check(scene._sheet_id_for(probe) == "tia_flameblade", "缇娅炎刃使应映射 tia_flameblade")
+	probe.class_label = "不灭巫女"
+	_check(scene._sheet_id_for(probe) == "tia_immortal_priestess", "缇娅不灭巫女应映射 tia_immortal_priestess")
+	probe.unit_id = "bandit_r1"
+	probe.class_label = ""
+	_check(scene._sheet_id_for(probe) == "bandit_axe", "山贼 id 前缀应映射 bandit_axe")
+	probe.unit_id = "archer2"
+	probe.class_label = ""
+	_check(scene._sheet_id_for(probe) == "archer_bow", "弓箭手 id 前缀应映射 archer_bow")
+	probe.unit_id = "balto"
+	probe.class_label = "圣骑士"
+	_check(scene._sheet_id_for(probe) == "balto_lance", "巴尔托应映射 balto_lance")
+	probe.unit_id = "brock"
+	probe.class_label = "山贼头目"
+	_check(scene._sheet_id_for(probe) == "brock_axe", "布洛克应映射 brock_axe")
+	probe.unit_id = "probe"
+	for label in CombatScene.CLASS_SHEET:
+		probe.class_label = label
+		var expect: String = CombatScene.CLASS_SHEET[label]
+		var got := scene._sheet_id_for(probe)
+		_check(got == expect, "职业 %s 应映射 %s，实际 %s" % [label, expect, got])
+	scene.free()
+	probe.free()
 	var area := SafeArea.rect()
 	_check(area.position == Vector2(64, 48), "安全区原点应为 (64, 48)，实际 %s" % area.position)
 	var click := InputEventMouseButton.new()
@@ -879,6 +919,17 @@ func _find_button(root: Node, text: String) -> Button:
 		if found != null:
 			return found
 	return null
+
+
+func _check_combat_feet(node: Node, who: String) -> void:
+	var pose := node.get_node_or_null("CombatPose") as Sprite2D
+	_check(pose != null and pose.texture != null, who + "特写应挂上像素帧")
+	if pose == null or pose.texture == null:
+		return
+	var feet_local := pose.position.y + float(pose.texture.get_height()) * pose.scale.y
+	_check(absf(feet_local) < 1.5, who + " 300px 脚底应贴在 FEET_Y，局部偏差 %s" % feet_local)
+	_check(is_equal_approx(pose.scale.y, CombatScene.SHEET_SCALE), who + " 条带缩放应为 1，实际 %s" % pose.scale.y)
+	_check(is_equal_approx(float(pose.texture.get_height()), CombatScene.SHEET_H), who + " 帧高应为 300，实际 %s" % pose.texture.get_height())
 
 
 func _check(cond: bool, msg: String) -> void:
