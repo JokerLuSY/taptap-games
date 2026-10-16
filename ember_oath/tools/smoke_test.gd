@@ -1,5 +1,5 @@
 extends Node
-## 《余烬之誓》第一章冒烟测试
+## 《炎烬之誓》第一章冒烟测试
 ## 用法: godot --path ember_oath res://tools/smoke_runner.tscn   (窗口模式可截图, --headless 仅验证逻辑)
 
 var _shot_dir := "res://tools/shots/"
