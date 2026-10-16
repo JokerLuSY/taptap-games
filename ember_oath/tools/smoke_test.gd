@@ -1219,7 +1219,7 @@ func _check_anchor_on_feet(node: Node, tag: String) -> void:
 	_check(planted, tag + " 当前帧应能对上脚底点")
 
 
-## 上下都是实心、中间却透明的横缝，会让灌丛下沿穿进身体。
+## 轮廓内的透明洞，以及上下都是实心的横缝，会让灌丛硬边穿进腰腹、躯干、头发。
 func _check_no_body_slit(node: Node, tag: String) -> void:
 	var pose := node.get_node_or_null("CombatPose") as Sprite2D
 	if pose == null or not (pose.texture is AtlasTexture):
@@ -1235,14 +1235,94 @@ func _check_no_body_slit(node: Node, tag: String) -> void:
 	var y0 := int(region.position.y)
 	var fw := int(region.size.x)
 	var fh := int(region.size.y)
+	var view := img.get_region(Rect2i(x0, y0, fw, fh))
+	if view.get_format() != Image.FORMAT_RGBA8:
+		view.convert(Image.FORMAT_RGBA8)
+	var bytes := view.get_data()
+	var n := fw * fh
+	var opaque := PackedByteArray()
+	opaque.resize(n)
 	var slits := 0
+	for i in n:
+		opaque[i] = 1 if bytes[i * 4 + 3] >= 128 else 0
 	for y in range(1, fh - 1):
 		for x in fw:
-			if img.get_pixel(x0 + x, y0 + y).a >= 0.5:
+			var i := y * fw + x
+			if opaque[i] == 1:
 				continue
-			if img.get_pixel(x0 + x, y0 + y - 1).a >= 0.5 and img.get_pixel(x0 + x, y0 + y + 1).a >= 0.5:
+			if opaque[i - fw] == 1 and opaque[i + fw] == 1:
 				slits += 1
 	_check(slits == 0, tag + " 身体不应留下透明横缝，实际 %d" % slits)
+	var gaps := _count_large_span_gaps(opaque, fw, fh, CombatScene.BODY_FILL_MIN)
+	_check(gaps == 0, tag + " 身体轮廓内不应留下透明洞，实际 %d" % gaps)
+
+
+## 够大的色块在每一行、每一列上，首尾不透明像素之间不得再透明。
+func _count_large_span_gaps(opaque: PackedByteArray, w: int, h: int, min_size: int) -> int:
+	var n := w * h
+	var labels := PackedInt32Array()
+	labels.resize(n)
+	var sizes := PackedInt32Array()
+	sizes.append(0)
+	var stack := PackedInt32Array()
+	for i in n:
+		if opaque[i] == 0 or labels[i] != 0:
+			continue
+		var label := sizes.size()
+		sizes.append(0)
+		stack.resize(0)
+		stack.append(i)
+		labels[i] = label
+		var count := 0
+		var sp := 0
+		while sp < stack.size():
+			var p := stack[sp]
+			sp += 1
+			count += 1
+			var x := p % w
+			var y := int(p / w)
+			if x > 0 and opaque[p - 1] == 1 and labels[p - 1] == 0:
+				labels[p - 1] = label
+				stack.append(p - 1)
+			if x + 1 < w and opaque[p + 1] == 1 and labels[p + 1] == 0:
+				labels[p + 1] = label
+				stack.append(p + 1)
+			if y > 0 and opaque[p - w] == 1 and labels[p - w] == 0:
+				labels[p - w] = label
+				stack.append(p - w)
+			if y + 1 < h and opaque[p + w] == 1 and labels[p + w] == 0:
+				labels[p + w] = label
+				stack.append(p + w)
+		sizes[label] = count
+	var gaps := 0
+	for y in h:
+		var left := -1
+		var right := -1
+		var row := y * w
+		for x in w:
+			var i := row + x
+			if opaque[i] == 1 and sizes[labels[i]] >= min_size:
+				if left < 0:
+					left = x
+				right = x
+		if left >= 0:
+			for x in range(left, right + 1):
+				if opaque[row + x] == 0:
+					gaps += 1
+	for x in w:
+		var top := -1
+		var bottom := -1
+		for y in h:
+			var i := y * w + x
+			if opaque[i] == 1 and sizes[labels[i]] >= min_size:
+				if top < 0:
+					top = y
+				bottom = y
+		if top >= 0:
+			for y in range(top, bottom + 1):
+				if opaque[y * w + x] == 0:
+					gaps += 1
+	return gaps
 
 
 func _check_combat_feet(node: Node, who: String) -> void:

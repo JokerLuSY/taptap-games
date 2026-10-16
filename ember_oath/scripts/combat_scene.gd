@@ -98,10 +98,13 @@ const SHEET_FACES_RIGHT := {
 const Z_BG := 0
 const Z_FIGHTER := 10
 const Z_FX := 30
-## 挥砍/受击在腰腹留下横向透明缝，中景灌丛的硬下沿会从缝里穿过去。
-## 按帧做扁长闭运算：横向多补、纵向少补。不改磁盘上的 earliest 正稿。
-const BODY_SEAL_HX := 16
-const BODY_SEAL_HY := 4
+## 挥砍/受击把身体切成互不相连的色块，块与块之间的透明缝比 16px 宽。
+## 中景灌丛的硬下沿会从腰腹、躯干、头发这些缝里穿出来。扁长闭运算补不住。
+## 按帧把够大的色块在本帧轮廓里先按行、再按列、再按行填实。
+## 不到这个面积的火花不参与拉轮廓，也不和邻帧粘在一起。磁盘上的 earliest 正稿不改。
+## 贴在身体上的碎片并进轮廓后还要再补一轮，腰腹上的湾才关得上。孤立火花不拉边。
+const BODY_FILL_MIN := 80
+const BODY_FILL_ROUNDS := 4
 const _POSE_SHADER := preload("res://shaders/combat_pose.gdshader")
 
 static var _sealed_tex: Dictionary = {}
@@ -396,13 +399,13 @@ func _sealed_texture(tex: Texture2D, path: String, frame_count: int) -> Texture2
 		return tex
 	if src.is_compressed():
 		src.decompress()
-	var sealed := _seal_strip(src, frame_count, BODY_SEAL_HX, BODY_SEAL_HY)
+	var sealed := _seal_strip(src, frame_count)
 	var out := ImageTexture.create_from_image(sealed)
 	_sealed_tex[path] = out
 	return out
 
 
-func _seal_strip(src: Image, frame_count: int, hx: int, hy: int) -> Image:
+func _seal_strip(src: Image, frame_count: int) -> Image:
 	var out := src.duplicate()
 	var full_w := src.get_width()
 	var h := src.get_height()
@@ -411,96 +414,191 @@ func _seal_strip(src: Image, frame_count: int, hx: int, hy: int) -> Image:
 	var x0 := 0
 	for i in frame_count:
 		var fw := base_w + (1 if i < extra else 0)
-		_seal_rect(out, x0, fw, h, hx, hy)
+		_seal_rect(out, x0, fw, h)
 		x0 += fw
 	return out
 
 
-func _seal_rect(img: Image, x0: int, w: int, h: int, hx: int, hy: int) -> void:
+## 只处理这一格。左右邻帧的轮廓不会被这条缝拉到一起。
+func _seal_rect(img: Image, x0: int, w: int, h: int) -> void:
+	if w <= 0 or h <= 0:
+		return
 	var local := Image.create(w, h, false, Image.FORMAT_RGBA8)
 	local.blit_rect(img, Rect2i(x0, 0, w, h), Vector2i.ZERO)
+	if local.get_format() != Image.FORMAT_RGBA8:
+		local.convert(Image.FORMAT_RGBA8)
+	var bytes := local.get_data()
 	var n := w * h
-	var mask := PackedByteArray()
-	mask.resize(n)
-	for y in h:
-		for x in w:
-			mask[y * w + x] = 1 if local.get_pixel(x, y).a >= 0.5 else 0
-	var grown := _dilate_ellipse(mask, w, h, hx, hy)
-	var solid := _erode_ellipse(grown, w, h, hx, hy)
-	for y in h:
-		for x in w:
-			var i := y * w + x
-			if solid[i] == 0 or mask[i] == 1:
+	if bytes.size() < n * 4:
+		return
+	var opaque := PackedByteArray()
+	opaque.resize(n)
+	for i in n:
+		opaque[i] = 1 if bytes[i * 4 + 3] >= 128 else 0
+	var mask := opaque.duplicate()
+	for _round in BODY_FILL_ROUNDS:
+		var labels := PackedInt32Array()
+		labels.resize(n)
+		var sizes := PackedInt32Array()
+		sizes.append(0)
+		var stack := PackedInt32Array()
+		for i in n:
+			if mask[i] == 0 or labels[i] != 0:
 				continue
-			var best_d := 1 << 30
-			var best := local.get_pixel(x, y)
-			var found := false
-			var y1 := maxi(0, y - hy)
-			var y2 := mini(h - 1, y + hy)
-			var x1 := maxi(0, x - hx)
-			var x2 := mini(w - 1, x + hx)
-			for yy in range(y1, y2 + 1):
-				for xx in range(x1, x2 + 1):
-					if mask[yy * w + xx] == 0:
+			var label := sizes.size()
+			sizes.append(0)
+			stack.resize(0)
+			stack.append(i)
+			labels[i] = label
+			var count := 0
+			var sp := 0
+			while sp < stack.size():
+				var p := stack[sp]
+				sp += 1
+				count += 1
+				var x := p % w
+				var y := int(p / w)
+				if x > 0:
+					var left := p - 1
+					if mask[left] == 1 and labels[left] == 0:
+						labels[left] = label
+						stack.append(left)
+				if x + 1 < w:
+					var right := p + 1
+					if mask[right] == 1 and labels[right] == 0:
+						labels[right] = label
+						stack.append(right)
+				if y > 0:
+					var up := p - w
+					if mask[up] == 1 and labels[up] == 0:
+						labels[up] = label
+						stack.append(up)
+				if y + 1 < h:
+					var down := p + w
+					if mask[down] == 1 and labels[down] == 0:
+						labels[down] = label
+						stack.append(down)
+			sizes[label] = count
+		var solid := PackedByteArray()
+		solid.resize(n)
+		for i in n:
+			if mask[i] == 1 and sizes[labels[i]] >= BODY_FILL_MIN:
+				solid[i] = 1
+		for pass_i in 3:
+			if pass_i == 1:
+				for x in w:
+					var top := -1
+					var bottom := -1
+					for y in h:
+						if solid[y * w + x] != 0:
+							if top < 0:
+								top = y
+							bottom = y
+					if top < 0:
 						continue
-					var dd := (xx - x) * (xx - x) + (yy - y) * (yy - y)
-					if dd < best_d:
-						best_d = dd
-						best = local.get_pixel(xx, yy)
-						found = true
-			if found:
-				local.set_pixel(x, y, Color(best.r, best.g, best.b, 1.0))
-	img.blit_rect(local, Rect2i(0, 0, w, h), Vector2i(x0, 0))
-
-
-func _dilate_ellipse(mask: PackedByteArray, w: int, h: int, hx: int, hy: int) -> PackedByteArray:
-	return _vmax(_hmax(mask, w, h, hx, false), w, h, hy, false)
-
-
-func _erode_ellipse(mask: PackedByteArray, w: int, h: int, hx: int, hy: int) -> PackedByteArray:
-	return _vmax(_hmax(mask, w, h, hx, true), w, h, hy, true)
-
-
-func _hmax(mask: PackedByteArray, w: int, h: int, radius: int, erode: bool) -> PackedByteArray:
-	var out := PackedByteArray()
-	out.resize(w * h)
-	for y in h:
-		for x in w:
-			var on := 1 if erode else 0
-			var x1 := maxi(0, x - radius)
-			var x2 := mini(w - 1, x + radius)
-			for xx in range(x1, x2 + 1):
-				var bit := mask[y * w + xx]
-				if erode:
-					if bit == 0:
-						on = 0
-						break
-				elif bit == 1:
-					on = 1
-					break
-			out[y * w + x] = on
-	return out
-
-
-func _vmax(mask: PackedByteArray, w: int, h: int, radius: int, erode: bool) -> PackedByteArray:
-	var out := PackedByteArray()
-	out.resize(w * h)
-	for x in w:
+					for y in range(top, bottom + 1):
+						solid[y * w + x] = 1
+			else:
+				for y in h:
+					var left_x := -1
+					var right_x := -1
+					var row := y * w
+					for x in w:
+						if solid[row + x] != 0:
+							if left_x < 0:
+								left_x = x
+							right_x = x
+					if left_x < 0:
+						continue
+					for x in range(left_x, right_x + 1):
+						solid[row + x] = 1
+		for y in range(1, h - 1):
+			var row := y * w
+			for x in w:
+				if solid[row + x] != 0 or mask[row + x] != 0:
+					continue
+				var above := solid[row - w + x] != 0 or mask[row - w + x] != 0
+				var below := solid[row + w + x] != 0 or mask[row + w + x] != 0
+				if above and below:
+					solid[row + x] = 1
 		for y in h:
-			var on := 1 if erode else 0
-			var y1 := maxi(0, y - radius)
-			var y2 := mini(h - 1, y + radius)
-			for yy in range(y1, y2 + 1):
-				var bit := mask[yy * w + x]
-				if erode:
-					if bit == 0:
-						on = 0
-						break
-				elif bit == 1:
-					on = 1
-					break
-			out[y * w + x] = on
-	return out
+			var row := y * w
+			for x in range(1, w - 1):
+				if solid[row + x] != 0 or mask[row + x] != 0:
+					continue
+				if (solid[row + x - 1] != 0 or mask[row + x - 1] != 0) and (solid[row + x + 1] != 0 or mask[row + x + 1] != 0):
+					solid[row + x] = 1
+		var changed := false
+		var nxt := PackedByteArray()
+		nxt.resize(n)
+		for i in n:
+			var on := 1 if (solid[i] != 0 or opaque[i] != 0) else 0
+			nxt[i] = on
+			if on != mask[i]:
+				changed = true
+		mask = nxt
+		if not changed:
+			break
+	var queue := PackedInt32Array()
+	var colored := PackedByteArray()
+	colored.resize(n)
+	for i in n:
+		if opaque[i] == 1:
+			bytes[i * 4 + 3] = 255
+			colored[i] = 1
+			queue.append(i)
+	var head := 0
+	while head < queue.size():
+		var p := queue[head]
+		head += 1
+		var x := p % w
+		var y := int(p / w)
+		var base := p * 4
+		var cr := bytes[base]
+		var cg := bytes[base + 1]
+		var cb := bytes[base + 2]
+		if x > 0:
+			var j := p - 1
+			if mask[j] != 0 and colored[j] == 0:
+				var jb := j * 4
+				bytes[jb] = cr
+				bytes[jb + 1] = cg
+				bytes[jb + 2] = cb
+				bytes[jb + 3] = 255
+				colored[j] = 1
+				queue.append(j)
+		if x + 1 < w:
+			var j2 := p + 1
+			if mask[j2] != 0 and colored[j2] == 0:
+				var jb2 := j2 * 4
+				bytes[jb2] = cr
+				bytes[jb2 + 1] = cg
+				bytes[jb2 + 2] = cb
+				bytes[jb2 + 3] = 255
+				colored[j2] = 1
+				queue.append(j2)
+		if y > 0:
+			var j3 := p - w
+			if mask[j3] != 0 and colored[j3] == 0:
+				var jb3 := j3 * 4
+				bytes[jb3] = cr
+				bytes[jb3 + 1] = cg
+				bytes[jb3 + 2] = cb
+				bytes[jb3 + 3] = 255
+				colored[j3] = 1
+				queue.append(j3)
+		if y + 1 < h:
+			var j4 := p + w
+			if mask[j4] != 0 and colored[j4] == 0:
+				var jb4 := j4 * 4
+				bytes[jb4] = cr
+				bytes[jb4 + 1] = cg
+				bytes[jb4 + 2] = cb
+				bytes[jb4 + 3] = 255
+				colored[j4] = 1
+				queue.append(j4)
+	local.set_data(w, h, false, Image.FORMAT_RGBA8, bytes)
+	img.blit_rect(local, Rect2i(0, 0, w, h), Vector2i(x0, 0))
 
 
 func _set_pose(node: Unit, pose: int) -> void:
