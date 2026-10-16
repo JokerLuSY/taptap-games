@@ -143,7 +143,7 @@ func _run() -> void:
 	_check_combat_feet(battle.combat_scene._def_node, "山贼")
 	_check(str(battle.combat_scene._att_node.get_meta("combat_sheet", "")) == "tia_sword", "缇娅应使用 tia_sword")
 	_check(str(battle.combat_scene._att_node.get_meta("combat_sheet_mode", "")) == "crit", "暴击演出应标记 crit")
-	_check(battle.combat_scene._att_node.get_meta("combat_frames_crit") == battle.combat_scene._att_node.get_meta("combat_frames_normal"), "最早风没有单独 _crit，暴击应复用普通四帧")
+	_check(battle.combat_scene._att_node.get_meta("combat_frames_crit") != battle.combat_scene._att_node.get_meta("combat_frames_normal"), "必杀应换上 _crit 条带，而不是复用普通四帧")
 	_check(str(battle.combat_scene._def_node.get_meta("combat_sheet", "")) == "bandit_axe", "山贼应使用 bandit_axe")
 	_check(str(battle.combat_scene._def_node.get_meta("combat_sheet_mode", "")) == "normal", "受击方应保持普通条带")
 	Combat.force_crit = false
@@ -568,9 +568,8 @@ func _check_infra() -> void:
 	]
 	for sheet in CombatScene.SHEET_IDS:
 		combat_art.append("res://art/combat/%s.png" % sheet)
-		for i in 4:
-			combat_art.append("res://art/combat/%s_frames/%02d.png" % [sheet, i])
-		_check(not FileAccess.file_exists("res://art/combat/%s_crit.png" % sheet), sheet + " 不应有单独暴击条带")
+		combat_art.append("res://art/combat/%s_crit.png" % sheet)
+		_check(not FileAccess.file_exists("res://art/combat/%s_frames/00.png" % sheet), sheet + " 运行时不应再依赖旧单帧目录")
 		var mapped := false
 		for v in CombatScene.CLASS_SHEET.values():
 			if v == sheet:
@@ -1065,9 +1064,12 @@ func _check_combat_feet(node: Node, who: String) -> void:
 			var feet: Vector2 = fr["feet"]
 			var local: Vector2 = pose.position + feet * pose.scale
 			_check(local.length() < 0.6, who + " 脚底应落在节点原点，偏差 %s" % local)
+			var src := str(fr["src"])
+			var want_crit := str(node.get_meta("combat_sheet_mode", "")) == "crit"
+			_check(src.ends_with("_crit.png") == want_crit, who + " 当前帧应来自%s，实际 %s" % ["必杀条" if want_crit else "普通条", src])
 			planted = true
 			break
-	_check(planted, who + " 当前帧应来自最早风单帧")
+	_check(planted, who + " 当前帧应来自最早风横排条带")
 
 
 func _check(cond: bool, msg: String) -> void:

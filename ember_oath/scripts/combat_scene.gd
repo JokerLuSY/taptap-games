@@ -1,6 +1,6 @@
 class_name CombatScene
 extends CanvasLayer
-## 战斗特写演出：GBA 火纹式横版对砍（草地分层远景）。只有缇娅剑士与山贼有最早风单帧，其它职业用程序 Q 版。
+## 战斗特写演出：GBA 火纹式横版对砍（草地分层远景）。只有缇娅剑士与山贼有最早风横排条带，其它职业用程序 Q 版。
 ## 点击 / 回车可跳过。对砍 tween 时序不在这里改，帧只在既有关键点切换。
 
 signal finished
@@ -33,22 +33,30 @@ const GRASS_BG := [
 ]
 
 ## 帧序：0 待机 / 1 前冲 / 2 挥砍命中 / 3 收招。山贼的 3 同时当作受击。
-## 最早风没有单独 _crit.png，暴击复用这四帧。横排 sheet 只是归档，运行时读单帧。
+## 普攻读 {id}.png，必杀读 {id}_crit.png（终包帧序 1,2,2,3）。不再读 *_frames/。
 const POSE_IDLE := 0
 const POSE_LUNGE := 1
 const POSE_STRIKE := 2
 const POSE_RECOVER := 3
-## 单帧脚底（纹理像素）。缩放后该点对齐节点原点，也就是 FEET_Y。不是画布正中。
+## 每格脚底（相对该格左上角，像素）。缩放后对齐节点原点，也就是 FEET_Y。脚不在格子正中。
 const FRAME_FEET := {
 	"tia_sword": [
-		Vector2(34.5, 278.0), Vector2(31.5, 263.0), Vector2(16.5, 263.0), Vector2(128.0, 269.0),
+		Vector2(38.0, 289.0), Vector2(13.0, 289.0), Vector2(26.0, 289.0), Vector2(130.5, 291.0),
 	],
 	"bandit_axe": [
-		Vector2(173.0, 253.0), Vector2(192.0, 281.0), Vector2(274.0, 259.0), Vector2(106.0, 289.0),
+		Vector2(168.5, 288.0), Vector2(179.5, 288.0), Vector2(258.5, 288.0), Vector2(120.0, 280.0),
 	],
 }
-## 待机帧发顶到脚底的像素高度，全帧共用。
-const FRAME_BODY_H := {"tia_sword": 275.0, "bandit_axe": 250.0}
+const FRAME_FEET_CRIT := {
+	"tia_sword": [
+		Vector2(13.0, 289.0), Vector2(26.0, 289.0), Vector2(26.0, 289.0), Vector2(130.5, 291.0),
+	],
+	"bandit_axe": [
+		Vector2(179.5, 288.0), Vector2(258.5, 288.0), Vector2(258.5, 288.0), Vector2(120.0, 280.0),
+	],
+}
+## 待机帧发顶到脚底的像素高度，普通条和必杀条共用这个缩放。
+const FRAME_BODY_H := {"tia_sword": 282.0, "bandit_axe": 239.0}
 const HIT_FRAME := {"tia_sword": -1, "bandit_axe": 3}
 ## 职业 → 最早风 id。只有这两张；其余职业空字符串，走程序 Q 版。
 const CLASS_SHEET := {
@@ -235,7 +243,8 @@ func _make_fighter(u: Unit, face_left: bool) -> Unit:
 	c.draw_ring = false
 	c.draw_hp_bar = false
 	var sheet := _sheet_id_for(u)
-	var frames := _load_frames(sheet)
+	var frames := _load_strip(sheet, false)
+	var crit_frames := _load_strip(sheet, true)
 	if frames.is_empty():
 		c.scale = Vector2(-UNIT_SCALE if face_left else UNIT_SCALE, UNIT_SCALE)
 		return c
@@ -251,9 +260,8 @@ func _make_fighter(u: Unit, face_left: bool) -> Unit:
 	sprite.scale = Vector2(sc, sc)
 	c.add_child(sprite)
 	c.set_meta("combat_sprite", sprite)
-	# 没有 {id}_crit.png：暴击换的是演出，帧仍是这四张。
 	c.set_meta("combat_frames_normal", frames)
-	c.set_meta("combat_frames_crit", frames)
+	c.set_meta("combat_frames_crit", crit_frames)
 	c.set_meta("combat_frames", frames)
 	c.set_meta("combat_px_scale", sc)
 	c.set_meta("combat_hit_frame", int(HIT_FRAME.get(sheet, -1)))
@@ -281,20 +289,35 @@ func _is_sheet(id: String) -> bool:
 	return id != "" and SHEET_IDS.has(id)
 
 
-## 读 art/combat/{id}_frames/00–03.png。缺任一帧则整套放弃，调用方改画程序 Q 版。
-func _load_frames(sheet_id: String) -> Array:
-	if not _is_sheet(sheet_id) or not FRAME_FEET.has(sheet_id):
+## 横排 4 格。普攻 {id}.png，必杀 {id}_crit.png。缺文件则返回空，调用方改画程序 Q 版。
+func _load_strip(sheet_id: String, crit: bool) -> Array:
+	if not _is_sheet(sheet_id):
 		return []
-	var feet: Array = FRAME_FEET[sheet_id]
+	var feet_table: Dictionary = FRAME_FEET_CRIT if crit else FRAME_FEET
+	if not feet_table.has(sheet_id):
+		return []
+	var path := "res://art/combat/%s%s.png" % [sheet_id, "_crit" if crit else ""]
+	if not ResourceLoader.exists(path):
+		return []
+	var tex := load(path) as Texture2D
+	if tex == null:
+		return []
+	var feet: Array = feet_table[sheet_id]
+	var full_w := tex.get_width()
+	var full_h := tex.get_height()
+	if full_w < feet.size() or full_h <= 0:
+		return []
+	var base_w := int(full_w / feet.size())
+	var extra := full_w - base_w * feet.size()
 	var frames: Array = []
+	var x := 0
 	for i in feet.size():
-		var path := "res://art/combat/%s_frames/%02d.png" % [sheet_id, i]
-		if not ResourceLoader.exists(path):
-			return []
-		var tex := load(path) as Texture2D
-		if tex == null:
-			return []
-		frames.append({"tex": tex, "feet": feet[i]})
+		var fw := base_w + (1 if i < extra else 0)
+		var atlas := AtlasTexture.new()
+		atlas.atlas = tex
+		atlas.region = Rect2(x, 0, fw, full_h)
+		frames.append({"tex": atlas, "feet": feet[i], "src": path})
+		x += fw
 	return frames
 
 
