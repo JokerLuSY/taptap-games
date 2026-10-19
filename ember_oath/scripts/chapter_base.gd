@@ -4,11 +4,6 @@ extends RefCounted
 ## 每章继承它，写自己的 MAP / LEVELS / UNITS / BG / CHAPTER_TITLE 等常量，再按需覆盖钩子。
 ## 钩子都可能被 battle `await`，所以默认实现也写成协程。
 
-## 支援对在全战役通用：相邻累计 points_to_c 回合后解锁 C 级
-const SUPPORT_PAIRS := {
-	"tia|balto": {"points_to_c": 6},
-}
-
 var battle = null
 var visited := {}
 var flags := {}                   # 本章剧情旗标（随检查点存档）
@@ -60,7 +55,7 @@ func is_won() -> bool:
 
 
 func supports() -> Dictionary:
-	return SUPPORT_PAIRS
+	return Supports.PAIRS
 
 
 func win_condition() -> String:
@@ -204,21 +199,22 @@ func on_recruit(u) -> void:
 
 # ==================== 支援 ====================
 
+## u 身边有能聊下一档支援的伙伴（点数够、本章这一对还没聊过）→ 返回伙伴
 func get_support_partner(u):
-	var table := supports()
-	for key in table:
+	for key in supports():
 		if f_support.get(key, false):
 			continue
 		var pair: Array = String(key).split("|")
 		if u.unit_id not in pair:
 			continue
 		var pid: String = pair[1] if pair[0] == u.unit_id else pair[0]
-		if u.support_with.has(pid):
+		var nxt := Supports.next_rank(Supports.rank_of(u, pid))
+		if nxt == "":
 			continue
-		if battle.support_points.get(key, 0) < table[key]["points_to_c"]:
+		if battle.support_points.get(key, 0) < Supports.need_points(key, nxt):
 			continue
 		var p = battle.get_unit(pid)
-		if p != null and p.is_alive() and GameData.dist(u.grid_pos, p.grid_pos) == 1:
+		if p != null and p.on_map() and p.is_player() and GameData.dist(u.grid_pos, p.grid_pos) == 1:
 			return p
 	return null
 
@@ -227,31 +223,15 @@ func on_support(u) -> void:
 	var partner = get_support_partner(u)
 	if partner == null:
 		return
-	var key := ""
-	for k in supports():
-		var pair: Array = String(k).split("|")
-		if u.unit_id in pair and partner.unit_id in pair:
-			key = k
+	var key := Supports.key_of(u.unit_id, partner.unit_id)
+	var nxt := Supports.next_rank(Supports.rank_of(u, partner.unit_id))
 	f_support[key] = true
-	await battle.play_dialogue(support_lines(key))
-	u.support_with[partner.unit_id] = "C"
-	partner.support_with[u.unit_id] = "C"
-	battle.notify(tr("%s 与 %s 的支援提升到 C！（相邻时 命中/回避 +5）") % [tr(u.display_name), tr(partner.display_name)])
-
-
-func support_lines(key: String) -> Array:
-	if key != "tia|balto":
-		return []
-	var c_tia := Color(1.0, 0.62, 0.45)
-	var c_balto := Color(0.62, 0.78, 1.0)
-	return [
-		_l("缇娅", c_tia, "巴尔托，你说……我的亲生父母，到底是什么样的人？"),
-		_l("巴尔托", c_balto, "……现在问这个做什么。"),
-		_l("缇娅", c_tia, "那些山贼是冲我来的，对吧？你别当我傻。"),
-		_l("巴尔托", c_balto, "…………等这阵风头过了，我会把一切都告诉你。"),
-		_l("缇娅", c_tia, "哼，又拿这句话搪塞我。……算了，反正你答应我了，不许耍赖。"),
-		_l("巴尔托", c_balto, "（叹气）……嗯，我答应你。"),
-	]
+	await battle.play_dialogue(Supports.lines(key, nxt))
+	u.support_with[partner.unit_id] = nxt
+	partner.support_with[u.unit_id] = nxt
+	var b: Dictionary = Supports.BONUS[nxt]
+	var extra := tr("，必杀 +%d") % b["crit"] if int(b["crit"]) > 0 else ""
+	battle.notify(tr("%s 与 %s 的支援提升到 %s！（3 格内 命中/回避 +%d%s）") % [tr(u.display_name), tr(partner.display_name), nxt, b["hit"], extra])
 
 
 # ==================== 存读 ====================

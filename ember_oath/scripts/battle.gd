@@ -965,11 +965,14 @@ func _gain_support_points() -> void:
 		var pair: Array = String(key).split("|")
 		var a := get_unit(pair[0])
 		var b := get_unit(pair[1])
-		if a == null or b == null or not a.is_alive() or not b.is_alive():
+		if a == null or b == null or not a.on_map() or not b.on_map() or not a.is_player() or not b.is_player():
 			continue
 		if GameData.dist(a.grid_pos, b.grid_pos) != 1:
 			continue
-		var need: int = chapter.supports()[key]["points_to_c"]
+		var nxt := Supports.next_rank(Supports.rank_of(a, b.unit_id))
+		if nxt == "":
+			continue
+		var need := Supports.need_points(key, nxt)
 		if support_points.get(key, 0) < need:
 			support_points[key] = support_points.get(key, 0) + 1
 			if support_points[key] == need:

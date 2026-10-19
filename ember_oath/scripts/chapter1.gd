@@ -88,11 +88,6 @@ const REINFORCEMENTS := [
 	{"id": "bandit_r2", "pos": Vector2i(6, 9)},
 ]
 
-## 支援对话: 相邻累计 points_to_c 回合后解锁 C 级
-const SUPPORTS := {
-	"tia|balto": {"points_to_c": 6},
-}
-
 ## 可说得的敌方单位: {unit_id: {"by": 说得者 unit_id}}
 const RECRUITS := {
 	"bandit6": {"by": "tia"},
@@ -144,10 +139,6 @@ func templates() -> Dictionary:
 
 func extra_slots() -> Array:
 	return [Vector2i(5, 3), Vector2i(3, 3), Vector2i(7, 3)]
-
-
-func supports() -> Dictionary:
-	return SUPPORTS
 
 
 ## 山贼/弓箭手只写 id 和 pos 时套模板（战斗图鉴等工具也在用）
@@ -229,39 +220,6 @@ func on_talk(_u) -> void:
 	var tia = battle.get_unit("tia")
 	tia.give("vulnerary")
 	battle.notify(tr("缇娅 获得 伤药"))
-
-
-## 支援: u 的相邻格有可解锁支援的伙伴 → 返回伙伴单位
-func get_support_partner(u):
-	for key in SUPPORTS:
-		if f_support.get(key, false):
-			continue
-		var pair: Array = String(key).split("|")
-		if u.unit_id not in pair:
-			continue
-		var pid: String = pair[1] if pair[0] == u.unit_id else pair[0]
-		if battle.support_points.get(key, 0) < SUPPORTS[key]["points_to_c"]:
-			continue
-		var p = battle.get_unit(pid)
-		if p != null and p.is_alive() and GameData.dist(u.grid_pos, p.grid_pos) == 1:
-			return p
-	return null
-
-
-func on_support(u) -> void:
-	var partner = get_support_partner(u)
-	if partner == null:
-		return
-	var key := ""
-	for k in SUPPORTS:
-		var pair: Array = String(k).split("|")
-		if u.unit_id in pair and partner.unit_id in pair:
-			key = k
-	f_support[key] = true
-	await battle.play_dialogue(_support_c_tia_balto())
-	u.support_with[partner.unit_id] = "C"
-	partner.support_with[u.unit_id] = "C"
-	battle.notify(tr("缇娅 与 巴尔托 的支援提升到 C！（相邻时 命中/回避 +5）"))
 
 
 ## 说得: u 的相邻格有可招募的敌人 → 返回目标
@@ -440,17 +398,6 @@ func _post_battle() -> Array:
 		_l("巴尔托", C_BALTO, "（捡起布洛克掉落的一枚黑色徽章）……黑烬的徽记。普通山贼，怎么会有这种东西……"),
 		_l("缇娅", C_TIA, "巴尔托？"),
 		_l("巴尔托", C_BALTO, "……没什么。回去吧。今晚之后，你平静的日子，恐怕要到头了。"),
-	]
-
-
-func _support_c_tia_balto() -> Array:
-	return [
-		_l("缇娅", C_TIA, "巴尔托，你说……我的亲生父母，到底是什么样的人？"),
-		_l("巴尔托", C_BALTO, "……现在问这个做什么。"),
-		_l("缇娅", C_TIA, "那些山贼是冲我来的，对吧？你别当我傻。"),
-		_l("巴尔托", C_BALTO, "…………等这阵风头过了，我会把一切都告诉你。"),
-		_l("缇娅", C_TIA, "哼，又拿这句话搪塞我。……算了，反正你答应我了，不许耍赖。"),
-		_l("巴尔托", C_BALTO, "（叹气）……嗯，我答应你。"),
 	]
 
 

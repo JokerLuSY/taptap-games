@@ -340,12 +340,27 @@ func _run() -> void:
 	_check(ok, "支援对话后应回到 IDLE")
 	_check(tia.support_with.has("balto"), "缇娅应已解锁对巴尔托的支援")
 	_check(balto.support_with.has("tia"), "巴尔托应已解锁对缇娅的支援")
-	# 支援加成: 缇娅相邻时巴尔托命中 +5（用巴尔托测, 缇娅命中本来溢出100看不清）
+	_check(tia.support_with.get("balto", "") == "C", "第一次支援应为 C 级")
+	# 支援加成: 缇娅在 3 格内时巴尔托命中 +5（用巴尔托测, 缇娅命中本来溢出100看不清）
 	var f3: Dictionary = Combat.forecast(balto, battle.get_unit("bandit2"), 0, battle.board)
-	tia.grid_pos = Vector2i(1, 4)
+	var tia_pos: Vector2i = tia.grid_pos
+	tia.grid_pos = Vector2i(14, 0)
 	tia.position = tia.tile_center()
 	var f3b: Dictionary = Combat.forecast(balto, battle.get_unit("bandit2"), 0, battle.board)
-	_check(f3["a_hit"] == f3b["a_hit"] + 5, "缇娅相邻时巴尔托命中应 +5, %d vs %d" % [f3["a_hit"], f3b["a_hit"]])
+	_check(f3["a_hit"] == mini(100, f3b["a_hit"] + 5), "缇娅在 3 格内时巴尔托命中应 +5, %d vs %d" % [f3["a_hit"], f3b["a_hit"]])
+	# 支援 B：同一章一对只聊一次；换章后点数够了可以升 B，加成变成 +10
+	tia.grid_pos = tia_pos
+	tia.position = tia.tile_center()
+	battle.support_points["tia|balto"] = 14
+	_check(battle.chapter.get_support_partner(tia) == null, "同一章这一对只能聊一次支援")
+	battle.chapter.f_support = {}
+	_check(battle.chapter.get_support_partner(tia) == balto, "点数到 14、换章后应能聊 B")
+	battle.chapter.on_support(tia)
+	ok = await _wait_cond(func() -> bool: return tia.support_with.get("balto", "") == "B", 10.0)
+	_check(ok and balto.support_with.get("tia", "") == "B", "支援应升到 B")
+	_check(int(Supports.bonus(balto, battle.units)["hit"]) == 10, "B 级 3 格内命中 +10")
+	_check(Supports.next_rank("A") == "" and Supports.next_rank("B") == "A", "支援最高 A")
+	_check(Supports.lines("kain|nina", "A").size() >= 5 and Supports.lines("harlo|bandit6", "B").size() >= 4, "新支援对应有 B / A 对话")
 
 	# ---- 说得系统 ----
 	_mark("说得系统")

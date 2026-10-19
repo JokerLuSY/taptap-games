@@ -19,12 +19,12 @@ static func forecast(att: Unit, def: Unit, wpn_idx: int, board: Board, from_pos 
 	if lv_a > lv_d:
 		a_hit = clampi(a_hit + 10, 0, 100)
 		a_dmg += 1
-	# 支援加成: 已解锁支援的伙伴相邻时 +5 命中 +5 回避
-	var sup_a := 5 if _support_adjacent(att, board) else 0
-	var sup_d := 5 if _support_adjacent(def, board) else 0
-	a_hit = clampi(a_hit + sup_a - sup_d, 0, 100)
+	# 支援加成：3 格内的已支援伙伴按等级叠加（C ±5 / B ±10 / A ±15 且必杀 +5）
+	var sup_a: Dictionary = Supports.bonus(att, board.units)
+	var sup_d: Dictionary = Supports.bonus(def, board.units)
+	a_hit = clampi(a_hit + int(sup_a["hit"]) - int(sup_d["avo"]), 0, 100)
 	var a_times: int = 2 if att.eff_spd() - def.eff_spd() >= 4 else 1
-	var a_crit: int = clampi(att.eff_skl() / 2 + w.get("crit", 0), 0, 100)
+	var a_crit: int = clampi(att.eff_skl() / 2 + w.get("crit", 0) + int(sup_a["crit"]), 0, 100)
 	# 防守方反击（自动选用能打到的武器）
 	var d_wi: int = def.counter_weapon(d)
 	var d_dmg := 0
@@ -40,24 +40,13 @@ static func forecast(att: Unit, def: Unit, wpn_idx: int, board: Board, from_pos 
 		if lv_d > lv_a:
 			d_hit = clampi(d_hit + 10, 0, 100)
 			d_dmg += 1
-		d_hit = clampi(d_hit + sup_d - sup_a, 0, 100)
+		d_hit = clampi(d_hit + int(sup_d["hit"]) - int(sup_a["avo"]), 0, 100)
 		d_times = 2 if def.eff_spd() - att.eff_spd() >= 4 else 1
-		d_crit = clampi(def.eff_skl() / 2 + dw.get("crit", 0), 0, 100)
+		d_crit = clampi(def.eff_skl() / 2 + dw.get("crit", 0) + int(sup_d["crit"]), 0, 100)
 	return {
 		"a_dmg": a_dmg, "a_hit": a_hit, "a_times": a_times, "a_crit": a_crit,
 		"d_can": d_wi >= 0, "d_dmg": d_dmg, "d_hit": d_hit, "d_times": d_times, "d_crit": d_crit,
 	}
-
-
-## 该单位是否有已解锁支援的伙伴在相邻格
-static func _support_adjacent(u: Unit, board: Board) -> bool:
-	if u.support_with.is_empty():
-		return false
-	for partner_id in u.support_with:
-		for v in board.units:
-			if v.unit_id == partner_id and v.on_map() and GameData.dist(u.grid_pos, v.grid_pos) == 1:
-				return true
-	return false
 
 
 ## 生成攻击事件序列: [{side, dmg, hit, crit, landed, killed}]，不修改实际 HP
