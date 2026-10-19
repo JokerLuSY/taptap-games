@@ -8,7 +8,7 @@ const VICTORY_TITLE := "第二章 · 完"
 const VICTORY_SUB := "灰岩村燃尽了。火，却还在缇娅剑上。"
 const DEFEAT_SUB := "灰岩村葬于火海……"
 
-## 不用手绘底图。空路径让 Board 走程序地形。
+## 不用手绘底图：和第一章一样走 CC0 图块（MapTiles）。
 const BG := ""
 
 ## 15×10。北侧村庄焦土与火焰，南侧平地进军。E 不可踏。

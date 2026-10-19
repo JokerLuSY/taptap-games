@@ -38,19 +38,15 @@ description: 《炎烬之誓》(ember_oath) 火焰之纹章风战棋的设计标
 
 ## 美术标准
 
-- 地形底色用 AI 手绘纹理（`ember_oath/tools/process_terrain.py` 处理成 64px×4 旋转变体），禁止平涂纯色
-- **整图模式（当前方案）**：`art/maps/ch1_bg.png` 为 AI 手绘底图，逻辑网格向手绘对齐（勿改格子去迁就程序绘制）。
-  道路/桥/河流/崖壁/沙滩/森林/麦田全交给手绘；**物件（房/井/山精灵、农田色块、波光）全部运行时叠加**。
-  修改地图布局后必须检查与手绘是否错位（桥在第 5 列、崖壁格='X' 不可通行）
-- **抠图纪律（`tools/process_sprites.py`）**：AI 白底素材必须过"二值抠白(≥232)+近白中性阴影抠除+1px 腐蚀+
-  重采样后 fringe 清理(半透明白→全透, 低alpha暗残→全透)+底部接触暗边"，缩放后不允许任何半透明白像素残留；
-  生成新素材时要求"白底、无地面阴影、深色描边"，否则阴影和白底混色无法安全抠除
-- **补图纪律（`tools/compose_map.py`）**：抹除背景里的彩绘物件一律"整块连贯复制"（源=同横带干净区或已补好区域），
-  禁止小样块平铺（会产生方格接缝）；补丁源区必须先用 `tools/verify_sources.py` 核验干净；补完用
-  `tools/zoom_bg.py`+`detect_residual.py` 目检复查
-- **落位阴影**：精灵底部必须画双层压扁椭圆阴影（内浓外淡），无阴影=悬浮穿模感
-- 地图必须有 2.5D 感：高度差自动生成悬崖立面（岩壁纹理+草唇+垂草），水边有泡沫/芦苇/睡莲
-- 单位为 GBA 风 Q 版：3/4 视角（发团盖头顶露下半脸）、深色描边、阴阳面、待机浮动（相位错开）
+- **地图走 CC0 图块（当前方案）**：Ninja Adventure 16px 图块（`ember_oath/art/cc0/ninja_adventure/tiles/`，CC0，
+  许可见同目录 `LICENSE.txt`），最近邻过滤。新素材只用 CC0 / 可商用授权包，不再用 AI 手绘底图
+- **三层渲染**：`scripts/map_tiles.gd` 静态层（载入时只画一次；地面按 32px 子格自动拼接 3×3 套，
+  物件立在格子底边，高低差画岩壁南立面）→ `scripts/map_fx.gd` 动态层（水面涟漪、火苗、烟，只在帧号变化时重画）→
+  `Board._build_tile_layers()` 建的氛围 `ColorRect`（`shaders/map_atmosphere.gdshader` 云影 + 调色 + 暗角）
+- 逻辑以章节 ASCII `MAP` / `LEVELS` 为准，渲染只读不改；崖壁/墙格为不可通行 'X'。改地图布局后看
+  `tools/shots/01_map.png`、`11_chapter2_map.png` 确认物件与通行格对得上
+- **兜底**：`MapTiles.available()` 为假时 `Board._draw` 画 `BASE_COLORS` 纯色网格，地图永不空白
+- 地图小人：Ninja Adventure CC0 像素走路帧（带朝向与缓动）；战斗特写：LuizMelo CC0 横版角色包（`art/cc0/luizmelo/`）
 - 色调偏 GBA 低饱和暖色，全局 5% 暖色滤镜
 - 音效用 `ember_oath/tools/generate_audio.py` 程序合成（8-bit 芯片风），BGM 同理
 
