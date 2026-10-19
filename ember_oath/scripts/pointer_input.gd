@@ -22,6 +22,16 @@ static func is_primary_press(event: InputEvent) -> bool:
 	return false
 
 
+static func is_primary_release(event: InputEvent) -> bool:
+	if event is InputEventMouseButton:
+		var mb := event as InputEventMouseButton
+		return not mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT
+	if event is InputEventScreenTouch and not touch_emulates_mouse():
+		var st := event as InputEventScreenTouch
+		return not st.pressed and st.index == 0
+	return false
+
+
 static func is_secondary_press(event: InputEvent) -> bool:
 	if event is InputEventMouseButton:
 		var mb := event as InputEventMouseButton

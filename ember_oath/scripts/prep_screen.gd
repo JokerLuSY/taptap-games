@@ -1,13 +1,13 @@
 class_name PrepScreen
 extends Control
 ## 出击准备（整备）：选人、布阵、物品（交换 / 道具库）、商店、招募提示。
-## 开在战斗右侧信息栏的位置（960,48 起 320×640），左边地图照常显示，布阵时直接点地图。
+## 浮在地图右侧安全区内（半透明小窗），地图照常全屏显示，布阵时直接点地图；信息窗这时停到左边。
 ## 数据都在 battle 上：prep_pool（本章可出击的我方单位）、deployed（出击中）、deploy_slots（可部署格）。
 
 signal done
 
-const PANEL_POS := Vector2(960, 48)
-const PANEL_SIZE := Vector2(320, 640)
+const PANEL_SIZE := Vector2(320, 624)
+const PANEL_POS := Vector2(1280 - 64 - 320, 48)
 
 var battle = null
 var _panel: Panel
@@ -28,9 +28,10 @@ func setup(b) -> void:
 	_panel.position = PANEL_POS
 	_panel.size = PANEL_SIZE
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.07, 0.09, 0.15, 1.0)
+	sb.bg_color = Color(0.07, 0.09, 0.15, 0.94)
 	sb.border_color = Color(0.85, 0.72, 0.38)
 	sb.set_border_width_all(2)
+	sb.set_corner_radius_all(8)
 	_panel.add_theme_stylebox_override("panel", sb)
 	add_child(_panel)
 	_scroll = ScrollContainer.new()

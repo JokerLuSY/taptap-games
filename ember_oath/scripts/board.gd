@@ -41,8 +41,10 @@ var goal_tiles: Array = []:         # 撤离点等目标格（Vector2i 列表）
 var overlay: BoardOverlay
 
 ## 地图视口：棋盘放在一个裁剪框里，框内一次显示 view_size 大小（15×10 格）。
-## 地图比视口大时，scroll 是视口左上角在地图上的像素位置；棋盘自身 position = -scroll。
-var view_size := Vector2(960, 640)
+## 地图比视口大时，scroll 是视口左上角在地图上的像素位置；棋盘自身 position = origin - scroll。
+## 地图比视口小的那一维居中（origin 是居中留出的边）。
+var view_size := Vector2(1280, 720)
+var origin := Vector2.ZERO
 var scroll := Vector2.ZERO
 var _scroll_tween: Tween
 var tiles: MapTiles = null          # 静态地面（只画一次）
@@ -64,6 +66,7 @@ func load_map(map_rows: Array, map_levels: Array = [], _bg_path := "") -> void:
 	levels = map_levels
 	height = rows.size()
 	width = rows[0].length()
+	update_origin()
 	if MapTiles.available():
 		_build_tile_layers()
 	queue_redraw()
@@ -140,6 +143,11 @@ func _build_tile_layers() -> void:
 
 # ---------- 卷动 ----------
 
+func update_origin() -> void:
+	origin = ((view_size - Vector2(width * TILE, height * TILE)) / 2.0).max(Vector2.ZERO).floor()
+	position = origin - scroll
+
+
 func max_scroll() -> Vector2:
 	return Vector2(maxf(0.0, width * TILE - view_size.x), maxf(0.0, height * TILE - view_size.y))
 
@@ -155,12 +163,12 @@ func set_scroll(v: Vector2, animate := false) -> void:
 		_scroll_tween.kill()
 	if not animate or not is_inside_tree():
 		scroll = target
-		position = -scroll
+		position = origin - scroll
 		return
 	_scroll_tween = create_tween()
 	_scroll_tween.tween_method(func(s: Vector2) -> void:
 		scroll = s
-		position = -s, scroll, target, 0.16).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+		position = origin - s, scroll, target, 0.16).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 	scroll = target
 
 

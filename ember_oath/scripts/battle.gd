@@ -3,7 +3,7 @@ extends Node2D
 
 const TILE := 64
 
-enum S { STORY, IDLE, MOVE_SEL, ACTION_MENU, WEAPON_SEL, TARGET_SEL, ITEM_MENU, COMBAT, ENEMY, OVER, HEAL_SEL, PICK, PREP }
+enum S { STORY, IDLE, MOVE_SEL, ACTION_MENU, WEAPON_SEL, TARGET_SEL, ITEM_MENU, COMBAT, ENEMY, OVER, HEAL_SEL, PICK, PREP, MAP_MENU }
 
 var state: int = S.STORY
 var board: Board
@@ -35,10 +35,7 @@ var ui: CanvasLayer
 var lbl_chapter: Label
 var lbl_turn: Label
 var lbl_gold: Label
-var btn_threat: Button
-var info_label: Label
-var info_portrait_frame: Panel
-var info_portrait: TextureRect
+var hud: MapHud                    # 浮动信息窗（目标 / 单位 / 地形 / 提示）
 var hint_label: Label
 var toast_label: Label
 var banner_label: Label
@@ -60,8 +57,6 @@ var lbl_lose: Label
 var dialogue: DialogueBox
 var combat_scene: CombatScene
 var system_menu
-var btn_back: Button
-var btn_menu: Button
 
 var _forecast_target: Unit = null
 var _banner_tween: Tween = null
@@ -116,18 +111,29 @@ var _drag_scroll := Vector2.ZERO
 var _dragging := false
 var _pressing := false
 const DRAG_START := 16.0
+const NO_TILE := Vector2i(-9999, -9999)
+var _map_menu_tile := NO_TILE        # 空地上按下的格子：松手且没拖动时弹地图菜单
 
 
 func _build_board() -> void:
+	# 地图铺满整屏；比屏幕小的地图居中，四周是深色底
+	var bg := ColorRect.new()
+	bg.name = "MapBackdrop"
+	bg.color = Color(0.05, 0.06, 0.09)
+	bg.size = Vector2(1280, 720)
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bg.z_index = -100                  # 地面层 MapTiles 是 z -2，底色要压在它下面
+	add_child(bg)
 	map_clip = Control.new()
 	map_clip.name = "MapClip"
-	map_clip.position = Vector2(0, 48)
-	map_clip.size = Vector2(960, 640)
+	map_clip.position = Vector2.ZERO
+	map_clip.size = Vector2(1280, 720)
 	map_clip.clip_contents = true
 	map_clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(map_clip)
 	board = Board.new()
 	board.units = units
+	board.view_size = map_clip.size
 	map_clip.add_child(board)
 	board.load_map(chapter.MAP, chapter.LEVELS, chapter.BG)
 	cursor = MapCursor.new()
@@ -235,82 +241,18 @@ func _build_ui() -> void:
 	tint.set_anchors_preset(Control.PRESET_FULL_RECT)
 	tint.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ui.add_child(tint)
-	# 顶栏占住上安全区；贴边的主操作再内缩 EDGE_ACTION
-	var top := Panel.new()
-	top.position = Vector2.ZERO
-	top.size = Vector2(1280, SafeArea.MARGIN_Y)
-	_style_panel(top, Color(0.08, 0.10, 0.16, 0.95))
-	ui.add_child(top)
-	lbl_chapter = _make_label(top, Vector2(SafeArea.MARGIN_X, 12), tr(chapter.CHAPTER_TITLE), 22)
-	lbl_chapter.name = "ChapterLabel"
-	lbl_turn = _make_label(top, Vector2(SafeArea.MARGIN_X, 12), "", 22)
-	lbl_turn.name = "TurnLabel"
-	lbl_gold = _make_label(top, Vector2(SafeArea.MARGIN_X, 12), "", 22)
-	lbl_gold.name = "GoldLabel"
-	var end_size := Vector2(156, SafeArea.MIN_HIT)
-	# 「Threat Range (T)」在 210 宽里刚好放下，不要再加长。
-	var danger_size := Vector2(210, SafeArea.MIN_HIT)
-	var end_pos := Vector2(1280.0 - SafeArea.EDGE_ACTION - end_size.x, 0)
-	var danger_pos := Vector2(end_pos.x - 8 - danger_size.x, 0)
-	btn_threat = _make_button(tr("危险范围 (T)"), danger_pos, danger_size, toggle_danger)
-	btn_threat.name = "ThreatButton"
-	top.add_child(btn_threat)
-	var btn_end := _make_button(tr("回合结束"), end_pos, end_size, on_end_turn)
-	btn_end.name = "EndTurnButton"
-	top.add_child(btn_end)
+	# 信息窗：地图全屏，目标 / 单位 / 地形窗浮在光标另一侧（火纹式），没有常驻的侧栏和顶栏
+	hud = MapHud.new()
+	ui.add_child(hud)
+	lbl_chapter = hud.lbl_chapter
+	lbl_chapter.text = tr(chapter.CHAPTER_TITLE)
+	lbl_turn = hud.lbl_turn
+	lbl_gold = hud.lbl_gold
+	lbl_win = hud.lbl_win
+	lbl_lose = hud.lbl_lose
+	hint_label = hud.hint_label
 	update_topbar()
-	# 右侧信息栏
-	var side := Panel.new()
-	side.position = Vector2(960, 48)
-	side.size = Vector2(320, 640)
-	_style_panel(side, Color(0.08, 0.10, 0.16, 0.92))
-	ui.add_child(side)
-	# 胜负条件常驻在信息栏顶部，不随回合提示或结算消失。
-	var obj_w := 320.0 - 16.0 - SafeArea.MARGIN_X
-	# 胜负条件各留两行（后面章节的条件比较长）
-	lbl_win = _make_label(side, Vector2(16, 4), "", 16)
-	lbl_win.name = "WinCondition"
-	lbl_win.size = Vector2(obj_w, 50)
-	lbl_win.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	lbl_win.clip_text = true
-	lbl_win.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	lbl_win.add_theme_color_override("font_color", Color(0.96, 0.86, 0.45))
-	lbl_lose = _make_label(side, Vector2(16, 56), "", 16)
-	lbl_lose.name = "LoseCondition"
-	lbl_lose.size = Vector2(obj_w, 50)
-	lbl_lose.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	lbl_lose.clip_text = true
-	lbl_lose.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	lbl_lose.add_theme_color_override("font_color", Color(0.95, 0.62, 0.48))
 	_refresh_objectives()
-	# 立绘框（默认隐藏），让出上方胜负条件
-	info_portrait_frame = Panel.new()
-	info_portrait_frame.position = Vector2(16, 112)
-	info_portrait_frame.size = Vector2(128, 128)
-	info_portrait_frame.visible = false
-	var ipb := StyleBoxFlat.new()
-	ipb.bg_color = Color(0.10, 0.13, 0.22)
-	ipb.border_color = Color(0.85, 0.75, 0.45)
-	ipb.set_border_width_all(2)
-	ipb.set_corner_radius_all(6)
-	info_portrait_frame.add_theme_stylebox_override("panel", ipb)
-	side.add_child(info_portrait_frame)
-	info_portrait = TextureRect.new()
-	info_portrait.set_anchors_preset(Control.PRESET_FULL_RECT)
-	info_portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	info_portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	info_portrait_frame.add_child(info_portrait)
-	info_label = _make_label(side, Vector2(16, 112), "", 20)
-	info_label.size = Vector2(320 - 16 - SafeArea.MARGIN_X, 540)
-	info_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	# 底部提示栏
-	var bottom := Panel.new()
-	bottom.position = Vector2(0, 688)
-	bottom.size = Vector2(1280, 32)
-	_style_panel(bottom, Color(0.08, 0.10, 0.16, 0.95))
-	ui.add_child(bottom)
-	hint_label = _make_label(bottom, Vector2(SafeArea.MARGIN_X, 3), "", 18)
-	hint_label.add_theme_color_override("font_color", Color(0.75, 0.8, 0.9))
 	# 中央阶段横幅
 	banner_label = Label.new()
 	banner_label.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
@@ -323,7 +265,7 @@ func _build_ui() -> void:
 	# 顶部 toast
 	toast_label = Label.new()
 	toast_label.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
-	toast_label.position = Vector2(0, 58)
+	toast_label.position = Vector2(0, 100)
 	toast_label.size = Vector2(1280, 36)
 	toast_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	toast_label.add_theme_font_size_override("font_size", 24)
@@ -353,75 +295,61 @@ func _build_ui() -> void:
 	ui.add_child(dialogue)
 	combat_scene = CombatScene.new()
 	add_child(combat_scene)
-	_build_corner_buttons()
 	system_menu = load("res://scripts/system_menu.gd").new()
 	system_menu.title_requested.connect(_on_system_title)
 	add_child(system_menu)
 
 
-func _build_corner_buttons() -> void:
-	# 右侧信息栏底部、安全区内。不盖地图格子。
-	var size := Vector2(116, SafeArea.MIN_HIT)
-	var y := 720.0 - SafeArea.MARGIN_Y - size.y
-	btn_back = _make_button(tr("返回"), Vector2(976, y), size, _on_back_pressed)
-	btn_back.name = "BackButton"
-	ui.add_child(btn_back)
-	btn_menu = _make_button(tr("菜单"), Vector2(976 + size.x + 8, y), size, _on_menu_pressed)
-	btn_menu.name = "MenuButton"
-	ui.add_child(btn_menu)
-
-
 func _build_forecast_panel() -> void:
 	forecast_panel = PanelContainer.new()
-	forecast_panel.position = Vector2(340, 190)
+	forecast_panel.name = "ForecastPanel"
 	forecast_panel.visible = false
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.07, 0.09, 0.16, 0.97)
+	sb.bg_color = Color(0.07, 0.09, 0.16, 0.94)
 	sb.border_color = Color(0.85, 0.75, 0.45)
 	sb.set_border_width_all(2)
 	sb.set_corner_radius_all(8)
-	sb.content_margin_left = 24
-	sb.content_margin_right = 24
-	sb.content_margin_top = 20
-	sb.content_margin_bottom = 20
+	sb.content_margin_left = 16
+	sb.content_margin_right = 16
+	sb.content_margin_top = 12
+	sb.content_margin_bottom = 12
 	forecast_panel.add_theme_stylebox_override("panel", sb)
 	var vb := VBoxContainer.new()
-	vb.add_theme_constant_override("separation", 16)
+	vb.add_theme_constant_override("separation", 8)
 	forecast_panel.add_child(vb)
-	var hb := HBoxContainer.new()
-	hb.alignment = BoxContainer.ALIGNMENT_CENTER
-	vb.add_child(hb)
-	forecast_att = Label.new()
-	forecast_att.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
-	forecast_att.custom_minimum_size = Vector2(250, 0)
-	forecast_att.add_theme_font_size_override("font_size", 21)
-	hb.add_child(forecast_att)
-	var vs := Label.new()
-	vs.text = "VS"
-	vs.custom_minimum_size = Vector2(70, 0)
-	vs.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vs.add_theme_font_size_override("font_size", 30)
-	vs.add_theme_color_override("font_color", Color(1.0, 0.75, 0.3))
-	hb.add_child(vs)
+	# 火纹式：上面是对方，下面是自己
 	forecast_def = Label.new()
 	forecast_def.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
-	forecast_def.custom_minimum_size = Vector2(250, 0)
-	forecast_def.add_theme_font_size_override("font_size", 21)
-	hb.add_child(forecast_def)
+	forecast_def.custom_minimum_size = Vector2(280, 0)
+	forecast_def.add_theme_font_size_override("font_size", 18)
+	forecast_def.add_theme_color_override("font_color", Color(1.0, 0.72, 0.68))
+	vb.add_child(forecast_def)
+	var vs := Label.new()
+	vs.text = "VS"
+	vs.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vs.add_theme_font_size_override("font_size", 22)
+	vs.add_theme_color_override("font_color", Color(1.0, 0.75, 0.3))
+	vb.add_child(vs)
+	forecast_att = Label.new()
+	forecast_att.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	forecast_att.custom_minimum_size = Vector2(280, 0)
+	forecast_att.add_theme_font_size_override("font_size", 18)
+	forecast_att.add_theme_color_override("font_color", Color(0.72, 0.85, 1.0))
+	vb.add_child(forecast_att)
 	var btn_row := HBoxContainer.new()
 	btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	btn_row.add_theme_constant_override("separation", 24)
+	btn_row.add_theme_constant_override("separation", 12)
 	vb.add_child(btn_row)
 	var ok := Button.new()
 	ok.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 	ok.text = tr("确认攻击")
-	ok.custom_minimum_size = Vector2(168, SafeArea.MIN_HIT)
+	ok.custom_minimum_size = Vector2(134, SafeArea.MIN_HIT)
 	ok.pressed.connect(_on_forecast_ok)
 	btn_row.add_child(ok)
 	var cancel := Button.new()
 	cancel.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 	cancel.text = tr("取消")
-	cancel.custom_minimum_size = Vector2(168, SafeArea.MIN_HIT)
+	cancel.custom_minimum_size = Vector2(134, SafeArea.MIN_HIT)
 	cancel.pressed.connect(_on_forecast_cancel)
 	btn_row.add_child(cancel)
 	ui.add_child(forecast_panel)
@@ -593,7 +521,7 @@ func start_player_phase(first := false) -> void:
 	state = S.IDLE
 	if pending_chapter == null:
 		CampaignSave.write_checkpoint(self)
-	hint(tr("点击我方单位行动 · 点击敌人查看其威胁范围"))
+	_idle_hint()
 	_update_hover_info()
 
 
@@ -602,7 +530,7 @@ func enemy_phase() -> void:
 		return
 	state = S.ENEMY
 	_clear_menu()
-	forecast_panel.visible = false
+	_hide_forecast()
 	selected = null
 	danger_on = false
 	board.set_danger({})
@@ -664,7 +592,17 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if state == S.STORY or state == S.COMBAT or state == S.ENEMY or state == S.OVER:
 		return
+	if PointerInput.is_primary_release(event):
+		# 松手时没拖动过地图，才算在空地上「点了一下」
+		var dragged := _dragging
+		_scroll_input(event)
+		var p0 := _map_menu_tile
+		_map_menu_tile = NO_TILE
+		if not dragged and p0 != NO_TILE and state == S.IDLE:
+			open_map_menu(p0)
+		return
 	if _scroll_input(event):
+		_map_menu_tile = NO_TILE
 		return
 	if PointerInput.is_pointer_move(event):
 		var p := board.tile_at_viewport(PointerInput.viewport_position(event))
@@ -672,11 +610,19 @@ func _unhandled_input(event: InputEvent) -> void:
 			cursor.set_grid(p)
 			_on_cursor_moved()
 	elif PointerInput.is_primary_press(event):
-		click_tile(board.tile_at_viewport(PointerInput.viewport_position(event)))
+		var p := board.tile_at_viewport(PointerInput.viewport_position(event))
+		# 空闲时点空地：松手后弹地图菜单（敌人威胁范围亮着时先只清掉范围）
+		var arm := state == S.IDLE and board.in_bounds(p) and board.unit_at(p) == null \
+			and board.move_tiles.is_empty() and board.atk_tiles.is_empty()
+		click_tile(p)
+		_map_menu_tile = p if arm else NO_TILE
 	elif PointerInput.is_secondary_press(event):
 		cancel()
 	elif event.is_action_pressed("ui_accept"):
-		click_tile(cursor.grid_pos)
+		if state == S.IDLE and board.unit_at(cursor.grid_pos) == null and board.move_tiles.is_empty() and board.atk_tiles.is_empty():
+			open_map_menu(cursor.grid_pos)
+		else:
+			click_tile(cursor.grid_pos)
 	elif event.is_action_pressed("ui_up"):
 		_move_cursor(Vector2i(0, -1))
 	elif event.is_action_pressed("ui_down"):
@@ -735,6 +681,11 @@ func _move_cursor(d: Vector2i) -> void:
 		_on_cursor_moved()
 
 
+## 格子中心在屏幕上的位置（地图会卷动 / 居中）
+func tile_screen_pos(p: Vector2i) -> Vector2:
+	return board.get_global_transform_with_canvas() * (Vector2(p) * TILE + Vector2(TILE, TILE) / 2.0)
+
+
 func _on_cursor_moved() -> void:
 	board.ensure_visible(cursor.grid_pos)
 	_update_hover_info()
@@ -762,9 +713,14 @@ func click_tile(p: Vector2i) -> void:
 		S.PICK:
 			if _pick_tiles.has(p):
 				_pick_cb.call(p)
+			else:
+				cancel()
 		S.PREP:
 			if prep != null:
 				prep.on_map_click(p)
+		# 下拉菜单开着时点到菜单外的地图 = 取消
+		S.ACTION_MENU, S.WEAPON_SEL, S.ITEM_MENU, S.MAP_MENU:
+			cancel()
 
 
 func cancel() -> void:
@@ -777,7 +733,7 @@ func cancel() -> void:
 		S.WEAPON_SEL:
 			_open_action_menu(selected)
 		S.TARGET_SEL:
-			forecast_panel.visible = false
+			_hide_forecast()
 			_open_action_menu(selected)
 		S.ITEM_MENU:
 			_open_action_menu(selected)
@@ -789,8 +745,13 @@ func cancel() -> void:
 		S.PREP:
 			if prep != null and prep.in_deploy():
 				prep.show_menu()
+		S.MAP_MENU:
+			_clear_menu()
+			state = S.IDLE
+			_idle_hint()
 		S.IDLE:
 			board.clear_highlights()
+			_idle_hint()
 
 
 func _on_android_back() -> void:
@@ -812,7 +773,7 @@ func _handle_system_back() -> void:
 
 
 func _has_cancel_layer() -> bool:
-	if state in [S.MOVE_SEL, S.ACTION_MENU, S.WEAPON_SEL, S.TARGET_SEL, S.ITEM_MENU, S.HEAL_SEL, S.PICK]:
+	if state in [S.MOVE_SEL, S.ACTION_MENU, S.WEAPON_SEL, S.TARGET_SEL, S.ITEM_MENU, S.HEAL_SEL, S.PICK, S.MAP_MENU]:
 		return true
 	if state == S.IDLE and (not board.move_tiles.is_empty() or not board.atk_tiles.is_empty()):
 		return true
@@ -855,7 +816,7 @@ func _resume_idle() -> void:
 	board.goal_tiles = chapter.goal_tiles()
 	state = S.IDLE
 	update_topbar()
-	hint(tr("点击我方单位行动 · 点击敌人查看其威胁范围"))
+	_idle_hint()
 	_update_hover_info()
 	var tia := get_unit("tia")
 	if tia != null and tia.is_alive():
@@ -922,7 +883,7 @@ func select_unit(u: Unit) -> void:
 	board.show_move(move_dict, atk)
 	state = S.MOVE_SEL
 	u.hop()
-	hint(tr("%s：选择移动位置（返回取消）") % tr(u.display_name))
+	hint(tr("%s：选择移动位置（点空白处取消）") % tr(u.display_name))
 	_update_hover_info()
 
 
@@ -931,7 +892,7 @@ func _deselect() -> void:
 	move_dict = {}
 	board.clear_highlights()
 	state = S.IDLE
-	hint(tr("点击我方单位行动 · 点击敌人查看其威胁范围"))
+	_idle_hint()
 
 
 func _move_click(p: Vector2i) -> void:
@@ -1029,7 +990,7 @@ func _preview_enemy(u: Unit) -> void:
 	for t in move:
 		area[t] = true
 	board.show_move({}, area)
-	hint(tr("%s 的威胁范围（返回清除）") % tr(u.display_name))
+	hint(tr("%s 的威胁范围（点空白处清除）") % tr(u.display_name))
 	_update_hover_info()
 
 
@@ -1084,7 +1045,7 @@ func _open_action_menu(u: Unit) -> void:
 	opts.append({"label": tr("待机"), "enabled": true, "cb": _on_menu_wait})
 	_fill_menu(opts)
 	_place_menu(u)
-	hint(tr("选择行动（返回撤销移动）"))
+	hint(tr("选择行动（点菜单外撤销移动）"))
 
 
 func _fill_menu(opts: Array) -> void:
@@ -1094,7 +1055,8 @@ func _fill_menu(opts: Array) -> void:
 		var b := Button.new()
 		b.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 		b.text = o["label"]
-		b.custom_minimum_size = Vector2(170, SafeArea.MIN_HIT)
+		b.custom_minimum_size = Vector2(150, SafeArea.MIN_HIT)
+		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		b.disabled = not o["enabled"]
 		b.pressed.connect(o["cb"])
 		menu_box.add_child(b)
@@ -1102,11 +1064,63 @@ func _fill_menu(opts: Array) -> void:
 
 
 func _place_menu(u: Unit) -> void:
-	var gp := u.get_global_position()
-	var pos := gp + Vector2(44, -10)
-	pos.x = clampf(pos.x, 8, 1280 - 200)
-	pos.y = clampf(pos.y, 56, 620)
-	menu_panel.position = pos
+	_place_menu_at(u.grid_pos)
+
+
+## 下拉菜单贴在格子旁边：默认在右侧，放不下就放左侧；上下夹在安全区里
+func _place_menu_at(p: Vector2i) -> void:
+	menu_panel.reset_size()
+	var ms := menu_panel.get_combined_minimum_size()
+	var c := tile_screen_pos(p)
+	var safe := SafeArea.rect()
+	var x := c.x + TILE / 2.0 + 6.0
+	if x + ms.x > safe.end.x:
+		x = c.x - TILE / 2.0 - 6.0 - ms.x
+	var y := c.y - TILE / 2.0
+	menu_panel.position = Vector2(clampf(x, safe.position.x, safe.end.x - ms.x), clampf(y, safe.position.y, safe.end.y - ms.y))
+
+
+# ==================== 地图菜单（空地上点一下） ====================
+
+func open_map_menu(p: Vector2i) -> void:
+	if state != S.IDLE:
+		return
+	state = S.MAP_MENU
+	Audio.play_sfx("select")
+	var opts: Array = [
+		{"label": tr("回合结束"), "enabled": true, "cb": _on_map_end_turn},
+		{"label": tr("隐藏危险范围") if danger_on else tr("显示危险范围"), "enabled": true, "cb": _on_map_danger},
+		{"label": tr("菜单"), "enabled": true, "cb": _on_map_system},
+	]
+	_fill_menu(opts)
+	_place_menu_at(p)
+	hint(tr("点菜单外关闭"))
+
+
+func _close_map_menu() -> void:
+	_clear_menu()
+	if state == S.MAP_MENU:
+		state = S.IDLE
+	_idle_hint()
+
+
+func _on_map_end_turn() -> void:
+	_close_map_menu()
+	on_end_turn()
+
+
+func _on_map_danger() -> void:
+	_close_map_menu()
+	toggle_danger()
+
+
+func _on_map_system() -> void:
+	_close_map_menu()
+	open_system_menu()
+
+
+func _idle_hint() -> void:
+	hint(tr("点击我方单位行动 · 点空地打开菜单"))
 
 
 func _clear_menu() -> void:
@@ -1139,7 +1153,7 @@ func _cancel_action_menu() -> void:
 		atk.erase(t)
 	board.show_move(move_dict, atk)
 	state = S.MOVE_SEL
-	hint(tr("%s：选择移动位置（返回取消）") % tr(selected.display_name))
+	hint(tr("%s：选择移动位置（点空白处取消）") % tr(selected.display_name))
 
 
 func _on_menu_attack() -> void:
@@ -1160,7 +1174,7 @@ func _on_menu_attack() -> void:
 				"cb": func() -> void: _on_weapon_chosen(idx),
 			})
 		_fill_menu(opts)
-		hint(tr("选择武器（返回）"))
+		hint(tr("选择武器（点菜单外返回）"))
 	else:
 		_on_weapon_chosen(usable[0] if not usable.is_empty() else 0)
 
@@ -1183,13 +1197,15 @@ func _enter_target_select() -> void:
 	for t in targets:
 		tiles[t.grid_pos] = true
 	board.show_move({}, tiles)
-	hint(tr("用【%s】选择攻击目标（返回）") % tr(selected.weapon(sel_weapon)["name"]))
+	hint(tr("用【%s】选择攻击目标（点空白处返回）") % tr(selected.weapon(sel_weapon)["name"]))
 
 
 func _target_click(p: Vector2i) -> void:
 	var u := board.unit_at(p)
 	if u != null and u in targets:
 		_show_forecast(selected, u, sel_weapon)
+	else:
+		cancel()
 
 
 func _on_menu_visit() -> void:
@@ -1228,7 +1244,7 @@ func _on_menu_item() -> void:
 		var idx := i
 		opts.append({"label": tr("%s %d（%s）") % [tr(item["name"]), int(selected.item_uses[idx]), tr(item["desc"])], "enabled": _item_usable(selected, idx), "cb": func() -> void: _on_use_item(idx)})
 	_fill_menu(opts)
-	hint(tr("选择要使用的道具（返回）"))
+	hint(tr("选择要使用的道具（点菜单外返回）"))
 
 
 func _item_usable(u: Unit, idx: int) -> bool:
@@ -1351,11 +1367,15 @@ func _run_prep() -> void:
 	prep = PrepScreen.new()
 	prep.name = "PrepScreen"
 	ui.add_child(prep)
+	hud.forced_side = "left"
+	_update_hover_info()
 	prep.setup(self)
 	hint(tr("出击准备：选人、布阵、整理物品，准备好后点【开始战斗】"))
 	await prep.done
 	prep.queue_free()
 	prep = null
+	hud.forced_side = ""
+	_update_hover_info()
 	_finish_prep()
 	state = S.STORY
 
@@ -1471,7 +1491,7 @@ func _units_at(list: Array) -> Array:
 
 
 func _on_menu_rescue() -> void:
-	_start_pick(_units_at(rescue_targets(selected)), _do_rescue_at, tr("选择要救出的同伴（返回）"))
+	_start_pick(_units_at(rescue_targets(selected)), _do_rescue_at, tr("选择要救出的同伴（点空白处返回）"))
 
 
 func _do_rescue_at(p: Vector2i) -> void:
@@ -1489,7 +1509,7 @@ func do_rescue(u: Unit, t: Unit) -> void:
 
 
 func _on_menu_drop() -> void:
-	_start_pick(drop_tiles(selected), _do_drop_at, tr("选择放下的位置（返回）"))
+	_start_pick(drop_tiles(selected), _do_drop_at, tr("选择放下的位置（点空白处返回）"))
 
 
 func _do_drop_at(p: Vector2i) -> void:
@@ -1502,7 +1522,7 @@ func _do_drop_at(p: Vector2i) -> void:
 
 
 func _on_menu_take() -> void:
-	_start_pick(_units_at(take_sources(selected)), _do_take_at, tr("从谁手里接过同伴（返回）"))
+	_start_pick(_units_at(take_sources(selected)), _do_take_at, tr("从谁手里接过同伴（点空白处返回）"))
 
 
 func _do_take_at(p: Vector2i) -> void:
@@ -1517,7 +1537,7 @@ func _do_take_at(p: Vector2i) -> void:
 
 
 func _on_menu_give() -> void:
-	_start_pick(_units_at(give_targets(selected)), _do_give_at, tr("交给谁（返回）"))
+	_start_pick(_units_at(give_targets(selected)), _do_give_at, tr("交给谁（点空白处返回）"))
 
 
 func _do_give_at(p: Vector2i) -> void:
@@ -1571,12 +1591,13 @@ func _on_menu_heal() -> void:
 	for t in targets:
 		tiles[t.grid_pos] = true
 	board.show_move(tiles, {})
-	hint(tr("选择要治疗的同伴（返回）"))
+	hint(tr("选择要治疗的同伴（点空白处返回）"))
 
 
 func _heal_click(p: Vector2i) -> void:
 	var v := board.unit_at(p)
 	if v == null or not v in targets:
+		cancel()
 		return
 	var u := selected
 	state = S.COMBAT
@@ -1614,7 +1635,7 @@ func on_end_turn() -> void:
 	if state == S.STORY or state == S.COMBAT or state == S.ENEMY or state == S.OVER:
 		return
 	_clear_menu()
-	forecast_panel.visible = false
+	_hide_forecast()
 	selected = null
 	board.clear_highlights()
 	enemy_phase()
@@ -1669,6 +1690,16 @@ func _show_forecast(att: Unit, def: Unit, wi: int) -> void:
 	else:
 		forecast_def.text = _forecast_text(def, def.weapon(), 0, 0, 0, 0) + "\n" + tr("（无法反击）")
 	forecast_panel.visible = true
+	# 停在目标的另一侧，不挡住交战双方
+	forecast_panel.reset_size()
+	var safe := SafeArea.rect()
+	var fs := forecast_panel.get_combined_minimum_size()
+	var right := tile_screen_pos(def.grid_pos).x < 640.0
+	forecast_panel.position = Vector2(safe.end.x - fs.x if right else safe.position.x, clampf(360.0 - fs.y / 2.0, safe.position.y, safe.end.y - fs.y))
+	if hud != null:
+		hud.hide_unit()
+		hud.goal_win.visible = false
+		hud.terrain_win.visible = false
 
 
 func _forecast_text(u: Unit, w: Dictionary, dmg: int, hit: int, times: int, crit: int) -> String:
@@ -1683,14 +1714,22 @@ func _forecast_text(u: Unit, w: Dictionary, dmg: int, hit: int, times: int, crit
 	return s
 
 
-func _on_forecast_ok() -> void:
+func _hide_forecast() -> void:
 	forecast_panel.visible = false
+	if hud != null:
+		hud.goal_win.visible = true
+		hud.terrain_win.visible = true
+		_update_hover_info()
+
+
+func _on_forecast_ok() -> void:
+	_hide_forecast()
 	if _forecast_target != null and selected != null:
 		do_combat(selected, _forecast_target, sel_weapon)
 
 
 func _on_forecast_cancel() -> void:
-	forecast_panel.visible = false
+	_hide_forecast()
 
 
 func do_combat(att: Unit, def: Unit, wi: int) -> void:
@@ -1920,6 +1959,8 @@ func _refresh_objectives() -> void:
 	var wrap := TextServer.AUTOWRAP_ARBITRARY if TranslationServer.get_locale().begins_with("zh") else TextServer.AUTOWRAP_WORD_SMART
 	lbl_win.autowrap_mode = wrap
 	lbl_lose.autowrap_mode = wrap
+	if hud != null:
+		hud.refresh()
 
 
 func get_unit(id: String) -> Unit:
@@ -1941,8 +1982,8 @@ func play_dialogue(lines: Array) -> void:
 
 
 func hint(text: String) -> void:
-	if hint_label != null:
-		hint_label.text = text
+	if hud != null:
+		hud.set_hint(text)
 
 
 func notify(text: String) -> void:
@@ -1985,48 +2026,13 @@ func _stop_banner_tween() -> void:
 
 
 func update_topbar() -> void:
-	if lbl_turn == null or lbl_chapter == null or lbl_gold == null:
+	if lbl_turn == null or lbl_gold == null:
 		return
 	var phase := tr("敌方回合") if state == S.ENEMY else tr("我方回合")
 	lbl_turn.text = tr("第 %d 回合 · %s") % [turn, phase]
 	lbl_gold.text = tr("金钱 %d G") % gold
-	_layout_topbar()
-
-
-## 章节列先按中文标题宽 ×1.3 预留，当前文案更长时再加宽，然后排回合和金钱。
-## 横坐标随文案走，避免英文标题顶到「Turn」。排不下时裁章节，不侵占回合或危险范围按钮。
-func _layout_topbar() -> void:
-	var gap := 16.0
-	var row_h := 28.0
-	var zh_w := _top_text_width(chapter.CHAPTER_TITLE)
-	var chapter_w := _top_text_width(lbl_chapter.text)
-	var slot := maxf(zh_w * 1.3, chapter_w)
-	var player_w := _top_text_width(tr("第 %d 回合 · %s") % [turn, tr("我方回合")])
-	var enemy_w := _top_text_width(tr("第 %d 回合 · %s") % [turn, tr("敌方回合")])
-	var turn_w := maxf(player_w, enemy_w)
-	var gold_w := _top_text_width(lbl_gold.text)
-	var threat_left := btn_threat.position.x if btn_threat != null else 826.0
-	var max_slot := threat_left - gap - turn_w - gap - gold_w - gap - SafeArea.MARGIN_X
-	if slot > max_slot:
-		slot = maxf(max_slot, 0.0)
-	var shown := minf(chapter_w, slot)
-	lbl_chapter.position = Vector2(SafeArea.MARGIN_X, 12)
-	lbl_chapter.size = Vector2(shown, row_h)
-	lbl_chapter.clip_text = chapter_w > shown + 0.5
-	lbl_chapter.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS if lbl_chapter.clip_text else TextServer.OVERRUN_NO_TRIMMING
-	var turn_x := SafeArea.MARGIN_X + slot + gap
-	lbl_turn.position = Vector2(turn_x, 12)
-	lbl_turn.size = Vector2(_top_text_width(lbl_turn.text), row_h)
-	lbl_gold.position = Vector2(turn_x + turn_w + gap, 12)
-	lbl_gold.size = Vector2(gold_w, row_h)
-
-
-func _top_text_width(text: String) -> float:
-	var font := lbl_chapter.get_theme_font("font")
-	if font == null:
-		return 0.0
-	var font_size := lbl_chapter.get_theme_font_size("font_size")
-	return font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
+	if hud != null:
+		hud.refresh()
 
 
 func add_gold(n: int) -> void:
@@ -2036,27 +2042,24 @@ func add_gold(n: int) -> void:
 
 
 func _update_hover_info() -> void:
-	if info_label == null:
+	if hud == null:
 		return
+	hud.follow(tile_screen_pos(cursor.grid_pos))
 	var u: Unit = selected if selected != null else board.unit_at(cursor.grid_pos)
-	if u != null:
-		var portrait_key := _unit_portrait_key(u)
-		if portrait_key != "":
-			info_portrait.texture = load("res://art/portraits/%s.jpg" % portrait_key)
-			info_portrait_frame.visible = true
-			info_label.position = Vector2(16, 252)
-		else:
-			info_portrait_frame.visible = false
-			info_label.position = Vector2(16, 112)
-		info_label.text = _unit_info_text(u)
+	if u != null and u.on_map():
+		var key := _unit_portrait_key(u)
+		var tex: Texture2D = load("res://art/portraits/%s.jpg" % key) if key != "" else null
+		hud.show_unit(_unit_info_text(u), tex)
 	else:
-		info_portrait_frame.visible = false
-		info_label.position = Vector2(16, 112)
-		var t: Dictionary = board.terrain(cursor.grid_pos)
-		var lv := board.level_at(cursor.grid_pos)
-		info_label.text = tr("【%s】 高度 Lv%d") % [tr(t["name"]), lv] + "\n" + tr("守备 +%d   回避 +%d") % [t["dfn"], t["avo"]]
-		if cursor.grid_pos in board.goal_tiles:
-			info_label.text += "\n" + tr("（撤离点）")
+		hud.hide_unit()
+	var t: Dictionary = board.terrain(cursor.grid_pos)
+	var lv := board.level_at(cursor.grid_pos)
+	var text := tr("【%s】 高度 Lv%d") % [tr(t["name"]), lv] + "\n" + tr("守备 +%d   回避 +%d") % [t["dfn"], t["avo"]]
+	if int(t.get("heal", 0)) > 0:
+		text += "\n" + tr("回合开始回复 %d%%") % int(t["heal"])
+	if cursor.grid_pos in board.goal_tiles:
+		text += "\n" + tr("（撤离点）")
+	hud.show_terrain(text)
 
 
 func _unit_portrait_key(u: Unit) -> String:

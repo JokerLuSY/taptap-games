@@ -38,20 +38,16 @@ func _run() -> void:
 	_check(battle.dialogue.offset_left == SafeArea.MARGIN_X, "对话框左边距应为安全区")
 	_check(battle.dialogue.offset_right == -SafeArea.MARGIN_X, "对话框右边距应为安全区")
 	_check(battle.dialogue.offset_bottom == -SafeArea.MARGIN_Y, "对话框底边距应为安全区")
-	var end_turn := battle.ui.find_child("EndTurnButton", true, false) as Button
-	_check(end_turn != null, "应有回合结束按钮")
-	if end_turn != null:
-		var right := end_turn.position.x + end_turn.size.x
-		_check(right <= 1280.0 - SafeArea.EDGE_ACTION + 0.01, "回合结束应避开右缘 80px，右缘 %s" % right)
-		_check(end_turn.size.y >= SafeArea.MIN_HIT, "回合结束热区高度应 ≥ 48，实际 %s" % end_turn.size.y)
-		_check(end_turn.text == "回合结束", "回合结束按钮应为中文，实际 " + end_turn.text)
+	# 地图全屏：没有顶栏 / 右栏，回合结束等放进空地上的地图菜单
+	_check(battle.map_clip.size == Vector2(1280, 720) and battle.map_clip.position == Vector2.ZERO, "地图裁剪框应铺满整屏")
+	_check(battle.ui.find_child("EndTurnButton", true, false) == null and battle.ui.find_child("BackButton", true, false) == null, "不应再有常驻的回合结束 / 返回按钮")
+	var safe := SafeArea.rect()
+	var goal_rect: Rect2 = battle.hud.goal_win.get_global_rect()
+	_check(safe.encloses(goal_rect), "目标窗应落在安全区内, 实际 %s" % goal_rect)
+	_check(goal_rect.size.x <= 360.0, "目标窗应是小窗，宽 %s" % goal_rect.size.x)
 	var chapter_label := battle.ui.find_child("ChapterLabel", true, false) as Label
-	_check(chapter_label != null and chapter_label.position.x >= SafeArea.MARGIN_X, "章节名应避开左缘 64px")
-	var turn_label := battle.ui.find_child("TurnLabel", true, false) as Label
-	_check(turn_label != null, "应有回合标签")
-	if chapter_label != null and turn_label != null:
-		var chapter_right := chapter_label.position.x + maxf(chapter_label.size.x, chapter_label.get_minimum_size().x)
-		_check(chapter_right <= turn_label.position.x + 0.01, "中文章节右缘应不超过回合左缘，右缘 %s 左缘 %s" % [chapter_right, turn_label.position.x])
+	_check(chapter_label != null and chapter_label.get_global_rect().position.x >= SafeArea.MARGIN_X, "章节名应避开左缘 64px")
+	_check(battle.ui.find_child("TurnLabel", true, false) != null, "应有回合标签")
 	# 切到缇娅的台词, 截取带立绘的对话框
 	battle.dialogue._idx = 1
 	battle.dialogue._show_line()
@@ -265,11 +261,16 @@ func _run() -> void:
 	tia.has_acted = false
 	balto.has_acted = false
 	# ---- 大地图卷动 ----
-	_check(not battle.board.can_scroll() and battle.board.scroll == Vector2.ZERO, "15×10 的章节不应卷动")
+	_check(battle.board.width == 20 and battle.board.height == 11, "第一章应为 20×11（铺满全屏）")
+	_check(not battle.board.can_scroll() and battle.board.scroll == Vector2.ZERO, "20×11 的第一章不应卷动")
+	_check(battle.board.origin == Vector2(0, 8), "20×11 地图应在全屏视口里上下居中, origin %s" % battle.board.origin)
+	var c00: Vector2 = battle.tile_screen_pos(Vector2i(0, 0))
+	_check(c00 == Vector2(32, 40), "居中后 (0,0) 格中心应在 (32,40), 实际 %s" % c00)
+	_check(battle.board.tile_at_viewport(c00) == Vector2i(0, 0), "居中后点击换算应正确")
 	_check(battle.map_clip != null and battle.map_clip.clip_contents, "棋盘应放在裁剪框里")
 	var clip := Control.new()
-	clip.position = Vector2(0, 48)
-	clip.size = Vector2(960, 640)
+	clip.position = Vector2.ZERO
+	clip.size = Vector2(1280, 720)
 	clip.clip_contents = true
 	add_child(clip)
 	var big := Board.new()
@@ -278,12 +279,12 @@ func _run() -> void:
 	for _y in 16:
 		big_rows.append(".".repeat(24))
 	big.load_map(big_rows, [])
-	_check(big.can_scroll() and big.max_scroll() == Vector2(24 * 64 - 960, 16 * 64 - 640), "24×16 地图应能卷动, 最大 %s" % big.max_scroll())
+	_check(big.can_scroll() and big.max_scroll() == Vector2(24 * 64 - 1280, 16 * 64 - 720), "24×16 地图应能卷动, 最大 %s" % big.max_scroll())
 	big.ensure_visible(Vector2i(23, 15), 2, false)
 	_check(big.scroll == big.max_scroll(), "光标到右下角时视口应卷到底, 实际 %s" % big.scroll)
 	var corner_vp: Vector2 = big.get_global_transform_with_canvas() * (Vector2(23, 15) * 64 + Vector2(32, 32))
 	_check(big.tile_at_viewport(corner_vp) == Vector2i(23, 15), "卷动后点击换算应落在 (23,15), 实际 %s" % big.tile_at_viewport(corner_vp))
-	_check(corner_vp.x < 960 and corner_vp.y < 688, "右下角格子卷动后应在视口内, 实际 %s" % corner_vp)
+	_check(corner_vp.x < 1280 and corner_vp.y < 720, "右下角格子卷动后应在视口内, 实际 %s" % corner_vp)
 	big.ensure_visible(Vector2i(0, 0), 2, false)
 	_check(big.scroll == Vector2.ZERO, "回到左上角视口应归零")
 	clip.queue_free()
@@ -883,7 +884,7 @@ func _check_campaign_chapters() -> void:
 		_check(battle.get_unit(id) != null, "第五章应带上 " + id)
 	_check(battle.chapter.lose_ids() == ["tia"], "第五章只有缇娅倒下算败北")
 	var win_lbl: Label = battle.lbl_win
-	_check(win_lbl.get_line_count() == 2 and win_lbl.get_visible_line_count() >= 2, "第五章胜利条件应折成两行且完整可见，行数 %d 可见 %d" % [win_lbl.get_line_count(), win_lbl.get_visible_line_count()])
+	_check(win_lbl.get_line_count() >= 1 and win_lbl.get_visible_line_count() >= win_lbl.get_line_count(), "第五章胜利条件应完整可见，行数 %d 可见 %d" % [win_lbl.get_line_count(), win_lbl.get_visible_line_count()])
 	await _skip_story()
 	await _frames(10)
 	_shot("14_chapter5_map.png")
@@ -1314,12 +1315,12 @@ func _check_infra() -> void:
 		"听好，战场上先看清四周再动手。点击缇娅，就能看到她能走到的范围。",
 		"新游戏", "继续游戏", "返回", "菜单", "继续", "系统", "音乐", "音效", "确定",
 		"开始新游戏会覆盖当前存档，确定吗？",
-		"%s：选择移动位置（返回取消）",
-		"%s 的威胁范围（返回清除）",
-		"选择行动（返回撤销移动）",
-		"选择武器（返回）",
-		"用【%s】选择攻击目标（返回）",
-		"选择要使用的道具（返回）",
+		"%s：选择移动位置（点空白处取消）",
+		"%s 的威胁范围（点空白处清除）",
+		"选择行动（点菜单外撤销移动）",
+		"选择武器（点菜单外返回）",
+		"用【%s】选择攻击目标（点空白处返回）",
+		"选择要使用的道具（点菜单外返回）",
 		"（屋内）缇娅小姐！救命！有山贼在砸我家的门！",
 		"第二章", "第二章 · 燃烧的村庄", "第二章 · 完",
 		"灰岩村燃尽了。火，却还在缇娅剑上。", "灰岩村葬于火海……",
@@ -1372,24 +1373,13 @@ func _check_en_topbar() -> void:
 	var chapter_label := probe.ui.find_child("ChapterLabel", true, false) as Label
 	var turn_label := probe.ui.find_child("TurnLabel", true, false) as Label
 	var gold_label := probe.ui.find_child("GoldLabel", true, false) as Label
-	var threat := probe.ui.find_child("ThreatButton", true, false) as Button
-	_check(chapter_label != null and turn_label != null, "英文顶栏应有章节与回合标签")
+	_check(chapter_label != null and turn_label != null and gold_label != null, "英文目标窗应有章节、回合、金钱")
 	if chapter_label != null and turn_label != null:
-		var chapter_right := chapter_label.position.x + maxf(chapter_label.size.x, chapter_label.get_minimum_size().x)
-		var turn_left := turn_label.position.x
-		var turn_right := turn_left + maxf(turn_label.size.x, turn_label.get_minimum_size().x)
 		_check(chapter_label.text == "Chapter 1 · The Girl of the Border", "英文章节名不符，实际 " + chapter_label.text)
 		_check(turn_label.text.begins_with("Turn "), "英文回合标应已刷新，实际 " + turn_label.text)
-		_check(chapter_right <= turn_left + 0.01, "英文章节右缘应不超过回合左缘，右缘 %s 左缘 %s" % [chapter_right, turn_left])
-		_check(turn_left - chapter_right >= 8.0, "英文章节与回合应留出空隙，间距 %s" % (turn_left - chapter_right))
-		if gold_label != null:
-			var gold_left := gold_label.position.x
-			_check(turn_right <= gold_left + 0.01, "英文回合右缘应不超过金钱左缘，右缘 %s 左缘 %s" % [turn_right, gold_left])
-	if threat != null:
-		_check(is_equal_approx(threat.size.x, 210.0), "危险范围按钮宽应保持 210，实际 %s" % threat.size.x)
-		if gold_label != null:
-			var gold_right := gold_label.position.x + maxf(gold_label.size.x, gold_label.get_minimum_size().x)
-			_check(gold_right <= threat.position.x + 0.01, "英文金钱标不应压到危险范围，右缘 %s 按钮 %s" % [gold_right, threat.position.x])
+		var goal_rect: Rect2 = probe.hud.goal_win.get_global_rect()
+		_check(SafeArea.rect().encloses(goal_rect), "英文目标窗应落在安全区内, 实际 %s" % goal_rect)
+	_check(tr("显示危险范围") == "Show Threat Range", "地图菜单应有英译")
 	var win: Label = probe.lbl_win
 	var lose: Label = probe.lbl_lose
 	_check(win != null and win.visible and win.text.begins_with("Victory") and "Defeat all enemies" in win.text, "英文胜利条件不符，实际 %s" % (win.text if win != null else "null"))
@@ -1524,22 +1514,45 @@ func _check_save_pause_back() -> void:
 	await _frames(2)
 	_check(battle.selected == tia, "返回测试前应选中缇娅")
 	_check("右键" not in battle.hint_label.text, "移动提示不应再写右键，实际 " + battle.hint_label.text)
-	_check("返回" in battle.hint_label.text, "移动提示应改用返回，实际 " + battle.hint_label.text)
-	var back := battle.ui.find_child("BackButton", true, false) as Button
-	_check(back != null, "应有返回按钮")
-	if back != null:
-		_check(back.text == "返回", "返回按钮应为中文，实际 " + back.text)
-		_check(back.position.x >= SafeArea.MARGIN_X and back.position.y >= SafeArea.MARGIN_Y, "返回按钮应落在安全区内")
-		_check(back.position.x + back.size.x <= 1280.0 - SafeArea.MARGIN_X + 0.01, "返回按钮应避开右安全区，右缘 %s" % (back.position.x + back.size.x))
-		_check(back.position.y + back.size.y <= 720.0 - SafeArea.MARGIN_Y + 0.01, "返回按钮应避开下安全区，底边 %s" % (back.position.y + back.size.y))
-		_check(back.size.y >= SafeArea.MIN_HIT, "返回按钮热区应 ≥ 48")
-		back.pressed.emit()
-	var menu_btn := battle.ui.find_child("MenuButton", true, false) as Button
-	if menu_btn != null:
-		var menu_right := menu_btn.position.x + menu_btn.size.x
-		_check(menu_right <= 1280.0 - SafeArea.MARGIN_X + 0.01, "菜单按钮应避开右安全区，右缘 %s" % menu_right)
-		_check(menu_btn.position.y + menu_btn.size.y <= 720.0 - SafeArea.MARGIN_Y + 0.01, "菜单按钮应避开下安全区")
-	_check(battle.selected == null and battle.state == battle.S.IDLE, "返回按钮应取消选中并回到 IDLE")
+	_check("取消" in battle.hint_label.text, "移动提示应写怎么取消，实际 " + battle.hint_label.text)
+	# 点移动范围外的空地 = 取消
+	var far := Vector2i(14, 0) if tia.grid_pos.x < 7 else Vector2i(0, 0)
+	battle.click_tile(far)
+	await _frames(2)
+	_check(battle.selected == null and battle.state == battle.S.IDLE, "点范围外应取消选中并回到 IDLE")
+	# 空地上点一下 → 地图菜单（回合结束 / 危险范围 / 菜单）
+	battle.open_map_menu(far)
+	await _frames(2)
+	var labels: Array = []
+	for b in battle.menu_box.get_children():
+		if b is Button and not b.is_queued_for_deletion():
+			labels.append(b.text)
+	_check(battle.state == battle.S.MAP_MENU and "回合结束" in labels and "显示危险范围" in labels and "菜单" in labels, "地图菜单应有回合结束、危险范围、菜单，实际 %s" % str(labels))
+	var mrect: Rect2 = battle.menu_panel.get_global_rect()
+	_check(SafeArea.rect().encloses(mrect), "地图菜单应在安全区内, 实际 %s" % mrect)
+	for b in battle.menu_box.get_children():
+		if b is Button:
+			_check(b.size.y >= SafeArea.MIN_HIT, "菜单项热区应 ≥ 48")
+			break
+	battle.click_tile(tia.grid_pos)
+	await _frames(2)
+	_check(battle.state == battle.S.IDLE and not battle.menu_panel.visible, "点菜单外应关闭地图菜单")
+	# 行动菜单贴着单位弹出
+	battle.click_tile(tia.grid_pos)
+	await _frames(2)
+	battle.click_tile(tia.grid_pos)
+	var opened_menu: bool = await _wait_cond(func() -> bool: return battle.state == battle.S.ACTION_MENU, 5.0)
+	if opened_menu:
+		await _frames(2)
+		var arect: Rect2 = battle.menu_panel.get_global_rect()
+		var tc: Vector2 = battle.tile_screen_pos(tia.grid_pos)
+		_check(arect.position.distance_to(tc) < 200.0 and SafeArea.rect().encloses(arect), "行动菜单应贴着单位弹出, 菜单 %s 单位 %s" % [arect, tc])
+		_shot("01b_action_menu.png")
+		battle.click_tile(far)
+		await _wait_cond(func() -> bool: return battle.state == battle.S.MOVE_SEL, 5.0)
+		battle.click_tile(far)
+		await _frames(2)
+	_check(battle.selected == null and battle.state == battle.S.IDLE, "点菜单外撤销移动、再点空白处应回到 IDLE")
 	if get_tree().paused:
 		battle.close_system_menu()
 	if battle.selected != null:
@@ -1582,15 +1595,9 @@ func _check_objectives(zh: bool) -> void:
 	if zh:
 		_check(win.text.begins_with("胜利") and "击败所有敌人" in win.text, "胜利条件文案不符，实际 " + win.text)
 		_check(lose.text.begins_with("败北") and "缇娅或巴尔托阵亡" in lose.text, "败北条件文案不符，实际 " + lose.text)
-	var back: Button = battle.btn_back
-	if back != null:
-		var win_rect := win.get_global_rect()
-		var lose_rect := lose.get_global_rect()
-		var back_rect := back.get_global_rect()
-		_check(win_rect.size.y > 8.0 and lose_rect.size.y > 8.0, "胜负条件应有可见高度")
-		_check(lose_rect.end.y <= back_rect.position.y + 0.01, "胜负条件不应压到返回按钮，底 %s 返回 %s" % [lose_rect.end.y, back_rect.position.y])
-		_check(win_rect.position.x >= 960.0, "胜负条件应在右侧信息栏，x=%s" % win_rect.position.x)
-		_check(win_rect.end.x <= 1280.0 - SafeArea.MARGIN_X + 1.0, "胜利条件应避开右安全区，右缘 %s" % win_rect.end.x)
+	var goal_rect: Rect2 = battle.hud.goal_win.get_global_rect()
+	_check(win.get_global_rect().size.y > 8.0 and lose.get_global_rect().size.y > 8.0, "胜负条件应有可见高度")
+	_check(SafeArea.rect().encloses(goal_rect), "目标窗应在安全区内, 实际 %s" % goal_rect)
 
 
 func _check_defeat_actions() -> void:
