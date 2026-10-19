@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cdf2chkvwmmxl"
-path="res://.godot/imported/NinjaDark.png-70482e8a574ba49fc64b73403318d203.ctex"
+uid="uid://dg00jnpncxhcx"
+path="res://.godot/imported/tia_blue.png-88fdafd6292f0bbb962a633838cdd929.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://art/cc0/ninja_adventure/characters/NinjaDark.png"
-dest_files=["res://.godot/imported/NinjaDark.png-70482e8a574ba49fc64b73403318d203.ctex"]
+source_file="res://art/units/fe/tia_blue.png"
+dest_files=["res://.godot/imported/tia_blue.png-88fdafd6292f0bbb962a633838cdd929.ctex"]
 
 [params]
 

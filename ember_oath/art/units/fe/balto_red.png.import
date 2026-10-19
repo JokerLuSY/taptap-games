@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://basfvw13k2nvg"
-path="res://.godot/imported/RedGladiator.png-6b259b850c90007dc705ffebf5b29e46.ctex"
+uid="uid://500ejtdag4ix"
+path="res://.godot/imported/balto_red.png-fe018aa0e16d8a6e3127493588972cf0.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://art/cc0/ninja_adventure/characters/RedGladiator.png"
-dest_files=["res://.godot/imported/RedGladiator.png-6b259b850c90007dc705ffebf5b29e46.ctex"]
+source_file="res://art/units/fe/balto_red.png"
+dest_files=["res://.godot/imported/balto_red.png-fe018aa0e16d8a6e3127493588972cf0.ctex"]
 
 [params]
 

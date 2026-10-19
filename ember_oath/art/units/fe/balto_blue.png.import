@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dq10evcjyo1wt"
-path="res://.godot/imported/ManGreen.png-b1734d887bb24e1673fbd1c40aca8ca6.ctex"
+uid="uid://wroybmscatsb"
+path="res://.godot/imported/balto_blue.png-e9019cdf1da80c0c02b25d0df0b61c03.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://art/cc0/ninja_adventure/characters/ManGreen.png"
-dest_files=["res://.godot/imported/ManGreen.png-b1734d887bb24e1673fbd1c40aca8ca6.ctex"]
+source_file="res://art/units/fe/balto_blue.png"
+dest_files=["res://.godot/imported/balto_blue.png-e9019cdf1da80c0c02b25d0df0b61c03.ctex"]
 
 [params]
 

@@ -80,8 +80,9 @@ func _run() -> void:
 	# 像素地图小人：第一章所有单位都应有 CC0 走路帧
 	for u_ in battle.units:
 		_check(u_.has_sprite(), "地图单位应有像素走路帧: " + u_.unit_id)
-	_check(tia.sprite_sheet == "SorcererBlack", "缇娅应用 SorcererBlack 帧, 实际 " + tia.sprite_sheet)
-	_check(bandit.sprite_sheet == "FighterWhite", "山贼应用 FighterWhite 帧, 实际 " + bandit.sprite_sheet)
+	_check(tia.sprite_sheet == "tia" and tia.sprite_team() == "blue", "缇娅应用 tia 蓝色表, 实际 %s/%s" % [tia.sprite_sheet, tia.sprite_team()])
+	_check(bandit.sprite_sheet == "bandit" and bandit.sprite_team() == "red", "山贼应用 bandit 红色表, 实际 %s/%s" % [bandit.sprite_sheet, bandit.sprite_team()])
+	_check(battle.get_unit("balto").sprite_sheet == "balto" and battle.get_unit("brock").sprite_sheet == "boss", "巴尔托 / 布洛克应有各自的表")
 
 	# ---- 主指针点选（鼠标 / 触摸共用 click_tile） ----
 	var vp: Vector2 = battle.board.get_global_transform_with_canvas() * tia.position
@@ -307,6 +308,8 @@ func _run() -> void:
 	ok = await _wait_cond(func() -> bool: return battle.state == battle.S.IDLE, 10.0)
 	_check(ok, "说得后应回到 IDLE")
 	_check(bandit6.is_player(), "山贼小弟应变成我方")
+	await _frames(2)
+	_check(bandit6.sprite_team() == "blue", "说得后山贼小弟应换成蓝色表")
 	# 说得对象挪到安全角落
 	bandit6.grid_pos = Vector2i(0, 1)
 	bandit6.position = bandit6.tile_center()

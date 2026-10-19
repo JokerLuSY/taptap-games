@@ -51,25 +51,27 @@ var suppress_draw := false
 
 const OUTLINE := Color(0.13, 0.11, 0.15)
 
-# ---- 像素地图小人（CC0 Ninja Adventure，见 CREDITS.md） ----
-# 原包 SpriteSheet：4 列 = 下/上/左/右，前 4 行 = 走路循环，每帧 16px，×4 放大到一格
-const SPRITE_DIR := "res://art/cc0/ninja_adventure/characters/"
+# ---- 像素地图小人（原创 GBA 火纹风，源文件 tools/pixelart/fe_art.py） ----
+# 每张表 4 行：0 待机（3 帧）/ 1 向下走 / 2 向上走 / 3 侧走（朝左，朝右水平翻转），每行 4 格。
+# 整只按阵营上色：<名字>_blue.png = 我方，<名字>_red.png = 敌方。×4 放大，脚踩在格子底边。
+const SPRITE_DIR := "res://art/units/fe/"
 const SPRITE_BY_ID := {
-	"tia": "SorcererBlack",
-	"balto": "Master",
-	"brock": "RedGladiator",
-	"marco": "Hunter",
-	"scout1": "NinjaDark",
+	"tia": "tia",
+	"balto": "balto",
+	"brock": "boss",
+	"marco": "boss",
+	"scout1": "scout",
 }
-const SPRITE_BY_PREFIX := [["bandit", "FighterWhite"], ["archer", "ManGreen"]]
+const SPRITE_BY_PREFIX := [["bandit", "bandit"], ["archer", "archer"]]
 const SPRITE_PX := 4.0
-const SPRITE_Y := -8.0          # 让脚落在格子下沿、阵营环之上
-const WALK_FPS := 8.0
-const IDLE_FPS := 2.5           # GBA 式原地踏步
-const _FACING_COL := {Vector2i.DOWN: 0, Vector2i.UP: 1, Vector2i.LEFT: 2, Vector2i.RIGHT: 3}
+const SPRITE_FOOT := 30.0       # 脚底离格子中心的距离（格子半高 32，留 2px）
+const WALK_FPS := 10.0
+## GBA 火纹的待机节奏：站 → 吸气 → 站 → 吸气（[帧, 秒]）
+const IDLE_SEQ := [[0, 0.5], [1, 0.14], [2, 0.5], [1, 0.14]]
 const WAITED_SHADER := preload("res://shaders/unit_waited.gdshader")
 
 var sprite_sheet := ""
+var _team := ""
 var _sprite: Sprite2D
 
 
@@ -116,25 +118,21 @@ static func _sprite_for_id(id: String) -> String:
 ## 有像素帧就挂一个 Sprite2D 子节点；缺图时保留程序 Q 版
 func _setup_sprite(sheet: String) -> void:
 	sprite_sheet = ""
+	_team = ""
 	if _sprite != null:
 		_sprite.queue_free()
 		_sprite = null
-	if sheet.is_empty():
-		return
-	var path := SPRITE_DIR + sheet + ".png"
-	if not ResourceLoader.exists(path):
+	if sheet.is_empty() or not ResourceLoader.exists(SPRITE_DIR + sheet + "_blue.png"):
 		return
 	sprite_sheet = sheet
 	_sprite = Sprite2D.new()
 	_sprite.name = "MapSprite"
-	_sprite.texture = load(path)
-	_sprite.hframes = 4
-	_sprite.vframes = _sprite.texture.get_height() / 16
+	_sprite.centered = false
 	_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	_sprite.scale = Vector2(SPRITE_PX, SPRITE_PX)
-	_sprite.position = Vector2(0, SPRITE_Y)
 	var mat := ShaderMaterial.new()
 	mat.shader = WAITED_SHADER
+	mat.set_shader_parameter("outline_color", Color(0, 0, 0, 0))
 	_sprite.material = mat
 	add_child(_sprite)
 	_update_sprite_frame()
@@ -144,22 +142,67 @@ func has_sprite() -> bool:
 	return _sprite != null
 
 
+## 当前用的阵营色表："blue" / "red"（说得转阵营后会自动换）
+func sprite_team() -> String:
+	return _team
+
+
+func _apply_team_texture() -> void:
+	var team := "blue" if is_player() else "red"
+	if team == _team:
+		return
+	var path := SPRITE_DIR + sprite_sheet + "_" + team + ".png"
+	if not ResourceLoader.exists(path):
+		return
+	_team = team
+	_sprite.texture = load(path)
+	_sprite.hframes = 4
+	_sprite.vframes = 4
+	var fw := _sprite.texture.get_width() / 4.0
+	var fh := _sprite.texture.get_height() / 4.0
+	_sprite.position = Vector2(-fw * SPRITE_PX / 2.0, SPRITE_FOOT - fh * SPRITE_PX)
+
+
 func _update_sprite_frame() -> void:
 	if _sprite == null:
 		return
+	_apply_team_texture()
+	if _sprite.texture == null:
+		return
 	var row := 0
+	var col := 0
+	var flip := false
 	if walking:
-		row = int(_walk_t * WALK_FPS) % 4
+		match facing:
+			Vector2i.UP:
+				row = 2
+			Vector2i.LEFT, Vector2i.RIGHT:
+				row = 3
+				flip = facing == Vector2i.RIGHT
+			_:
+				row = 1
+		col = int(_walk_t * WALK_FPS) % 4
 	elif not has_acted:
-		row = int(_t * IDLE_FPS + _phase) % 4
-	var col := int(_FACING_COL.get(facing, 0))
+		col = _idle_frame()
+	_sprite.flip_h = flip
 	_sprite.frame = row * 4 + col
 	var mat := _sprite.material as ShaderMaterial
 	mat.set_shader_parameter("amount", _dim)
 	var fw := 1.0 / _sprite.hframes
 	var fh := 1.0 / _sprite.vframes
 	mat.set_shader_parameter("frame_uv", Vector4(col * fw, row * fh, (col + 1) * fw, (row + 1) * fh))
-	mat.set_shader_parameter("outline_color", team_color())
+
+
+func _idle_frame() -> int:
+	var total := 0.0
+	for step in IDLE_SEQ:
+		total += float(step[1])
+	var t := fmod(_t + _phase * 0.2, total)
+	for step in IDLE_SEQ:
+		t -= float(step[1])
+		if t < 0.0:
+			return int(step[0])
+	return 0
 
 
 ## 阵营色：蓝 = 我方，红 = 敌方，金 = 头目
@@ -408,9 +451,12 @@ func _draw() -> void:
 		var ring_col: Color = Color(0.3, 0.55, 1.0) if is_player() else Color(1.0, 0.35, 0.3)
 		if is_boss:
 			ring_col = Color(1.0, 0.75, 0.2)
-		draw_set_transform(Vector2(0, 20), 0, Vector2(1.0, 0.42))
-		draw_circle(Vector2.ZERO, 15, Color(0, 0, 0, 0.30))
-		draw_arc(Vector2.ZERO, 20, 0, TAU, 28, ring_col, 3.0)
+		draw_set_transform(Vector2(0, 26), 0, Vector2(1.0, 0.35))
+		draw_circle(Vector2.ZERO, 18, Color(0, 0, 0, 0.28))
+		# 像素小人整只已是阵营色，不再画光环；程序 Q 版兜底才画
+		if _sprite == null:
+			draw_set_transform(Vector2(0, 20), 0, Vector2(1.0, 0.42))
+			draw_arc(Vector2.ZERO, 20, 0, TAU, 28, ring_col, 3.0)
 		draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
 
 	# ---- 人物：有像素帧时由 MapSprite 子节点画，这里只画环和 HP 条 ----

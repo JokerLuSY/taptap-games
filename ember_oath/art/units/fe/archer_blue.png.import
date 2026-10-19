@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://phc33o2hj8tk"
-path="res://.godot/imported/FighterWhite.png-774a4de4b50a292ce07beb32af1b8074.ctex"
+uid="uid://cmbdoygdeedgj"
+path="res://.godot/imported/archer_blue.png-7964ec125b1f809ba2ef6ffffa2fae39.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://art/cc0/ninja_adventure/characters/FighterWhite.png"
-dest_files=["res://.godot/imported/FighterWhite.png-774a4de4b50a292ce07beb32af1b8074.ctex"]
+source_file="res://art/units/fe/archer_blue.png"
+dest_files=["res://.godot/imported/archer_blue.png-7964ec125b1f809ba2ef6ffffa2fae39.ctex"]
 
 [params]
 

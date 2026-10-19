@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bu6hc7aovlaq3"
-path="res://.godot/imported/Hunter.png-b18563164cc8c6ca1f2e79bdfdffdbf4.ctex"
+uid="uid://cid12j64imkvq"
+path="res://.godot/imported/bandit_blue.png-d74c81b43b72d0453d37c6477c5f30f8.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://art/cc0/ninja_adventure/characters/Hunter.png"
-dest_files=["res://.godot/imported/Hunter.png-b18563164cc8c6ca1f2e79bdfdffdbf4.ctex"]
+source_file="res://art/units/fe/bandit_blue.png"
+dest_files=["res://.godot/imported/bandit_blue.png-d74c81b43b72d0453d37c6477c5f30f8.ctex"]
 
 [params]
 

@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://chod2o7lbgkli"
-path="res://.godot/imported/SorcererBlack.png-cdd6539f1cb9c75bae3167be5fc461dd.ctex"
+uid="uid://cyuf1icdw200o"
+path="res://.godot/imported/archer_red.png-ea25b2e72ef4a223e2237216aeb55913.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://art/cc0/ninja_adventure/characters/SorcererBlack.png"
-dest_files=["res://.godot/imported/SorcererBlack.png-cdd6539f1cb9c75bae3167be5fc461dd.ctex"]
+source_file="res://art/units/fe/archer_red.png"
+dest_files=["res://.godot/imported/archer_red.png-ea25b2e72ef4a223e2237216aeb55913.ctex"]
 
 [params]
 

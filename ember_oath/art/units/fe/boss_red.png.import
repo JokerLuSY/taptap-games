@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://b4v4xs7toq2o6"
-path="res://.godot/imported/Shadow.png-e2afce6adf76e70a3578c609c1bed7fb.ctex"
+uid="uid://chpsv5rep47n8"
+path="res://.godot/imported/boss_red.png-45cb6fea3153bf1397a4501162afd51e.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://art/cc0/ninja_adventure/characters/Shadow.png"
-dest_files=["res://.godot/imported/Shadow.png-e2afce6adf76e70a3578c609c1bed7fb.ctex"]
+source_file="res://art/units/fe/boss_red.png"
+dest_files=["res://.godot/imported/boss_red.png-45cb6fea3153bf1397a4501162afd51e.ctex"]
 
 [params]
 
