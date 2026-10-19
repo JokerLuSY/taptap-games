@@ -4,12 +4,12 @@ extends Node
 ## 输出到 res://tools/shots/gallery_*.png
 
 const PAIRS := [
-	["tia", "bandit1", false],
-	["balto", "brock", false],
-	["archer1", "tia", false],
-	["brock", "balto", true],
-	["scout1", "tia", false],
-	["marco", "bandit1", false],
+	["tia", "bandit1", false], ["tia", "bandit1", true],
+	["scout1", "tia", false], ["scout1", "tia", true],
+	["bandit1", "tia", false], ["bandit1", "tia", true],
+	["brock", "balto", false], ["brock", "balto", true],
+	["archer1", "tia", false], ["archer1", "tia", true],
+	["balto", "bandit1", false], ["balto", "bandit1", true],
 ]
 
 
@@ -37,7 +37,7 @@ func _run() -> void:
 		await scene._att_node.impact
 		await get_tree().process_frame
 		await get_tree().process_frame
-		_shot("gallery_%d_%s_vs_%s.png" % [i, pair[0], pair[1]])
+		_shot("gallery_%02d_%s_%s.png" % [i, pair[0], "crit" if pair[2] else "normal"])
 		while scene.active:
 			await get_tree().process_frame
 		scene.queue_free()

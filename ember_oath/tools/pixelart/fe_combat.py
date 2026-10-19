@@ -266,6 +266,27 @@ def _draw_horse(cv, u, pose):
         limb(cv, (f[0] - 1, f[1] + 1), (f[0] + 2, f[1] + 1), 1.4, pal["Z"], pal["Z"], K)
 
 
+PAD = 24      # 画布四周留白：挥到最远的刀尖、枪尖、跃起的头都不贴边
+
+
+def _shift_any(v, dx, dy):
+    if isinstance(v, tuple) and len(v) == 2 and all(isinstance(c, (int, float)) for c in v):
+        return (v[0] + dx, v[1] + dy)
+    if isinstance(v, tuple):
+        return tuple(_shift_any(c, dx, dy) for c in v)
+    return v
+
+
+def padded(u):
+    """返回四周加 PAD 留白后的角色配置（帧尺寸、脚底、所有姿势坐标一起平移）"""
+    w, h = u["frame"]
+    q = dict(u)
+    q["frame"] = (w + PAD * 2, h + PAD * 2)
+    q["foot"] = (u["foot"][0] + PAD, u["foot"][1] + PAD)
+    q["poses"] = {n: {k: _shift_any(v, PAD, PAD) for k, v in pose.items()} for n, pose in u["poses"].items()}
+    return q
+
+
 def render_unit(u):
     return {name: build_frame(u, p) for name, p in u["poses"].items()}
 
@@ -335,7 +356,8 @@ def arrow_image():
 
 
 if __name__ == "__main__":
-    from fe_combat_art import UNITS  # noqa: E402
+    from fe_combat_art import UNITS as RAW  # noqa: E402
+    UNITS = {k: padded(u) for k, u in RAW.items()}
     out_dir, gd_path = sys.argv[1], sys.argv[2]
     for key, u in UNITS.items():
         frames = render_unit(u)

@@ -146,6 +146,24 @@ func flash(amount := 1.0, time := 0.22) -> void:
 	t.tween_method(func(v: float) -> void: mat.set_shader_parameter("flash", v), amount, 0.0, time)
 
 
+## 残影：复制当前帧留在原地，染色后淡出（主角必杀用）
+func ghost(tint: Color) -> void:
+	if sprite == null or get_parent() == null:
+		return
+	var g := Sprite2D.new()
+	g.texture = sprite.sprite_frames.get_frame_texture(sprite.animation, sprite.frame)
+	g.centered = false
+	g.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	g.scale = sprite.scale * scale
+	g.position = position + sprite.position * scale
+	g.modulate = tint
+	g.z_index = z_index - 1
+	get_parent().add_child(g)
+	var t := g.create_tween()
+	t.tween_property(g, "modulate:a", 0.0, 0.3)
+	t.finished.connect(g.queue_free)
+
+
 func set_glow(c: Color) -> void:
 	if sprite != null:
 		(sprite.material as ShaderMaterial).set_shader_parameter("glow", c)

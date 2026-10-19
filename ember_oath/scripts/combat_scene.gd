@@ -67,7 +67,52 @@ const FIGHTER_BY_ID := {
 }
 const FIGHTER_BY_PREFIX := [["bandit", "bandit"], ["archer", "archer"]]
 const FIGHTER_BY_WEAPON := {"sword": "scout", "lance": "balto", "axe": "bandit", "bow": "archer"}
-const SLASH_FX := "res://art/cc0/ninja_adventure/fx/SlashCurved.png"
+## 打击特效帧（Ninja Adventure FX，CC0）：[文件, 帧宽, 帧高, 帧数, 帧率]
+const FX_DIR := "res://art/cc0/ninja_adventure/fx/"
+const FX := {
+	"cut": ["Cut.png", 32, 32, 4, 20],
+	"cut_x": ["CutX.png", 32, 32, 4, 16],
+	"cut_double": ["CutDouble.png", 32, 32, 5, 20],
+	"slash": ["SlashCurved.png", 32, 32, 4, 20],
+	"slash_double": ["SlashDoubleCurved.png", 32, 32, 4, 20],
+	"circular": ["CircularSlash.png", 32, 32, 4, 16],
+	"big_slash": ["BigSlash.png", 66, 50, 6, 18],
+	"big_spin": ["BigSpin.png", 54, 55, 7, 18],
+	"explosion": ["Explosion.png", 40, 40, 9, 16],
+	"ring": ["RingWhite.png", 32, 32, 4, 14],
+	"ring_orange": ["RingOrange.png", 32, 32, 4, 14],
+	"spark_burst": ["SparkBurst.png", 32, 32, 5, 14],
+}
+## 每套角色普攻 / 必杀命中时放的特效：[特效名, 放大倍数, 染色, 位置（hit = 命中点, ground = 对手脚下）]
+## 普攻一层小刀光；必杀叠两三层大特效。主角缇娅的必杀是火色大弧斩 + 十字斩 + 光环，和探子的二连斩不同。
+const HIT_FX := {
+	"tia": {
+		"normal": [["slash", 4.5, Color(1, 1, 1), "hit"]],
+		"crit": [["big_slash", 3.4, Color(1.0, 0.62, 0.28), "hit"], ["cut_x", 5.5, Color(1.0, 0.9, 0.5), "hit"], ["ring", 7.0, Color(1.0, 0.78, 0.35), "hit"]],
+	},
+	"scout": {
+		"normal": [["cut", 4.0, Color(1, 1, 1), "hit"]],
+		"crit": [["cut_double", 5.5, Color(0.92, 0.85, 1.0), "hit"], ["cut_x", 4.5, Color(1, 1, 1), "hit"]],
+	},
+	"bandit": {
+		"normal": [["slash_double", 4.5, Color(1, 1, 1), "hit"]],
+		"crit": [["big_spin", 3.6, Color(1, 1, 1), "hit"], ["circular", 5.5, Color(1.0, 0.85, 0.5), "hit"]],
+	},
+	"boss": {
+		"normal": [["slash", 5.5, Color(1, 1, 1), "hit"]],
+		"crit": [["explosion", 4.5, Color(1, 1, 1), "ground"], ["ring_orange", 8.0, Color(1, 1, 1), "ground"], ["slash", 6.0, Color(1, 1, 1), "hit"]],
+	},
+	"archer": {
+		"normal": [["ring", 2.5, Color(1, 1, 1), "hit"]],
+		"crit": [["spark_burst", 5.0, Color(1.0, 0.85, 0.4), "hit"], ["ring", 6.0, Color(1.0, 0.85, 0.4), "hit"]],
+	},
+	"balto": {
+		"normal": [["cut", 5.0, Color(1, 1, 1), "hit"]],
+		"crit": [["big_slash", 3.6, Color(0.7, 0.85, 1.0), "hit"], ["spark_burst", 5.0, Color(1, 1, 1), "hit"]],
+	},
+}
+## 必杀时拖残影的角色（主角专属）
+const AFTERIMAGE := ["tia"]
 ## 同一套条带的不同角色靠调色区分（马尔科和布洛克同用角盔头目）
 const TINT_BY_ID := {"marco": Color(1.0, 0.80, 0.70)}
 
@@ -550,12 +595,39 @@ func _strike(ev: Dictionary) -> void:
 		await _strike_melee(striker, victim, ev, dir, crit)
 
 
+## 必杀蓄力：背景压暗（角色和特效不暗）、金光、大字、镜头推近；弓手身前聚一圈光
 func _crit_charge(striker: CombatFighter) -> void:
+	_dim_bg(0.55, 0.15)
 	striker.set_glow(Color(1.0, 0.82, 0.3, 1.0))
 	_big_text(tr("必 杀 !"), Color(1.0, 0.85, 0.25))
 	_zoom(1.1, Vector2(striker.position.x, FEET_Y - 90), 0.25)
+	if striker.set_key == "archer":
+		_play_fx("spark_burst", striker.position + Vector2(0, -60), 4.0, Color(1.0, 0.85, 0.4), 4.0)
 	await get_tree().create_timer(0.38).timeout
 	striker.set_glow(Color(1.0, 0.82, 0.3, 0.0))
+
+
+var _dim: ColorRect
+
+
+## 背景压暗：一块黑幕插在背景层和角色层之间
+func _dim_bg(alpha: float, time: float) -> void:
+	if _dim == null or not is_instance_valid(_dim):
+		_dim = ColorRect.new()
+		_dim.size = Vector2(1600, 1000)
+		_dim.position = Vector2(-160, -140)
+		_dim.color = Color(0.02, 0.0, 0.04, 0.0)
+		_dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_dim.z_index = (Z_BG + Z_FIGHTER) / 2
+		_stage.add_child(_dim)
+	create_tween().tween_property(_dim, "color:a", alpha, time)
+
+
+## 主角必杀：动作播放期间每隔一会儿留一个淡出的残影
+func _afterimages(f: CombatFighter, anim: String) -> void:
+	while is_instance_valid(f) and f.is_playing(anim):
+		f.ghost(Color(1.0, 0.55, 0.25, 0.6))
+		await get_tree().create_timer(0.05).timeout
 
 
 ## 近战：跑到对手面前 → 出招（出手帧结算）→ 后跳归位
@@ -576,10 +648,14 @@ func _strike_melee(striker: CombatFighter, victim: CombatFighter, ev: Dictionary
 		return
 	var anim := striker.attack_anim(crit)
 	striker.play_once(anim)
+	if crit and striker.set_key in AFTERIMAGE:
+		_afterimages(striker, anim)
 	await striker.impact
 	_impact(striker, victim, ev, dir, crit)
 	if striker.is_playing(anim):
 		await striker.sprite.animation_finished
+	if crit:
+		_dim_bg(0.0, 0.3)
 	# 后跳归位
 	striker.play_loop("idle")
 	var back := create_tween().set_parallel(true)
@@ -605,6 +681,22 @@ func _strike_bow(striker: CombatFighter, victim: CombatFighter, ev: Dictionary, 
 	arrow.texture = load(CombatFighter.ROOT + "arrow.png")
 	arrow.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	arrow.scale = Vector2(3.0 * dir, 3.0)
+	if crit:
+		# 必杀箭：放大、发金光，后面拖一串光点
+		arrow.scale = Vector2(4.5 * dir, 4.5)
+		arrow.modulate = Color(1.6, 1.35, 0.6)
+		var trail := CPUParticles2D.new()
+		trail.amount = 24
+		trail.lifetime = 0.25
+		trail.local_coords = false
+		trail.direction = Vector2(-1, 0)
+		trail.spread = 20.0
+		trail.initial_velocity_min = 20.0
+		trail.initial_velocity_max = 60.0
+		trail.scale_amount_min = 1.0
+		trail.scale_amount_max = 2.0
+		trail.color = Color(1.0, 0.85, 0.4, 0.9)
+		arrow.add_child(trail)
 	var from := striker.position + Vector2(dir * 50, -84)
 	var to := victim.position + Vector2(-dir * 30, -84)
 	arrow.position = from
@@ -614,6 +706,8 @@ func _strike_bow(striker: CombatFighter, victim: CombatFighter, ev: Dictionary, 
 	await fly.finished
 	arrow.queue_free()
 	_impact(striker, victim, ev, dir, crit)
+	if crit:
+		_dim_bg(0.0, 0.3)
 	if striker.is_playing(anim):
 		await striker.sprite.animation_finished
 	striker.play_loop("idle")
@@ -647,12 +741,13 @@ func _impact(striker: CombatFighter, victim: CombatFighter, ev: Dictionary, dir:
 		_hit_react(victim)
 	_shake(crit)
 	var hit_pos := victim.position + Vector2(-dir * 10, -80)
-	if striker.weapon_kind != "bow":
-		_slash_fx(hit_pos, dir, crit)
+	_hit_fx(striker.set_key, victim, hit_pos, dir, crit)
 	_spark_effect(hit_pos, Color(1.0, 0.85, 0.5), 18 if crit else 10)
 	if crit:
 		_flash_rect.color.a = 0.55
 		create_tween().tween_property(_flash_rect, "color:a", 0.0, 0.25)
+		if striker.set_key == "boss":
+			_shake(true)  # 砸地再震一轮
 	_damage_label(victim, str(ev["dmg"]), Color(1.0, 0.35, 0.2) if crit else Color(1.0, 0.92, 0.85), 1.5 if crit else 1.0)
 	# 顿帧：双方动画停一下，打击更有分量
 	for f in [striker, victim]:
@@ -690,28 +785,37 @@ func _shake(strong := false) -> void:
 	t.tween_property(_stage, "position", Vector2.ZERO, 0.05)
 
 
-## 刀光：Ninja Adventure 的弧形斩击帧（CC0），朝攻击方向，必杀放大
-func _slash_fx(pos: Vector2, dir: float, crit: bool) -> void:
-	if not ResourceLoader.exists(SLASH_FX):
+## 命中特效：按攻击方的条带套和普攻 / 必杀查 HIT_FX，逐层叠放
+func _hit_fx(key: String, victim: CombatFighter, hit_pos: Vector2, dir: float, crit: bool) -> void:
+	var table: Dictionary = HIT_FX.get(key, HIT_FX["scout"])
+	for spec in table["crit" if crit else "normal"]:
+		var pos := hit_pos
+		if spec[3] == "ground":
+			pos = Vector2(victim.position.x - dir * 10.0, FEET_Y - 40.0)
+		_play_fx(spec[0], pos, float(spec[1]) * dir, spec[2], float(spec[1]))
+
+
+## 播一段特效帧；sx 为负表示水平翻转
+func _play_fx(fx_name: String, pos: Vector2, sx: float, tint: Color, sy: float) -> void:
+	var spec: Array = FX.get(fx_name, [])
+	if spec.is_empty() or not ResourceLoader.exists(FX_DIR + spec[0]):
 		return
 	var sf := SpriteFrames.new()
 	sf.add_animation("s")
 	sf.set_animation_loop("s", false)
-	sf.set_animation_speed("s", 20.0)
-	var tex: Texture2D = load(SLASH_FX)
-	for i in 4:
+	sf.set_animation_speed("s", float(spec[4]))
+	var tex: Texture2D = load(FX_DIR + spec[0])
+	for i in int(spec[3]):
 		var at := AtlasTexture.new()
 		at.atlas = tex
-		at.region = Rect2(i * 32, 0, 32, 32)
+		at.region = Rect2(i * int(spec[1]), 0, int(spec[1]), int(spec[2]))
 		sf.add_frame("s", at)
 	var fx := AnimatedSprite2D.new()
 	fx.sprite_frames = sf
 	fx.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	var k := 6.0 if crit else 4.5
-	fx.scale = Vector2(k * dir, k)
+	fx.scale = Vector2(sx, absf(sy))
 	fx.position = pos
-	if crit:
-		fx.modulate = Color(1.0, 0.9, 0.55)
+	fx.modulate = tint
 	_add_fx(fx)
 	fx.play("s")
 	fx.animation_finished.connect(fx.queue_free)

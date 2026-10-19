@@ -535,6 +535,97 @@ BALTO = {
     "anims": LANCE_ANIMS,
 }
 
+
+# ============================================================
+# 各角色专属招式：普攻和必杀是两套动作；主角缇娅和同用剑的探子招式不同
+# ============================================================
+def shift_all(poses, dy):
+    """整套姿势下移 dy（画布加高给跳跃留空间时用）"""
+    out = {}
+    for name, pose in poses.items():
+        q = {}
+        for k, v in pose.items():
+            if isinstance(v, tuple) and len(v) == 2 and all(isinstance(c, (int, float)) for c in v):
+                q[k] = (v[0], v[1] + dy)
+            else:
+                q[k] = v
+        out[name] = q
+    return out
+
+
+# ---- 缇娅（72×100，地面 y=96）：普攻 = 压低身形拔刀突斩；必杀 = 跃起空中回旋、俯冲斩落 ----
+TIA_POSES = shift_all(SWORD_POSES, 28)
+TIA_POSES.update({
+    "crouch": P((24, 70), (22, 79), (26, 83), (32, 77), (28, 74), (24, 87), (19, 95), (36, 85), (41, 95), wpn=-165, head_dx=-1, head_dy=1),
+    "leap": P((28, 38), (28, 40), (33, 32), (36, 34), (35, 25), (30, 58), (26, 64), (40, 56), (41, 64), wpn=-95, head_dx=1),
+    "spin": P((32, 34), (30, 44), (26, 47), (30, 41), (24, 43), (34, 54), (30, 61), (44, 53), (46, 61), wpn=-175, head_dx=1),
+    "dive": P((36, 50), (38, 58), (44, 60), (48, 56), (54, 60), (34, 70), (26, 75), (46, 68), (50, 77), wpn=45, head_dx=2, wpn_args={"length": 30}),
+    "land": P((36, 72), (38, 82), (44, 84), (50, 80), (58, 82), (32, 92), (24, 96), (50, 86), (55, 96), wpn=8, head_dx=2, head_dy=1, wpn_args={"length": 30}),
+})
+TIA_ANIMS = {
+    "idle": {"frames": ["idle0", "idle0", "idle1", "idle1"], "fps": 4},
+    "run": {"frames": ["run0", "run1", "run0", "run1"], "fps": 10},
+    "attack": {"frames": ["crouch", "crouch", "dash", "slash", "follow", "follow"], "fps": 12, "impact": 3},
+    "crit": {"frames": ["crouch", "crouch", "leap", "leap", "spin", "spin", "dive", "land", "land", "land"], "fps": 10, "impact": 6},
+    "hit": {"frames": ["hit", "hit", "idle0"], "fps": 8},
+    "death": {"frames": ["hit", "kneel", "kneel", "kneel"], "fps": 5},
+}
+
+# ---- 探子：普攻 = 短剑直刺；必杀 = 斜劈接回身直刺（两段） ----
+SCOUT_POSES = dict(SWORD_POSES)
+SCOUT_POSES.update({
+    "draw": P((27, 38), (26, 48), (29, 51), (32, 45), (27, 46), (28, 59), (22, 66), (39, 59), (44, 66), wpn=-5, head_dx=-1),
+    "thrust": P((34, 39), (32, 49), (29, 52), (46, 43), (54, 43), (32, 59), (22, 66), (49, 59), (55, 66), wpn=0, head_dx=2),
+    "high": P((32, 38), (30, 48), (27, 51), (42, 37), (48, 33), (30, 59), (21, 66), (46, 58), (52, 66), wpn=-35, head_dx=2),
+})
+SCOUT_ANIMS = {
+    "idle": SWORD_ANIMS["idle"], "run": SWORD_ANIMS["run"],
+    "attack": {"frames": ["draw", "draw", "thrust", "thrust", "idle0"], "fps": 12, "impact": 2},
+    "crit": {"frames": ["wind", "wind", "high", "slash", "follow", "draw", "thrust", "thrust", "idle0"], "fps": 12, "impact": 6},
+    "hit": SWORD_ANIMS["hit"], "death": SWORD_ANIMS["death"],
+}
+
+# ---- 山贼：普攻 = 举斧劈下；必杀 = 抡斧旋风斩一整圈 ----
+BANDIT_POSES = dict(AXE_POSES)
+BANDIT_POSES.update({
+    "spin0": P((30, 36), (30, 46), (24, 48), (34, 44), (26, 46), (33, 57), (27, 71), (45, 57), (50, 71), wpn=-170, head_dx=-1),
+    "spin1": P((32, 34), (34, 28), (40, 22), (40, 28), (40, 20), (33, 56), (26, 71), (46, 57), (51, 71), wpn=-90),
+    "spin2": P((36, 38), (40, 44), (50, 44), (50, 40), (56, 42), (35, 58), (25, 71), (53, 58), (59, 71), wpn=10, head_dx=2),
+    "spin3": P((38, 40), (42, 48), (48, 54), (48, 50), (50, 56), (36, 59), (26, 71), (54, 59), (60, 71), wpn=100, head_dx=2),
+    "spin4": P((36, 38), (36, 48), (32, 52), (40, 48), (34, 52), (35, 58), (27, 71), (52, 58), (57, 71), wpn=160, head_dx=1),
+})
+BANDIT_ANIMS = dict(AXE_ANIMS)
+BANDIT_ANIMS["crit"] = {"frames": ["spin0", "spin0", "spin1", "spin2", "spin3", "spin4", "spin0", "spin1", "spin2", "spin3", "follow"], "fps": 14, "impact": 8}
+
+# ---- 头目（80×100，地面 y=96）：普攻 = 劈；必杀 = 跃起砸地 ----
+BOSS_POSES = shift_all(AXE_POSES, 24)
+BOSS_POSES.update({
+    "crouch": P((30, 66), (30, 74), (34, 78), (40, 70), (42, 62), (32, 84), (26, 95), (44, 84), (50, 95), wpn=-150, head_dx=-1, head_dy=1),
+    "jump": P((32, 42), (34, 36), (40, 30), (40, 34), (38, 28), (34, 62), (30, 70), (44, 60), (46, 70), wpn=-95),
+    "smash": P((38, 66), (44, 74), (54, 78), (50, 70), (58, 76), (34, 85), (24, 95), (56, 84), (62, 95), wpn=70, head_dx=2, head_dy=1, wpn_args={"length": 28}),
+})
+BOSS_ANIMS = dict(AXE_ANIMS)
+BOSS_ANIMS["crit"] = {"frames": ["crouch", "crouch", "crouch", "jump", "jump", "jump", "smash", "smash", "smash", "follow"], "fps": 11, "impact": 6}
+
+# ---- 弓箭手：必杀 = 久蓄力（画面上加光环和发光箭） ----
+ARCHER_ANIMS = dict(BOW_ANIMS)
+ARCHER_ANIMS["crit"] = {"frames": ["aim0", "aim1", "aim1", "aim1", "aim1", "aim1", "aim1", "release", "release", "aim0"], "fps": 9, "impact": 7}
+
+# ---- 巴尔托：普攻 = 突刺；必杀 = 头顶回旋长枪后冲锋刺击 ----
+LANCE_POSES.update({
+    "raise": _horse_pose(HX - 1, HY, STAND, RIDER, (4, 6), (10, 2), (14, 2), (17, -4), wpn=-100),
+    "twirl1": _horse_pose(HX - 1, HY - 1, STAND, RIDER, (4, 6), (10, 2), (14, 2), (17, -4), wpn=-165),
+    "twirl2": _horse_pose(HX - 1, HY - 1, GALLOP1, RIDER, (4, 6), (10, 2), (14, 2), (17, -4), wpn=150),
+    "charge": _horse_pose(HX + 9, HY - 3, GALLOP0, RIDER, (9, 7), (17, 7), (21, 5), (28, 4), wpn=0, head_dx=1),
+})
+LANCE_ANIMS["crit"] = {"frames": ["raise", "twirl1", "twirl2", "raise", "twirl1", "twirl2", "wind", "charge", "charge", "follow"], "fps": 11, "impact": 7}
+
+TIA.update({"frame": (72, 100), "foot": (36, 96), "poses": TIA_POSES, "anims": TIA_ANIMS})
+SCOUT.update({"poses": SCOUT_POSES, "anims": SCOUT_ANIMS})
+BANDIT.update({"frame": (80, 88), "foot": (40, 84), "poses": shift_all(BANDIT_POSES, 12), "anims": BANDIT_ANIMS})
+BOSS.update({"frame": (80, 100), "foot": (40, 96), "poses": BOSS_POSES, "anims": BOSS_ANIMS})
+ARCHER.update({"anims": ARCHER_ANIMS})
+
 UNITS = {
     "tia": TIA,
     "balto": BALTO,
