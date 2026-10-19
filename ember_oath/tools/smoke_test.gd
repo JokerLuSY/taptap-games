@@ -886,6 +886,7 @@ func _check_campaign_chapters() -> void:
 		_check(battle.get_unit(bid) == null and Campaign.status_of(bid) == "active", "待命的 %s 不上场但仍在名单里" % bid)
 	var noya = battle.get_unit("noya")
 	_check(noya != null and not noya.is_player() and not noya.can_attack() and noya.heal_staff() == 0, "诺雅应是只带治疗杖的敌人")
+	_check(noya.display_name == "诺雅" and noya.weapon()["name"] == "治疗杖", "诺雅的战斗面板应是中文名和治疗杖")
 	_check(battle.board.goal_tiles.size() == 3, "第四章应标出 3 格撤离点")
 	await _skip_story()
 	await _frames(10)
@@ -2282,6 +2283,15 @@ func _wait_cond(cond: Callable, timeout: float) -> bool:
 
 
 func _check_infra() -> void:
+	var named := Unit.new()
+	named.setup({"id": "noya", "name": "noya", "weapons": ["heal_staff"], "hp": 16})
+	_check(named.display_name == "诺雅" and named.weapon()["name"] == "治疗杖", "id 当名字时诺雅面板应为中文和治疗杖")
+	named.setup({"id": "tia", "name": "缇娅", "weapons": ["iron_sword"]})
+	_check(named.display_name == "缇娅", "已写中文名的单位不应被名册覆盖")
+	for row in [["church1", "圣焰教会兵"], ["knight1", "圣焰骑士"], ["merc1", "黑烬佣兵"], ["harlo", "哈洛"], ["nina", "妮娜"], ["kain", "凯因"], ["edric", "艾德里克"], ["silas", "塞拉斯"], ["hawk", "霍克"], ["barrett", "巴雷特"]]:
+		named.setup({"id": row[0], "name": row[0], "weapons": ["iron_sword"]})
+		_check(named.display_name == row[1], "%s 面板名应为 %s，实际 %s" % [row[0], row[1], named.display_name])
+	named.free()
 	_check(int(ProjectSettings.get_setting("display/window/size/viewport_width")) == 1280, "逻辑宽度应为 1280")
 	_check(int(ProjectSettings.get_setting("display/window/size/viewport_height")) == 720, "逻辑高度应为 720")
 	_check(int(ProjectSettings.get_setting("display/window/handheld/orientation")) == 4, "应强制 sensor_landscape（横屏）")
