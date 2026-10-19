@@ -13,6 +13,8 @@ const DANGER_EDGE := Color(1.0, 0.32, 0.28, 0.85)
 const ARROW_FILL := Color(0.62, 0.86, 1.0, 1.0)
 const ARROW_LIGHT := Color(0.92, 0.98, 1.0, 1.0)
 const ARROW_OUTLINE := Color(0.08, 0.14, 0.32, 0.95)
+const GOAL_FILL := Color(1.0, 0.82, 0.30, 0.22)
+const GOAL_EDGE := Color(1.0, 0.86, 0.40, 0.95)
 
 var board: Board
 var _t := 0.0
@@ -21,7 +23,7 @@ var _t := 0.0
 func _process(delta: float) -> void:
 	if board == null:
 		return
-	if board.move_tiles.is_empty() and board.atk_tiles.is_empty() and board.danger_tiles.is_empty() and board.path_tiles.size() < 2:
+	if board.move_tiles.is_empty() and board.atk_tiles.is_empty() and board.danger_tiles.is_empty() and board.path_tiles.size() < 2 and board.goal_tiles.is_empty():
 		return
 	_t += delta
 	queue_redraw()
@@ -32,6 +34,12 @@ func _draw() -> void:
 		return
 	# 呼吸：整块范围的透明度轻微起伏
 	var breathe := 0.86 + 0.14 * sin(_t * 3.0)
+	# 撤离点 / 目标格：金色常驻
+	if not board.goal_tiles.is_empty():
+		var goal := {}
+		for p in board.goal_tiles:
+			goal[p] = true
+		_draw_region(goal, GOAL_FILL, GOAL_EDGE, 0.75 + 0.25 * sin(_t * 2.0), false)
 	_draw_region(board.danger_tiles, DANGER_FILL, DANGER_EDGE, 1.0, true)
 	_draw_region(board.move_tiles, MOVE_FILL, MOVE_EDGE, breathe, false)
 	_draw_region(board.atk_tiles, ATK_FILL, ATK_EDGE, breathe, false)

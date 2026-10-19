@@ -33,6 +33,10 @@ var move_tiles: Dictionary = {}
 var atk_tiles: Dictionary = {}
 var danger_tiles: Dictionary = {}
 var path_tiles: Array = []
+var goal_tiles: Array = []:         # 撤离点等目标格（Vector2i 列表）
+	set(v):
+		goal_tiles = v
+		_redraw_overlay()
 
 var overlay: BoardOverlay
 var tiles: MapTiles = null          # 静态地面（只画一次）

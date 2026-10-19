@@ -1,5 +1,5 @@
 class_name Chapter1
-extends RefCounted
+extends ChapterBase
 ## 第一章「边境的少女」：地图、单位配置、全部剧情事件
 
 const CHAPTER_TITLE := "第一章 · 边境的少女"
@@ -98,13 +98,10 @@ const RECRUITS := {
 	"bandit6": {"by": "tia"},
 }
 
-var battle = null
-var visited := {}
 var f_first_attack := false
 var f_talk := false
 var f_reinforce := false
 var f_boss_met := false
-var f_support := {}               # {支援对 key: 已解锁}
 
 
 func export_flags() -> Dictionary:
@@ -137,23 +134,25 @@ func import_flags(data: Dictionary) -> void:
 	f_support = fs.duplicate() if fs is Dictionary else {}
 
 
-## 合并模板（山贼/弓箭手只写 id 和 pos 时套模板）；const 字典为只读，必须逐键拷贝到新字典
+func chapter_id() -> String:
+	return "ch1"
+
+
+func templates() -> Dictionary:
+	return {"bandit": _BANDIT, "archer": _ARCHER}
+
+
+func extra_slots() -> Array:
+	return [Vector2i(5, 3), Vector2i(3, 3), Vector2i(7, 3)]
+
+
+func supports() -> Dictionary:
+	return SUPPORTS
+
+
+## 山贼/弓箭手只写 id 和 pos 时套模板（战斗图鉴等工具也在用）
 static func expand(defs: Array) -> Array:
-	var out: Array = []
-	for d in defs:
-		var full := {}
-		var id: String = d.get("id", "")
-		var tmpl := {}
-		if id.begins_with("archer"):
-			tmpl = _ARCHER
-		elif id.begins_with("bandit"):
-			tmpl = _BANDIT
-		for k in tmpl:
-			full[k] = tmpl[k]
-		for k in d:
-			full[k] = d[k]
-		out.append(full)
-	return out
+	return ChapterBase.expand_with(defs, {"bandit": _BANDIT, "archer": _ARCHER})
 
 
 # ============ 事件钩子（battle 调用） ============
@@ -283,6 +282,7 @@ func on_recruit(u) -> void:
 	await battle.play_dialogue(_recruit_bandit6())
 	t.faction = "player"
 	t.has_acted = true
+	t.display_name = "托比"
 	t.queue_redraw()
 	battle.notify(tr("%s 成为同伴了！") % tr(t.display_name))
 
@@ -461,6 +461,7 @@ func _recruit_bandit6() -> Array:
 		_l("山贼小弟", C_ENEMY, "诶？……真、真的可以吗？"),
 		_l("缇娅", C_TIA, "嗯！一起保护村子，也算将功赎罪。"),
 		_l("山贼小弟", C_ENEMY, "……好！我这条命就交给你了！"),
+		_l("山贼小弟", C_ENEMY, "我叫托比。以后……请多关照！"),
 	]
 
 

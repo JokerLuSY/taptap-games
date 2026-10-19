@@ -3,7 +3,7 @@ extends Node2D
 
 const TILE := 64
 
-enum S { STORY, IDLE, MOVE_SEL, ACTION_MENU, WEAPON_SEL, TARGET_SEL, ITEM_MENU, COMBAT, ENEMY, OVER }
+enum S { STORY, IDLE, MOVE_SEL, ACTION_MENU, WEAPON_SEL, TARGET_SEL, ITEM_MENU, COMBAT, ENEMY, OVER, HEAL_SEL }
 
 var state: int = S.STORY
 var board: Board
@@ -48,6 +48,7 @@ var end_title: Label
 var end_sub: Label
 var end_btn: Button
 var end_restart: Button
+var end_next: Button
 var lbl_win: Label
 var lbl_lose: Label
 var dialogue: DialogueBox
@@ -65,14 +66,27 @@ static func queue_chapter(chapter_script) -> void:
 
 
 func _ready() -> void:
-	var script: Script = pending_chapter if pending_chapter != null else load("res://scripts/chapter1.gd")
+	var save_data := {}
+	if CampaignSave.take_pending_load():
+		save_data = CampaignSave.read()
+		Campaign.load_payload(save_data)
+	var script: Script = pending_chapter
+	if script == null:
+		script = Campaign.chapter_script()
+	else:
+		var idx := Campaign.index_of(script)
+		if idx >= 0:
+			Campaign.chapter_index = idx
 	chapter = script.new()
 	chapter.battle = self
 	_build_board()
 	var loaded := false
-	if CampaignSave.take_pending_load():
-		loaded = _apply_checkpoint(CampaignSave.read())
+	if not save_data.is_empty():
+		loaded = _apply_checkpoint(save_data)
 	if not loaded:
+		gold = Campaign.gold
+		var sp = Campaign.flags.get("support_points", {})
+		support_points = sp.duplicate() if sp is Dictionary else {}
 		_build_units()
 	_build_ui()
 	Audio.play_music("map")
@@ -101,12 +115,60 @@ func _build_board() -> void:
 	board.add_child(cursor)
 
 
+## 开场生成：章节 UNITS 里的我方单位优先取战役名单里的存档（等级、能力、道具随队继承），
+## 名单里离队 / 阵亡的不出场；名单里在队但本章没写位置的，放到 extra_slots。
 func _build_units() -> void:
-	spawn_units(chapter.UNITS)
+	var st: Dictionary = chapter.before_spawn_status()
+	for id in st:
+		Campaign.set_status(id, st[id])
+	var placed := {}
+	for def in chapter.UNITS:
+		var id: String = def.get("id", "")
+		if str(def.get("faction", "")) != "player" and not Campaign.has_member(id):
+			continue
+		placed[id] = true
+	var defs: Array = []
+	var fresh := Campaign.roster.is_empty()
+	for def in chapter.UNITS:
+		var id: String = def.get("id", "")
+		if not Campaign.has_member(id):
+			# 名单里没有的我方单位：本章新加入（join）或直接进本章（名单为空，测试 / 调试）才用默认数值
+			if str(def.get("faction", "")) == "player" and not fresh and not def.get("join", false):
+				continue
+			defs.append(def)
+			continue
+		if Campaign.status_of(id) != "active":
+			continue
+		var pos: Vector2i = def.get("pos", Vector2i.ZERO)
+		_spawn_from_roster(id, pos)
+	var slots: Array = chapter.extra_slots()
+	for id in Campaign.active_ids():
+		if placed.has(id):
+			continue
+		var pos: Vector2i = slots.pop_front() if not slots.is_empty() else Vector2i(0, board.height - 1)
+		_spawn_from_roster(id, pos)
+	spawn_units(defs)
 
 
-func spawn_units(defs: Array) -> void:
-	for def in Chapter1.expand(defs):
+func _spawn_from_roster(id: String, pos: Vector2i) -> void:
+	var u := Unit.new()
+	u.apply_save(Campaign.roster[id])
+	u.faction = "player"
+	u.grid_pos = pos
+	u.hp = u.max_hp
+	u.has_acted = false
+	u.visible = true
+	u.modulate.a = 1.0
+	if board.unit_at(u.grid_pos) != null or not board.terrain(u.grid_pos)["pass"]:
+		u.grid_pos = _nearest_free(u.grid_pos)
+	u.position = u.tile_center()
+	board.add_child(u)
+	units.append(u)
+
+
+func spawn_units(defs: Array) -> Array:
+	var made: Array = []
+	for def in ChapterBase.expand_with(defs, chapter.templates()):
 		var u := Unit.new()
 		u.setup(def)
 		if board.unit_at(u.grid_pos) != null:
@@ -114,7 +176,24 @@ func spawn_units(defs: Array) -> void:
 			u.position = u.tile_center()
 		board.add_child(u)
 		units.append(u)
+		made.append(u)
 	update_topbar()
+	return made
+
+
+## 剧情加入：在 near 附近生成一名我方单位（本回合不能行动）
+func join_unit(def: Dictionary, near: Vector2i) -> Unit:
+	var d := def.duplicate()
+	d["faction"] = "player"
+	d["pos"] = near
+	var made := spawn_units([d])
+	if made.is_empty():
+		return null
+	var u: Unit = made[0]
+	u.has_acted = true
+	u.queue_redraw()
+	notify(tr("%s 成为同伴了！") % tr(u.display_name))
+	return u
 
 
 func _nearest_free(p: Vector2i) -> Vector2i:
@@ -168,16 +247,17 @@ func _build_ui() -> void:
 	ui.add_child(side)
 	# 胜负条件常驻在信息栏顶部，不随回合提示或结算消失。
 	var obj_w := 320.0 - 16.0 - SafeArea.MARGIN_X
-	lbl_win = _make_label(side, Vector2(16, 8), "", 16)
+	# 胜负条件各留两行（后面章节的条件比较长）
+	lbl_win = _make_label(side, Vector2(16, 4), "", 16)
 	lbl_win.name = "WinCondition"
-	lbl_win.size = Vector2(obj_w, 36)
+	lbl_win.size = Vector2(obj_w, 50)
 	lbl_win.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	lbl_win.clip_text = true
 	lbl_win.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	lbl_win.add_theme_color_override("font_color", Color(0.96, 0.86, 0.45))
-	lbl_lose = _make_label(side, Vector2(16, 46), "", 16)
+	lbl_lose = _make_label(side, Vector2(16, 56), "", 16)
 	lbl_lose.name = "LoseCondition"
-	lbl_lose.size = Vector2(obj_w, 40)
+	lbl_lose.size = Vector2(obj_w, 50)
 	lbl_lose.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	lbl_lose.clip_text = true
 	lbl_lose.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -185,7 +265,7 @@ func _build_ui() -> void:
 	_refresh_objectives()
 	# 立绘框（默认隐藏），让出上方胜负条件
 	info_portrait_frame = Panel.new()
-	info_portrait_frame.position = Vector2(16, 96)
+	info_portrait_frame.position = Vector2(16, 112)
 	info_portrait_frame.size = Vector2(128, 128)
 	info_portrait_frame.visible = false
 	var ipb := StyleBoxFlat.new()
@@ -200,7 +280,7 @@ func _build_ui() -> void:
 	info_portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	info_portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	info_portrait_frame.add_child(info_portrait)
-	info_label = _make_label(side, Vector2(16, 96), "", 20)
+	info_label = _make_label(side, Vector2(16, 112), "", 20)
 	info_label.size = Vector2(320 - 16 - SafeArea.MARGIN_X, 540)
 	info_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	# 底部提示栏
@@ -364,7 +444,7 @@ func _build_end_overlay() -> void:
 	end_sub = Label.new()
 	end_sub.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 	end_sub.position = Vector2(0, 330)
-	end_sub.size = Vector2(1280, 40)
+	end_sub.size = Vector2(1280, 80)
 	end_sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	end_sub.add_theme_font_size_override("font_size", 26)
 	end_sub.add_theme_color_override("font_color", Color(0.8, 0.78, 0.72))
@@ -385,6 +465,13 @@ func _build_end_overlay() -> void:
 	end_restart.add_theme_font_size_override("font_size", 26)
 	end_restart.visible = false
 	end_overlay.add_child(end_restart)
+	end_next = Button.new()
+	end_next.name = "NextChapterButton"
+	end_next.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	end_next.custom_minimum_size = Vector2(420, maxi(56, SafeArea.MIN_HIT))
+	end_next.add_theme_font_size_override("font_size", 26)
+	end_next.visible = false
+	end_overlay.add_child(end_next)
 
 
 func _style_panel(p: Panel, c: Color) -> void:
@@ -419,8 +506,43 @@ func _make_button(text: String, pos: Vector2, min_size: Vector2, cb: Callable) -
 func _start_chapter() -> void:
 	state = S.STORY
 	update_topbar()
+	board.goal_tiles = chapter.goal_tiles()
 	await chapter.on_battle_start()
+	await _pending_promotions()
 	start_player_phase(true)
+
+
+## 剧情转职顺延：剧情点到了但不满 Lv10 的，满级后在队的下一章开场补上
+func _pending_promotions() -> void:
+	var tia := get_unit("tia")
+	if Campaign.flags.get("tia_awaken_pending", false) and tia != null and tia.is_player() and tia.level >= 10:
+		Campaign.flags.erase("tia_awaken_pending")
+		await awaken_tia(true)
+
+
+## 缇娅觉醒为炎刃使（剧情转职，不耗道具）。late = 顺延到后面章节开场补上的那一次。
+func awaken_tia(late := false) -> void:
+	var tia := get_unit("tia")
+	if tia == null:
+		return
+	var c_narr := Color(0.82, 0.82, 0.88)
+	var c_awake := Color(1.0, 0.45, 0.2)
+	var lines: Array = []
+	if late:
+		lines.append({"name": "", "color": c_narr, "text": tr("缇娅握剑的手忽然一烫。那天在渡口没能握住的火，这一次没有散去。")})
+	lines.append({"name": "缇娅·觉醒", "color": c_awake, "text": tr("……这一次，我握住它了。")})
+	lines.append({"name": "", "color": c_narr, "text": tr("剑士之路在火里折断。炎刃使，于此觉醒。")})
+	Audio.play_sfx("awaken")
+	await play_dialogue(lines)
+	tia.promote("炎刃使", {"hp": 3, "pwr": 2, "dfn": 1}, ["ember_blade"] + tia.weapons)
+	tia.hair_color = Color(1.0, 0.42, 0.12)
+	tia.armor_color = Color(0.72, 0.28, 0.16)
+	tia.body_color = Color(0.95, 0.40, 0.22)
+	tia.queue_redraw()
+	Audio.play_sfx("promote")
+	Audio.play_sfx("fire")
+	show_banner(tr("觉醒 · 炎刃使"), Color(1.0, 0.45, 0.15))
+	notify(tr("缇娅转职为炎刃使！"))
 
 
 func start_player_phase(first := false) -> void:
@@ -436,6 +558,8 @@ func start_player_phase(first := false) -> void:
 	Audio.play_sfx("phase")
 	show_banner(tr("第 %d 回合 · 我方回合") % turn, Color(0.45, 0.7, 1.0))
 	_gain_support_points()
+	if not first and await check_end_conditions():
+		return
 	await chapter.on_turn_start(turn)
 	if state == S.OVER:
 		return
@@ -473,7 +597,7 @@ func enemy_phase() -> void:
 		# 先把光标滑到行动的敌人身上，亮一下它的移动范围，让玩家看清是谁在动
 		cursor.set_grid(e.grid_pos)
 		var erange := board.move_range(e)
-		if mv != e.grid_pos or act.get("target") != null:
+		if mv != e.grid_pos or act.get("target") != null or act.get("heal") != null:
 			board.show_move(erange, {})
 			await get_tree().create_timer(ENEMY_FOCUS_TIME).timeout
 			board.clear_highlights()
@@ -488,6 +612,8 @@ func enemy_phase() -> void:
 			await do_combat(e, act["target"], act.get("weapon", 0))
 			if state == S.OVER:
 				return
+		elif act.get("heal") != null:
+			await do_heal(e, act["heal"])
 		e.has_acted = true
 		e.queue_redraw()
 		await get_tree().create_timer(ENEMY_GAP_TIME).timeout
@@ -559,6 +685,8 @@ func click_tile(p: Vector2i) -> void:
 			_move_click(p)
 		S.TARGET_SEL:
 			_target_click(p)
+		S.HEAL_SEL:
+			_heal_click(p)
 
 
 func cancel() -> void:
@@ -574,6 +702,8 @@ func cancel() -> void:
 			forecast_panel.visible = false
 			_open_action_menu(selected)
 		S.ITEM_MENU:
+			_open_action_menu(selected)
+		S.HEAL_SEL:
 			_open_action_menu(selected)
 		S.IDLE:
 			board.clear_highlights()
@@ -598,7 +728,7 @@ func _handle_system_back() -> void:
 
 
 func _has_cancel_layer() -> bool:
-	if state == S.MOVE_SEL or state == S.ACTION_MENU or state == S.WEAPON_SEL or state == S.TARGET_SEL or state == S.ITEM_MENU:
+	if state in [S.MOVE_SEL, S.ACTION_MENU, S.WEAPON_SEL, S.TARGET_SEL, S.ITEM_MENU, S.HEAL_SEL]:
 		return true
 	if state == S.IDLE and (not board.move_tiles.is_empty() or not board.atk_tiles.is_empty()):
 		return true
@@ -638,6 +768,7 @@ func _on_system_title() -> void:
 
 
 func _resume_idle() -> void:
+	board.goal_tiles = chapter.goal_tiles()
 	state = S.IDLE
 	update_topbar()
 	hint(tr("点击我方单位行动 · 点击敌人查看其威胁范围"))
@@ -648,7 +779,7 @@ func _resume_idle() -> void:
 
 
 func _apply_checkpoint(data: Dictionary) -> bool:
-	if str(data.get("chapter_id", "")) != CampaignSave.CHAPTER_ID:
+	if str(data.get("chapter_id", "")) != chapter.chapter_id():
 		return false
 	var list = data.get("units", [])
 	if typeof(list) != TYPE_ARRAY or list.is_empty():
@@ -815,7 +946,7 @@ func _preview_enemy(u: Unit) -> void:
 
 ## 回合开始时：相邻的支援对 +1 点数
 func _gain_support_points() -> void:
-	for key in chapter.SUPPORTS:
+	for key in chapter.supports():
 		var pair: Array = String(key).split("|")
 		var a := get_unit(pair[0])
 		var b := get_unit(pair[1])
@@ -823,7 +954,7 @@ func _gain_support_points() -> void:
 			continue
 		if GameData.dist(a.grid_pos, b.grid_pos) != 1:
 			continue
-		var need: int = chapter.SUPPORTS[key]["points_to_c"]
+		var need: int = chapter.supports()[key]["points_to_c"]
 		if support_points.get(key, 0) < need:
 			support_points[key] = support_points.get(key, 0) + 1
 			if support_points[key] == need:
@@ -834,7 +965,10 @@ func _open_action_menu(u: Unit) -> void:
 	state = S.ACTION_MENU
 	Audio.play_sfx("select")
 	var opts: Array = []
-	opts.append({"label": tr("攻击"), "enabled": not find_targets(u, -1).is_empty(), "cb": _on_menu_attack})
+	if u.can_attack():
+		opts.append({"label": tr("攻击"), "enabled": not find_targets(u, -1).is_empty(), "cb": _on_menu_attack})
+	if u.heal_staff() >= 0:
+		opts.append({"label": tr("治疗"), "enabled": not heal_targets(u).is_empty(), "cb": _on_menu_heal})
 	if board.tile_at(u.grid_pos) == "H" and not chapter.visited.has(u.grid_pos):
 		opts.append({"label": tr("访问"), "enabled": true, "cb": _on_menu_visit})
 	if chapter.get_talk_partner(u) != null:
@@ -1011,9 +1145,63 @@ func _finish_action(u: Unit) -> void:
 	selected = null
 	if state == S.OVER:
 		return
+	state = S.COMBAT
+	await chapter.on_action_end(u)
+	if await check_end_conditions():
+		return
 	state = S.IDLE
 	_update_hover_info()
 	after_player_action()
+
+
+# ==================== 治疗 ====================
+
+## u 身边能治疗的友方（相邻、受伤、存活）
+func heal_targets(u: Unit) -> Array:
+	var out: Array = []
+	if u.heal_staff() < 0:
+		return out
+	for v in units:
+		if v == u or not v.is_alive() or v.is_player() != u.is_player():
+			continue
+		if v.hp < v.max_hp and GameData.dist(u.grid_pos, v.grid_pos) == 1:
+			out.append(v)
+	return out
+
+
+func _on_menu_heal() -> void:
+	targets = heal_targets(selected)
+	if targets.is_empty():
+		return
+	state = S.HEAL_SEL
+	_clear_menu()
+	var tiles := {}
+	for t in targets:
+		tiles[t.grid_pos] = true
+	board.show_move(tiles, {})
+	hint(tr("选择要治疗的同伴（返回）"))
+
+
+func _heal_click(p: Vector2i) -> void:
+	var v := board.unit_at(p)
+	if v == null or not v in targets:
+		return
+	var u := selected
+	state = S.COMBAT
+	board.clear_highlights()
+	await do_heal(u, v)
+	_finish_action(u)
+
+
+## 治疗：杖的回复量 + 力（魔力）。我方治疗者每次得 12 经验。
+func do_heal(healer: Unit, target: Unit) -> void:
+	var amount := healer.heal_amount()
+	target.heal(amount)
+	Audio.play_sfx("heal")
+	_float_text(target, "HP +%d" % amount, Color(0.5, 1.0, 0.5))
+	await get_tree().create_timer(0.45).timeout
+	if healer.is_player() and healer.is_alive():
+		await _give_xp(healer, 12)
 
 
 func after_player_action() -> void:
@@ -1126,16 +1314,17 @@ func do_combat(att: Unit, def: Unit, wi: int) -> void:
 	if att.is_alive() and att.is_player():
 		var xp: int = Combat.xp_gain(att, def, not def.is_alive())
 		await _give_xp(att, xp)
+	elif def.is_alive() and def.is_player() and not att.is_player():
+		# 防守方也拿经验（被打、反击都算）
+		var dxp: int = Combat.xp_gain(def, att, not att.is_alive())
+		await _give_xp(def, dxp)
 	await chapter.on_after_combat(att, def, not def.is_alive())
 	if await check_end_conditions():
 		return
 	att.has_acted = true
 	att.queue_redraw()
 	if att.is_player():
-		selected = null
-		state = S.IDLE
-		_update_hover_info()
-		after_player_action()
+		_finish_action(att)
 	else:
 		state = S.ENEMY
 
@@ -1164,22 +1353,21 @@ func _give_xp(u: Unit, n: int) -> void:
 # ==================== 胜负 ====================
 
 func check_end_conditions() -> bool:
-	var tia := get_unit("tia")
-	var balto := get_unit("balto")
-	if tia == null or not tia.is_alive() or balto == null or not balto.is_alive():
-		await _game_over()
+	if state == S.OVER:
 		return true
-	for u in units:
-		if not u.is_player() and u.is_alive():
-			return false
+	for id in chapter.lose_ids():
+		var u := get_unit(id)
+		if u == null or not u.is_alive():
+			await _game_over()
+			return true
+	if not chapter.is_won():
+		return false
 	await _victory()
 	return true
 
 
 func _victory() -> void:
 	state = S.OVER
-	if pending_chapter == null:
-		CampaignSave.mark_cleared()
 	hide_banner()
 	update_topbar()
 	Audio.stop_music()
@@ -1187,11 +1375,39 @@ func _victory() -> void:
 	Audio.play_sfx("victory")
 	await get_tree().create_timer(0.7).timeout
 	await chapter.on_victory()
+	# 存活的我方写回战役名单，推进到下一章
+	Campaign.store_party(units)
+	var st: Dictionary = chapter.after_victory_status()
+	for id in st:
+		Campaign.set_status(id, st[id])
+	Campaign.flags["support_points"] = support_points.duplicate()
+	Campaign.advance(gold)
+	if pending_chapter == null:
+		CampaignSave.write_chapter_start()
+	elif not Campaign.is_finished():
+		pending_chapter = Campaign.chapter_script()
 	end_restart.visible = false
+	var sub := tr(chapter.VICTORY_SUB)
+	if Campaign.is_finished():
+		end_next.visible = false
+		sub += "
+" + tr("（后续章节制作中）")
+	else:
+		end_next.visible = true
+		end_next.text = tr("进入下一章")
+		_bind_pressed(end_next, _on_next_chapter_pressed)
 	end_btn.visible = true
 	end_btn.text = tr("回到标题")
 	_bind_pressed(end_btn, _on_end_title_pressed)
-	_show_end(tr(chapter.VICTORY_TITLE), tr(chapter.VICTORY_SUB))
+	_show_end(tr(chapter.VICTORY_TITLE), sub)
+
+
+func _on_next_chapter_pressed() -> void:
+	var tree := get_tree()
+	if tree == null:
+		return
+	tree.paused = false
+	tree.change_scene_to_file("res://scenes/battle.tscn")
 
 
 func _game_over() -> void:
@@ -1221,6 +1437,8 @@ func _show_end(title: String, sub: String) -> void:
 
 func _layout_end_buttons() -> void:
 	var shown: Array[Button] = []
+	if end_next != null and end_next.visible:
+		shown.append(end_next)
 	if end_restart != null and end_restart.visible:
 		shown.append(end_restart)
 	if end_btn != null and end_btn.visible:
@@ -1260,8 +1478,12 @@ func restart_chapter() -> void:
 	if tree == null:
 		return
 	tree.paused = false
+	# 回到本章开场时的战役状态（名单、金钱、旗标），丢掉本关检查点
+	CampaignSave.pending_load = false
+	if not Campaign.restore_start(Campaign.chapter_index):
+		Campaign.snapshot_start()
 	if pending_chapter == null:
-		CampaignSave.clear()
+		CampaignSave.write_chapter_start()
 	tree.change_scene_to_file("res://scenes/battle.tscn")
 
 
@@ -1270,6 +1492,10 @@ func _refresh_objectives() -> void:
 		return
 	lbl_win.text = tr("胜利") + "  " + chapter.win_condition()
 	lbl_lose.text = tr("败北") + "  " + chapter.lose_condition()
+	# 中文句子里没有空格，按词折行折不开，改为按字折行；英文仍按词折行
+	var wrap := TextServer.AUTOWRAP_ARBITRARY if TranslationServer.get_locale().begins_with("zh") else TextServer.AUTOWRAP_WORD_SMART
+	lbl_win.autowrap_mode = wrap
+	lbl_lose.autowrap_mode = wrap
 
 
 func get_unit(id: String) -> Unit:
@@ -1394,21 +1620,26 @@ func _update_hover_info() -> void:
 		if portrait_key != "":
 			info_portrait.texture = load("res://art/portraits/%s.jpg" % portrait_key)
 			info_portrait_frame.visible = true
-			info_label.position = Vector2(16, 236)
+			info_label.position = Vector2(16, 252)
 		else:
 			info_portrait_frame.visible = false
-			info_label.position = Vector2(16, 96)
+			info_label.position = Vector2(16, 112)
 		info_label.text = _unit_info_text(u)
 	else:
 		info_portrait_frame.visible = false
-		info_label.position = Vector2(16, 96)
+		info_label.position = Vector2(16, 112)
 		var t: Dictionary = board.terrain(cursor.grid_pos)
 		var lv := board.level_at(cursor.grid_pos)
 		info_label.text = tr("【%s】 高度 Lv%d") % [tr(t["name"]), lv] + "\n" + tr("守备 +%d   回避 +%d") % [t["dfn"], t["avo"]]
+		if cursor.grid_pos in board.goal_tiles:
+			info_label.text += "\n" + tr("（撤离点）")
 
 
 func _unit_portrait_key(u: Unit) -> String:
 	match u.unit_id:
+		"harlo":
+			# 第一章报信的村里少年，沿用村民立绘
+			return "portrait_villager"
 		"tia":
 			# TODO(M3): 觉醒后仍用第一章立绘。专用「缇娅·觉醒」未到。
 			return "portrait_tia"

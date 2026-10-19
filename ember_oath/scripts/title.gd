@@ -1,7 +1,8 @@
 extends Control
 ## 标题画面：暗色背景 + 上升的余烬粒子
-## 新游戏 / 继续 / 语言 / 菜单是 Button，鼠标点击与触摸共用 pressed。
+## 新游戏 / 继续 / 章节选择 / 语言 / 菜单是 Button，鼠标点击与触摸共用 pressed。
 ## 已有存档时，新游戏先确认才会覆盖 user://save.cfg。
+## 打到过第二章以后出现「章节选择」：回到某一章开场时的队伍重新打（之后的进度作废）。
 
 var _embers: Array = []
 var _title: Label
@@ -9,7 +10,11 @@ var _sub: Label
 var _note: Label
 var _start: Button
 var _continue: Button
-var _chapter2: Button
+var _select: Button
+var _select_overlay: ColorRect
+var _select_label: Label
+var _select_box: VBoxContainer
+var _select_cancel: Button
 var _lang: Button
 var _menu: Button
 var _system
@@ -94,15 +99,15 @@ func _ready() -> void:
 	_start.pressed.connect(_on_start)
 	add_child(_start)
 
-	var ch2_size := Vector2(240, maxf(56, SafeArea.MIN_HIT))
-	_chapter2 = Button.new()
-	_chapter2.name = "Chapter2Button"
-	_chapter2.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
-	_chapter2.custom_minimum_size = ch2_size
-	_chapter2.size = ch2_size
-	_chapter2.add_theme_font_size_override("font_size", 26)
-	_chapter2.pressed.connect(_on_chapter2)
-	add_child(_chapter2)
+	var sel_size := Vector2(240, maxf(56, SafeArea.MIN_HIT))
+	_select = Button.new()
+	_select.name = "ChapterSelectButton"
+	_select.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	_select.custom_minimum_size = sel_size
+	_select.size = sel_size
+	_select.add_theme_font_size_override("font_size", 26)
+	_select.pressed.connect(_on_select)
+	add_child(_select)
 
 	var lang_size := Vector2(160, SafeArea.MIN_HIT)
 	_lang = Button.new()
@@ -127,6 +132,7 @@ func _ready() -> void:
 	add_child(_menu)
 
 	_build_confirm()
+	_build_select()
 	_system = load("res://scripts/system_menu.gd").new()
 	_system.show_title_button = false
 	add_child(_system)
@@ -153,10 +159,13 @@ func _label(size: int, color: Color, pos: Vector2, box: Vector2) -> Label:
 func _apply_locale(_code: String) -> void:
 	_title.text = tr("炎烬之誓")
 	_sub.text = tr("Emberflame Oath · 战棋原型")
-	_note.text = tr("第一章 · 边境的少女（原型 v0.1）")
+	_note.text = tr("第一篇 · 灰烬之芽（第 1–5 章，原型 v0.2）")
 	_start.text = tr("新游戏")
 	_continue.text = tr("继续游戏")
-	_chapter2.text = tr("第二章")
+	_select.text = tr("选择章节")
+	_select_label.text = tr("从所选章节的开头重新打起，之后的进度会被覆盖。")
+	_select_cancel.text = tr("取消")
+	_fill_select()
 	_lang.text = tr("LANG_SWITCH")
 	_menu.text = tr("菜单")
 	_confirm_label.text = tr("开始新游戏会覆盖当前存档，确定吗？")
@@ -168,15 +177,16 @@ func _apply_locale(_code: String) -> void:
 func _place_main_buttons() -> void:
 	var start_size := _start.size
 	var start_x := clampf((1280.0 - start_size.x) * 0.5, SafeArea.EDGE_ACTION, 1280.0 - SafeArea.EDGE_ACTION - start_size.x)
-	var has := CampaignSave.has_save()
+	var has := CampaignSave.has_save() and not CampaignSave.is_cleared()
 	_continue.visible = has
 	if has:
 		_continue.position = Vector2(start_x, 400)
 		_start.position = Vector2(start_x, 484)
 	else:
 		_start.position = Vector2(start_x, 450)
-	var ch2_x := clampf((1280.0 - _chapter2.size.x) * 0.5, SafeArea.EDGE_ACTION, 1280.0 - SafeArea.EDGE_ACTION - _chapter2.size.x)
-	_chapter2.position = Vector2(ch2_x, _start.position.y + start_size.y + 16)
+	var sel_x := clampf((1280.0 - _select.size.x) * 0.5, SafeArea.EDGE_ACTION, 1280.0 - SafeArea.EDGE_ACTION - _select.size.x)
+	_select.position = Vector2(sel_x, _start.position.y + start_size.y + 16)
+	_select.visible = _reached_chapters().size() > 1
 
 
 func _process(delta: float) -> void:
@@ -218,6 +228,7 @@ func _on_continue() -> void:
 func _begin_new_game() -> void:
 	_confirm.visible = false
 	CampaignSave.clear()
+	Campaign.reset()
 	load("res://scripts/battle.gd").queue_chapter(null)
 	get_tree().change_scene_to_file("res://scenes/narration.tscn")
 
@@ -246,6 +257,9 @@ func _handle_back() -> void:
 		return
 	if _confirm.visible:
 		_confirm.visible = false
+		return
+	if _select_overlay.visible:
+		_select_overlay.visible = false
 		return
 	_system.open()
 
@@ -286,6 +300,85 @@ func _build_confirm() -> void:
 	_confirm.add_child(_confirm_no)
 
 
-func _on_chapter2() -> void:
-	load("res://scripts/battle.gd").queue_chapter(load("res://scripts/chapter2.gd"))
+# ==================== 章节选择 ====================
+
+## 存档里记过开场快照的章节（打到过的章节）
+func _reached_chapters() -> Array:
+	if not CampaignSave.has_save():
+		return []
+	var payload := CampaignSave.read()
+	var c = payload.get("campaign", null)
+	if not c is Dictionary:
+		return [0]
+	var starts = c.get("starts", {})
+	var out: Array = []
+	if starts is Dictionary:
+		for k in starts:
+			var i := int(k)
+			if i < Campaign.chapter_count():
+				out.append(i)
+	out.sort()
+	return out
+
+
+func _build_select() -> void:
+	_select_overlay = ColorRect.new()
+	_select_overlay.name = "SelectOverlay"
+	_select_overlay.color = Color(0, 0, 0, 0.82)
+	_select_overlay.set_anchors_preset(PRESET_FULL_RECT)
+	_select_overlay.visible = false
+	_select_overlay.mouse_filter = MOUSE_FILTER_STOP
+	add_child(_select_overlay)
+	_select_label = Label.new()
+	_select_label.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	_select_label.position = Vector2(SafeArea.MARGIN_X, 90)
+	_select_label.size = Vector2(1280 - SafeArea.MARGIN_X * 2, 40)
+	_select_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_select_label.add_theme_font_size_override("font_size", 22)
+	_select_label.add_theme_color_override("font_color", Color(0.85, 0.8, 0.72))
+	_select_overlay.add_child(_select_label)
+	_select_box = VBoxContainer.new()
+	_select_box.position = Vector2(400, 150)
+	_select_box.size = Vector2(480, 400)
+	_select_box.add_theme_constant_override("separation", 10)
+	_select_overlay.add_child(_select_box)
+	_select_cancel = Button.new()
+	_select_cancel.name = "SelectCancelButton"
+	_select_cancel.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	_select_cancel.custom_minimum_size = Vector2(200, SafeArea.MIN_HIT)
+	_select_cancel.size = _select_cancel.custom_minimum_size
+	_select_cancel.position = Vector2(540, 720 - SafeArea.MARGIN_Y - SafeArea.MIN_HIT - 12)
+	_select_cancel.add_theme_font_size_override("font_size", 24)
+	_select_cancel.pressed.connect(func() -> void: _select_overlay.visible = false)
+	_select_overlay.add_child(_select_cancel)
+
+
+func _fill_select() -> void:
+	if _select_box == null:
+		return
+	for c in _select_box.get_children():
+		c.queue_free()
+	for i in _reached_chapters():
+		var b := Button.new()
+		b.name = "SelectChapter%d" % (i + 1)
+		b.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+		b.custom_minimum_size = Vector2(480, maxf(56, SafeArea.MIN_HIT))
+		b.add_theme_font_size_override("font_size", 24)
+		b.text = tr(str(Campaign.chapter_script(i).CHAPTER_TITLE))
+		var idx: int = i
+		b.pressed.connect(func() -> void: _start_from_chapter(idx))
+		_select_box.add_child(b)
+
+
+func _on_select() -> void:
+	_fill_select()
+	_select_overlay.visible = true
+
+
+func _start_from_chapter(idx: int) -> void:
+	Campaign.load_payload(CampaignSave.read())
+	if not Campaign.restore_start(idx):
+		return
+	CampaignSave.write_chapter_start()
+	load("res://scripts/battle.gd").queue_chapter(null)
 	get_tree().change_scene_to_file("res://scenes/battle.tscn")

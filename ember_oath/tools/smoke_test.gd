@@ -14,7 +14,8 @@ func _ready() -> void:
 
 ## 看门狗：任何脚本错误导致 _run 中断时也能退出，避免挂死
 func _watchdog() -> void:
-	await get_tree().create_timer(180.0).timeout
+	# 不受 Engine.time_scale 影响（自动试玩会加速）
+	await get_tree().create_timer(300.0, true, false, true).timeout
 	print("WATCHDOG: 超时强制退出")
 	print("SMOKE TEST: TIMEOUT, %d FAILURES" % _failures.size())
 	for f_ in _failures:
@@ -29,6 +30,7 @@ func _run() -> void:
 	await _check_title_and_narration()
 	await _check_en_topbar()
 	GameLocale.set_code("zh_CN")
+	Campaign.reset()
 	battle = load("res://scenes/battle.tscn").instantiate()
 	get_tree().root.add_child(battle)
 	battle.set_process_unhandled_input(false)
@@ -432,6 +434,11 @@ func _run() -> void:
 	await _frames(2)
 	_check(battle.forecast_panel.visible, "应显示战斗预测面板")
 	battle._on_forecast_ok()
+	ok = await _wait_cond(func() -> bool: return battle.state == battle.S.OVER or (battle.state == battle.S.IDLE and target.is_alive()), 15.0)
+	if battle.state != battle.S.OVER and target.is_alive():
+		# 两下都没打中（命中 82%）：补刀后照常走胜利结算，避免随机失败
+		target.take_damage(999)
+		battle.check_end_conditions()
 	ok = await _wait_cond(func() -> bool: return battle.state == battle.S.OVER, 15.0)
 	_check(ok, "击杀最后敌人应进入 OVER")
 	ok = await _wait_cond(func() -> bool: return battle.end_overlay.visible, 15.0)
@@ -439,10 +446,17 @@ func _run() -> void:
 	_check("完" in battle.end_title.text, "结算标题应为「第一章 完」, 实际: " + battle.end_title.text)
 	_check(battle.end_btn.visible and battle.end_btn.text == "回到标题", "胜利结算应能回到标题，实际 " + battle.end_btn.text)
 	_check(battle.end_restart == null or not battle.end_restart.visible, "胜利结算不应显示重开本关")
-	_check(CampaignSave.is_cleared(), "章节胜利后存档应标为已通关")
+	_check(battle.end_next.visible and battle.end_next.text == "进入下一章", "第一章胜利后应能进入下一章，实际 " + battle.end_next.text)
+	_check(not CampaignSave.is_cleared(), "第一章胜利不等于战役通关")
 	var cleared_payload := CampaignSave.read()
-	_check(int(cleared_payload.get("turn", -1)) == battle.turn, "通关标记应保留获胜回合的检查点，实际回合 %s" % str(cleared_payload.get("turn", -1)))
-	_check(not (cleared_payload.get("units", []) as Array).is_empty(), "通关标记不应抹掉单位快照")
+	_check(str(cleared_payload.get("chapter_id", "")) == "ch2", "胜利后存档应指向第二章开场，实际 %s" % str(cleared_payload.get("chapter_id", "")))
+	_check((cleared_payload.get("units", []) as Array).is_empty(), "章节开场存档不应带单位快照")
+	_check(Campaign.chapter_index == 1, "战役应推进到第二章，实际 %d" % Campaign.chapter_index)
+	_check(Campaign.status_of("tia") == "active" and Campaign.status_of("balto") == "active", "缇娅、巴尔托应写进队伍名单")
+	_check(Campaign.status_of("bandit6") == "active", "说得过来的托比应写进队伍名单")
+	_check(str(Campaign.roster.get("bandit6", {}).get("name", "")) == "托比", "山贼小弟说得后应改名托比")
+	if Campaign.roster.has("tia"):
+		_check(int(Campaign.roster["tia"]["hp"]) == int(Campaign.roster["tia"]["max_hp"]), "写回名单时应满血")
 	_shot("08_victory.png")
 
 	# ---- 战败: 新开一局, 缇娅阵亡 ----
@@ -484,7 +498,8 @@ func _run() -> void:
 	_shot("10_gameover_balto.png")
 	await _check_save_roundtrip()
 
-	await _check_chapter2()
+	await _check_campaign_chapters()
+	await _check_autoplay()
 
 	print("========================================")
 	if _failures.is_empty():
@@ -497,64 +512,85 @@ func _run() -> void:
 
 
 ## 第二章：进图 → 开场强制觉醒转职 → 击杀最后一名敌人通关。
-func _check_chapter2() -> void:
-	_mark("第二章")
+## 第 2–5 章：队伍继承、章节衔接、各章胜负条件、治疗杖、觉醒顺延
+func _check_campaign_chapters() -> void:
+	_mark("战役：章节字串")
 	if battle != null and is_instance_valid(battle):
 		battle.queue_free()
 		await _frames(3)
 	GameLocale.set_code("en")
 	_check(tr("第二章 · 燃烧的村庄") == "Chapter 2 · The Burning Village", "英文章节名未译出: " + tr("第二章 · 燃烧的村庄"))
+	_check(tr("第三章 · 佣兵团的影子") == "Chapter 3 · Shadow of the Mercenaries", "第三章英文名未译出: " + tr("第三章 · 佣兵团的影子"))
+	_check(tr("第四章 · 圣焰审判官") == "Chapter 4 · The Inquisitor", "第四章英文名未译出: " + tr("第四章 · 圣焰审判官"))
+	_check(tr("第五章 · 离别") == "Chapter 5 · Farewell", "第五章英文名未译出: " + tr("第五章 · 离别"))
 	_check(tr("缇娅转职为炎刃使！") == "Tia promotes to Flame Blade!", "觉醒提示未译出: " + tr("缇娅转职为炎刃使！"))
-	_check(tr("……不。这火听我的。") == "…No. This fire answers to me.", "觉醒台词未译出: " + tr("……不。这火听我的。"))
+	_check(tr("……这一次，我握住它了。") != "……这一次，我握住它了。", "觉醒台词应有英文")
+	_check(tr("治疗") == "Heal", "治疗指令应有英文，实际 " + tr("治疗"))
+	_check(tr("进入下一章") == "Next Chapter", "下一章按钮应有英文，实际 " + tr("进入下一章"))
 	GameLocale.set_code("zh_CN")
-	load("res://scripts/battle.gd").queue_chapter(load("res://scripts/chapter2.gd"))
-	battle = load("res://scenes/battle.tscn").instantiate()
-	get_tree().root.add_child(battle)
-	battle.set_process_unhandled_input(false)
-	await _frames(6)
-	_check(battle.board.width == 15 and battle.board.height == 10, "第二章地图应为 15×10，实际 %d×%d" % [battle.board.width, battle.board.height])
-	_check(Board.TILE == 64 and battle.TILE == 64, "格子应为 64")
-	_check(battle.board.tiles != null and battle.board.is_burning(), "第二章应走图块地图并开启火场氛围")
-	await _frames(20)
-	_shot("11_chapter2_map.png")
-	_check(not battle.board.terrain(Vector2i(4, 0))["pass"], "火焰格应不可通行")
-	_check(battle.board.terrain(Vector2i(1, 0))["pass"], "焦土应可通行")
-	_check(battle.board.terrain(Vector2i(3, 0))["name"] == "废墟", "废墟地形名应为废墟")
-	_check(battle.units.size() == 7, "第二章初始应有 7 个单位，实际 %d" % battle.units.size())
-	var chapter_label := battle.ui.find_child("ChapterLabel", true, false) as Label
-	_check(chapter_label != null and chapter_label.text == "第二章 · 燃烧的村庄", "章节名应为燃烧的村庄，实际 " + (chapter_label.text if chapter_label != null else "null"))
+
+	# 经验：击杀 BOSS 额外 +25（大纲：缇娅 Lv1 击杀布洛克 Lv4 = 59）
+	var t_xp := Unit.new()
+	t_xp.setup(Chapter1.UNITS[0])
+	var b_xp := Unit.new()
+	b_xp.setup(Chapter1.UNITS[10])
+	_check(b_xp.is_boss and Combat.xp_gain(t_xp, b_xp, true) == 59, "击杀布洛克应得 59 经验，实际 %d" % Combat.xp_gain(t_xp, b_xp, true))
+	t_xp.free()
+	b_xp.free()
+
+	# ---- 模拟第一章打完：缇娅 Lv4 残血、托比在队、金钱 500 ----
+	_mark("第二章（队伍继承）")
+	CampaignSave.clear()
+	Campaign.reset()
+	var tia0 := Unit.new()
+	tia0.setup(Chapter1.UNITS[0])
+	tia0.level = 4
+	tia0.max_hp = 24
+	tia0.hp = 3
+	tia0.pwr = 7
+	tia0.xp = 55
+	var balto0 := Unit.new()
+	balto0.setup(Chapter1.UNITS[1])
+	var toby0 := Unit.new()
+	toby0.setup(Chapter1.expand([{"id": "bandit6", "pos": Vector2i(12, 7)}])[0])
+	toby0.faction = "player"
+	toby0.display_name = "托比"
+	Campaign.store_party([tia0, balto0, toby0])
+	Campaign.advance(500)
+	for u in [tia0, balto0, toby0]:
+		u.free()
+	load("res://scripts/battle.gd").queue_chapter(null)
+	await _new_battle()
+	_check(battle.chapter.chapter_id() == "ch2", "第一章之后应进第二章，实际 " + battle.chapter.chapter_id())
 	var tia = battle.get_unit("tia")
-	_check(tia != null and tia.class_label == "剑士", "进图时缇娅应为剑士")
-	_check(not battle.chapter.f_awaken, "进图对话未结束时不应已觉醒")
-	_check(Audio._current_music == "map", "第二章 BGM 应复用第一章 map")
+	_check(tia != null and tia.level == 4 and tia.xp == 55, "缇娅的等级经验应继承自第一章")
+	_check(tia != null and tia.hp == 24 and tia.max_hp == 24, "新章节开场应满血")
+	_check(battle.gold == 500, "金钱应继承，实际 %d" % battle.gold)
+	var toby = battle.get_unit("bandit6")
+	_check(toby != null and toby.is_player() and toby.display_name == "托比", "托比应随队进入第二章")
+	_check(battle.board.width == 15 and battle.board.height == 10, "第二章地图应为 15×10")
+	_check(battle.board.tiles != null and battle.board.is_burning(), "第二章应走图块地图并开启火场氛围")
 	_check(Audio._current_loop == "fire", "进图应叠火焰 loop")
-	_check(Audio._streams.get("awaken") != null, "觉醒 stinger 应已加载（可为静音占位）")
-	_check(Audio._streams.get("loop:fire") != null, "火焰 loop 应已加载（可为静音占位）")
-	# 跳过村庄被焚，停在觉醒台词上，此时尚未改职业。
-	battle.dialogue.skip_all()
-	await _frames(2)
-	_check(not battle.chapter.f_awaken, "觉醒台词期间尚未转职")
-	_check(tia.class_label == "剑士", "觉醒台词期间职业仍是剑士，实际 " + tia.class_label)
-	_check("火焰扑上缇娅的剑" in battle.dialogue._line_text or "这火听我的" in battle.dialogue._line_text, "应停在觉醒台词，实际 " + battle.dialogue._line_text)
-	battle.dialogue.skip_all()
-	await _frames(4)
-	_check(battle.chapter.f_awaken, "跳过觉醒台词后应完成转职")
-	_check(tia.class_label == "炎刃使", "缇娅应转职为炎刃使，实际 " + tia.class_label)
-	_check(CombatScene.fighter_key_for(tia) == "tia", "觉醒后炎刃使仍应用缇娅的战斗条带")
-	_check(tia.level == 1 and tia.xp == 0, "转职后应为 Lv1 且经验清零，Lv%d xp%d" % [tia.level, tia.xp])
-	_check(tia.max_hp == 23 and tia.pwr == 7 and tia.dfn == 4, "转职加成应为 HP23 力7 防4，实际 HP%d 力%d 防%d" % [tia.max_hp, tia.pwr, tia.dfn])
-	_check(tia.skl == 6 and tia.spd == 7, "未写进加成的技速应保留")
-	_check(tia.weapons == ["ember_blade"], "转职后武器应为炎刃，实际 %s" % str(tia.weapons))
-	_check("vulnerary" in tia.items, "剧情转职不应吃掉道具")
-	var ok: bool = await _wait_cond(func() -> bool: return battle.state == battle.S.IDLE, 8.0)
-	_check(ok, "觉醒后应进入我方回合，state=%d" % battle.state)
-	# 只留一名残血山贼，缇娅贴身击杀，走通关结算。
+	await _skip_story()
+	var harlo = battle.get_unit("harlo")
+	_check(harlo != null and harlo.is_player() and not harlo.has_acted, "哈洛应在开场剧情入队且本回合可行动")
+	_check(battle.chapter.flags.get("first_flame", false), "第二章应演完火焰初醒")
+	_check(tia.class_label == "剑士" and tia.weapons == ["iron_sword"], "第二章不转职（转职须满 Lv10），实际 " + tia.class_label)
+	_check(battle.units.size() == 11, "第二章应有我方 4 人 + 敌方 7 人，实际 %d" % battle.units.size())
+	_check(battle.state == battle.S.IDLE, "剧情后应进入我方回合，state=%d" % battle.state)
+	_check(not battle.board.terrain(Vector2i(4, 0))["pass"], "火焰格应不可通行")
+	await _frames(10)
+	_shot("11_chapter2_map.png")
+	harlo.grid_pos = tia.grid_pos + Vector2i(1, 0)
+	harlo.position = harlo.tile_center()
+	_check(battle.chapter.get_talk_partner(tia) == harlo, "缇娅与哈洛相邻应能对话")
+	# 只留一名残血山贼，缇娅贴身击杀
 	for e in battle.units:
 		if e.is_player() or not e.is_alive():
 			continue
 		if e.unit_id == "bandit1":
 			e.hp = 1
-			e.grid_pos = Vector2i(5, 7)
+			e.grid_pos = tia.grid_pos + Vector2i(0, -1)
 			e.position = e.tile_center()
 		else:
 			e.take_damage(999)
@@ -562,25 +598,369 @@ func _check_chapter2() -> void:
 	battle.click_tile(tia.grid_pos)
 	await _frames(2)
 	battle.click_tile(tia.grid_pos)
-	ok = await _wait_cond(func() -> bool: return battle.state == battle.S.ACTION_MENU, 5.0)
-	_check(ok, "觉醒后缇娅应能打开行动菜单")
+	var ok: bool = await _wait_cond(func() -> bool: return battle.state == battle.S.ACTION_MENU, 5.0)
+	_check(ok, "缇娅应能打开行动菜单")
 	battle._on_menu_attack()
 	await _frames(2)
-	_check(battle.state == battle.S.TARGET_SEL, "炎刃单武器应直接进入选目标，实际 %d" % battle.state)
-	battle.click_tile(Vector2i(5, 7))
+	battle.click_tile(tia.grid_pos + Vector2i(0, -1))
 	await _frames(2)
 	_check(battle.forecast_panel.visible, "应出现战斗预报")
-	battle._on_forecast_ok()
-	ok = await _wait_cond(func() -> bool: return battle.state == battle.S.OVER, 15.0)
-	_check(ok, "击杀最后敌人应通关，state=%d" % battle.state)
+	var tries := 0
+	while battle.get_unit("bandit1").is_alive() and tries < 6:
+		tries += 1
+		if battle.forecast_panel.visible:
+			battle._on_forecast_ok()
+		ok = await _wait_cond(func() -> bool: return battle.state != battle.S.COMBAT, 15.0)
+		if battle.get_unit("bandit1").is_alive() and battle.state != battle.S.OVER:
+			battle.get_unit("bandit1").take_damage(999)
+			battle.check_end_conditions()
 	ok = await _wait_cond(func() -> bool: return battle.end_overlay.visible, 15.0)
-	_check(ok, "通关后应显示结算")
-	_check("第二章" in battle.end_title.text and "完" in battle.end_title.text, "结算标题应为第二章完，实际 " + battle.end_title.text)
-	_check("炎刃" in tia.class_label, "通关时缇娅应仍是炎刃使")
+	_check(ok, "第二章胜利后应显示结算")
+	_check("第二章" in battle.end_title.text, "结算标题应为第二章完，实际 " + battle.end_title.text)
+	_check(battle.end_next.visible, "第二章胜利后应能进入下一章")
+	_check(Campaign.chapter_index == 2 and Campaign.status_of("harlo") == "active", "哈洛应写进名单，战役推进到第三章")
+	_check(str(CampaignSave.read().get("chapter_id", "")) == "ch3", "存档应指向第三章开场")
+
+	# ---- 第三章 ----
+	_mark("第三章")
+	await _new_battle()
+	_check(battle.chapter.chapter_id() == "ch3", "应进入第三章")
+	var edric = battle.get_unit("edric")
+	_check(edric != null and edric.is_player(), "艾德里克应以客串身份在我方")
+	_check("edric" in battle.chapter.lose_ids(), "第三章艾德里克倒下也算败北")
+	_check(battle.get_unit("harlo") != null and battle.get_unit("bandit6") != null, "哈洛、托比应随队")
+	var kain = battle.get_unit("kain")
+	_check(kain != null and not kain.is_player() and kain.hold, "凯因应是守着不动的敌人")
+	_check(battle.get_unit("nina") == null, "妮娜开场不在队")
+	await _skip_story()
+	await _frames(10)
+	_shot("12_chapter3_map.png")
+	_check(EnemyAI.choose(kain, battle.board, [battle.get_unit("tia")])["move_to"] == kain.grid_pos, "我方没进威胁范围时凯因不应移动")
+	# 访问猎户小屋 → 妮娜入队
+	harlo = battle.get_unit("harlo")
+	harlo.grid_pos = Chapter3.NINA_CABIN
+	harlo.position = harlo.tile_center()
+	battle.chapter.on_visit(harlo, Chapter3.NINA_CABIN)
+	ok = await _wait_cond(func() -> bool: return battle.get_unit("nina") != null and battle.state != battle.S.STORY, 8.0)
+	_check(ok and battle.get_unit("nina").is_player(), "访问山脚小屋后妮娜应入队")
+	# 缇娅说得凯因
+	tia = battle.get_unit("tia")
+	tia.grid_pos = kain.grid_pos + Vector2i(-1, 0)
+	tia.position = tia.tile_center()
+	_check(battle.chapter.get_recruit_target(tia) == kain, "缇娅与凯因相邻应能说得")
+	_check(battle.chapter.get_recruit_target(battle.get_unit("balto")) == null, "巴尔托不能说得凯因")
+	battle.chapter.on_recruit(tia)
+	ok = await _wait_cond(func() -> bool: return kain.is_player() and battle.state != battle.S.STORY, 8.0)
+	_check(ok, "说得后凯因应入队")
+	edric.grid_pos = tia.grid_pos + Vector2i(0, 1)
+	edric.position = edric.tile_center()
+	_check(battle.chapter.get_talk_partner(tia) == edric, "缇娅与艾德里克相邻应能对话")
+	# 击败霍克即通关（其余敌人还在）
+	battle.state = battle.S.IDLE
+	battle.get_unit("hawk").take_damage(999)
+	battle.check_end_conditions()
+	ok = await _wait_cond(func() -> bool: return battle.end_overlay.visible, 15.0)
+	_check(ok, "击败霍克应通关第三章")
+	_check(Campaign.status_of("edric") == "away", "艾德里克章末应离队")
+	_check(Campaign.status_of("nina") == "active" and Campaign.status_of("kain") == "active", "妮娜、凯因应写进名单")
+	_check(Campaign.gold == 900, "霍克的赏金应计入金钱，实际 %d" % Campaign.gold)
+
+	# ---- 第四章 ----
+	_mark("第四章")
+	await _new_battle()
+	_check(battle.chapter.chapter_id() == "ch4", "应进入第四章")
+	_check(battle.get_unit("edric") == null, "艾德里克离队后不应出场")
+	_check(battle.get_unit("nina") != null and battle.get_unit("kain") != null, "妮娜、凯因应随队")
+	var noya = battle.get_unit("noya")
+	_check(noya != null and not noya.is_player() and not noya.can_attack() and noya.heal_staff() == 0, "诺雅应是只带治疗杖的敌人")
+	_check(battle.board.goal_tiles.size() == 3, "第四章应标出 3 格撤离点")
+	await _skip_story()
+	await _frames(10)
+	_shot("13_chapter4_map.png")
+	# 敌方治疗 AI：骑士受伤，诺雅应走过去治疗
+	var knight1 = battle.get_unit("knight1")
+	knight1.hp -= 10
+	var players: Array = battle.units.filter(func(x) -> bool: return x.is_player() and x.is_alive())
+	var act: Dictionary = EnemyAI.choose(noya, battle.board, players)
+	_check(act.get("heal") == knight1 and act.get("target") == null, "敌方治疗者应去治疗受伤的骑士")
+	_check(Combat.forecast(battle.get_unit("tia"), noya, 0, battle.board)["d_can"] == false, "治疗杖不能反击")
+	# 说得诺雅，再用治疗杖给缇娅回血
+	tia = battle.get_unit("tia")
+	tia.grid_pos = noya.grid_pos + Vector2i(-1, 0)
+	tia.position = tia.tile_center()
+	battle.chapter.on_recruit(tia)
+	ok = await _wait_cond(func() -> bool: return noya.is_player() and battle.state != battle.S.STORY, 8.0)
+	_check(ok, "缇娅说得后诺雅应入队")
+	battle.state = battle.S.IDLE
+	tia.hp = 5
+	noya.has_acted = false
+	battle.click_tile(noya.grid_pos)
+	await _frames(2)
+	battle.click_tile(noya.grid_pos)
+	ok = await _wait_cond(func() -> bool: return battle.state == battle.S.ACTION_MENU, 5.0)
+	_check(ok, "诺雅应能打开行动菜单")
+	var labels: Array = []
+	for b in battle.menu_box.get_children():
+		if b is Button and not b.is_queued_for_deletion():
+			labels.append(b.text)
+	_check("治疗" in labels and not "攻击" in labels, "诺雅的菜单应有治疗、没有攻击，实际 %s" % str(labels))
+	var xp_before: int = noya.xp
+	battle._on_menu_heal()
+	_check(battle.state == battle.S.HEAL_SEL, "应进入选择治疗对象")
+	battle.click_tile(tia.grid_pos)
+	ok = await _wait_cond(func() -> bool: return battle.state == battle.S.IDLE, 8.0)
+	_check(ok and tia.hp == 5 + noya.heal_amount(), "治疗后缇娅应回 %d HP，实际 HP %d" % [noya.heal_amount(), tia.hp])
+	_check(noya.xp == xp_before + 12 or noya.level > 4, "治疗应给诺雅 12 经验")
+	# 缇娅踏上撤离点 → 通关
+	tia.grid_pos = Chapter4.GOAL[0]
+	tia.position = tia.tile_center()
+	tia.has_acted = false
+	battle._finish_action(tia)
+	ok = await _wait_cond(func() -> bool: return battle.end_overlay.visible, 15.0)
+	_check(ok, "缇娅抵达撤离点应通关第四章")
+	_check(Campaign.status_of("balto") == "away", "巴尔托断后重伤，章末应离队")
+	_check(Campaign.status_of("noya") == "active", "诺雅应写进名单")
+
+	# ---- 第五章 ----
+	_mark("第五章")
+	await _new_battle()
+	_check(battle.chapter.chapter_id() == "ch5", "应进入第五章")
+	_check(battle.get_unit("balto") == null and battle.get_unit("harlo") == null and battle.get_unit("bandit6") == null, "巴尔托、哈洛、托比都应留在村里")
+	_check(Campaign.status_of("harlo") == "away" and Campaign.status_of("bandit6") == "away", "哈洛、托比在名单里应为离队")
+	for id in ["tia", "nina", "kain", "noya"]:
+		_check(battle.get_unit(id) != null, "第五章应带上 " + id)
+	_check(battle.chapter.lose_ids() == ["tia"], "第五章只有缇娅倒下算败北")
+	var win_lbl: Label = battle.lbl_win
+	_check(win_lbl.get_line_count() == 2 and win_lbl.get_visible_line_count() >= 2, "第五章胜利条件应折成两行且完整可见，行数 %d 可见 %d" % [win_lbl.get_line_count(), win_lbl.get_visible_line_count()])
+	await _skip_story()
+	await _frames(10)
+	_shot("14_chapter5_map.png")
+	tia = battle.get_unit("tia")
+	# 觉醒剧情点：不满 Lv10 只演剧情、不转职，记下顺延
+	_check(tia.level < 10, "测试前提：缇娅不满 Lv10")
+	battle.chapter._awaken_point()
+	ok = await _wait_cond(func() -> bool: return battle.state != battle.S.STORY and Campaign.flags.get("tia_awaken_pending", false), 8.0)
+	_check(ok, "不满 Lv10 时应记下觉醒顺延")
+	_check(tia.class_label == "剑士", "不满 Lv10 不应转职，实际 " + tia.class_label)
+	# 满 Lv10 后补上转职
+	battle.state = battle.S.IDLE
+	tia.level = 10
+	var hp_before: int = tia.max_hp
+	battle._pending_promotions()
+	ok = await _wait_cond(func() -> bool: return tia.class_label == "炎刃使" and battle.state != battle.S.STORY, 8.0)
+	_check(ok, "满 Lv10 后应补上炎刃使转职")
+	_check(tia.level == 1 and tia.xp == 0 and tia.max_hp == hp_before + 3, "转职后 Lv1、经验清零、HP+3")
+	_check(tia.weapons[0] == "ember_blade" and "iron_sword" in tia.weapons, "转职后应拿到炎刃并保留铁剑，实际 %s" % str(tia.weapons))
+	_check(not Campaign.flags.has("tia_awaken_pending"), "补上转职后应清掉顺延标记")
+	# 守到第 7 回合即通关
+	battle.state = battle.S.IDLE
+	battle.turn = 6
+	battle.start_player_phase()
+	ok = await _wait_cond(func() -> bool: return battle.end_overlay.visible, 15.0)
+	_check(ok, "坚守到第 7 回合应通关第五章")
+	_check(not battle.end_next.visible, "第五章是目前最后一章，不应有下一章按钮")
+	_check("后续章节制作中" in battle.end_sub.text, "最后一章结算应说明后续制作中，实际 " + battle.end_sub.text)
+	_check(Campaign.is_finished() and CampaignSave.is_cleared(), "打完第五章应标为已通关")
+	await _frames(4)
+	_shot("15_chapter5_victory.png")
+
+	# ---- 标题：通关后隐藏继续，章节选择列出 5 章 ----
+	var title = load("res://scenes/title.tscn").instantiate()
+	add_child(title)
+	await _frames(2)
+	_check(not (title.get_node("ContinueButton") as Button).visible, "通关后不应再显示继续游戏")
+	var sel := title.get_node("ChapterSelectButton") as Button
+	_check(sel.visible, "打到过第二章后应显示章节选择")
+	_check(title._reached_chapters() == [0, 1, 2, 3, 4], "章节选择应列出第 1–5 章，实际 %s" % str(title._reached_chapters()))
+	title.queue_free()
+	await _frames(2)
+	_check(Campaign.restore_start(2) and Campaign.chapter_index == 2 and not Campaign.has_member("nina"), "回到第三章开场时名单里还没有妮娜")
+	CampaignSave.clear()
+	Campaign.reset()
 	load("res://scripts/battle.gd").queue_chapter(null)
 
 
+## 自动试玩：我方也交给 EnemyAI 操作，把第 2–5 章各打几个回合。
+## 只验证流程（敌方回合、治疗、增援、撤离 / 守关判定）不卡死、不报错；胜负结果打印出来供调难度参考。
+func _check_autoplay() -> void:
+	for spec in [[2, 3], [3, 4], [4, 5], [5, 7]]:
+		var idx: int = spec[0]
+		_mark("自动试玩 第 %d 章" % idx)
+		var res: Dictionary = await _autoplay(load("res://scripts/chapter%d.gd" % idx), spec[1])
+		print("[AUTOPLAY] ch%d %s" % [idx, str(res)])
+		_check(not res["stuck"], "第 %d 章自动试玩卡住了: %s" % [idx, str(res)])
+		_check(res["turn"] >= 2 or res["over"], "第 %d 章至少应打完一轮敌方回合: %s" % [idx, str(res)])
+	Engine.time_scale = 1.0
+	CampaignSave.clear()
+	Campaign.reset()
+	load("res://scripts/battle.gd").queue_chapter(null)
+
+
+func _autoplay(script: Script, max_turns: int) -> Dictionary:
+	CampaignSave.clear()
+	Campaign.reset()
+	load("res://scripts/battle.gd").queue_chapter(script)
+	await _new_battle()
+	await _skip_story()
+	Engine.time_scale = 6.0
+	var t := 0.0
+	var stuck := false
+	var last_turn := 0
+	while battle.state != battle.S.OVER and battle.turn <= max_turns:
+		if battle.turn != last_turn:
+			last_turn = battle.turn
+			var alive: Array = []
+			for v in battle.units:
+				if v.is_alive() and v.is_player():
+					alive.append("%s:%d/%d Lv%d" % [v.unit_id, v.hp, v.max_hp, v.level])
+			print("[AUTOPLAY]   turn %d %s" % [battle.turn, str(alive)])
+		if battle.state == battle.S.STORY:
+			battle.dialogue.skip_all()
+		if battle.combat_scene.active:
+			battle.combat_scene.skip()
+		if battle.state == battle.S.IDLE:
+			_auto_act()
+		await get_tree().create_timer(0.05, true, false, true).timeout
+		t += 0.05
+		if t > 90.0:
+			stuck = true
+			break
+	# 结算剧情也要放完
+	var t2 := 0.0
+	while (battle.state == battle.S.OVER or battle.state == battle.S.STORY) and not battle.end_overlay.visible and t2 < 10.0:
+		if battle.dialogue.visible:
+			battle.dialogue.skip_all()
+		await get_tree().create_timer(0.05).timeout
+		t2 += 0.05
+	Engine.time_scale = 1.0
+	var players := 0
+	var foes := 0
+	for u in battle.units:
+		if u.is_alive():
+			if u.is_player():
+				players += 1
+			else:
+				foes += 1
+	var over: bool = battle.end_overlay.visible
+	var won: bool = over and "完" in battle.end_title.text
+	return {"stuck": stuck, "over": over, "won": won, "turn": battle.turn, "players": players, "foes": foes}
+
+
+## 谨慎的自动玩家：算一算站到每一格之后下回合会挨多少打，不往敌群里冲；
+## 能安全出手就打（优先能击杀的），否则退到最安全的格子。撤离章让缇娅朝撤离点走。
+func _auto_act() -> void:
+	var u: Unit = null
+	for v in battle.units:
+		if v.is_player() and v.is_alive() and not v.has_acted:
+			u = v
+			break
+	if u == null:
+		return  # 最后一人行动完，after_player_action 会自己进敌方回合
+	var foes: Array = battle.units.filter(func(x) -> bool: return not x.is_player() and x.is_alive())
+	battle.selected = u
+	if foes.is_empty():
+		battle._finish_action(u)
+		return
+	if not u.can_attack():
+		var act: Dictionary = EnemyAI.choose(u, battle.board, foes)
+		if act.get("heal") != null:
+			u.grid_pos = act["move_to"]
+			u.position = u.tile_center()
+			battle.state = battle.S.COMBAT
+			_auto_heal(u, act["heal"])
+			return
+	var move: Dictionary = battle.board.move_range(u)
+	var goal: Array = battle.board.goal_tiles if u.unit_id == "tia" else []
+	# 败北条件里的人（缇娅、巴尔托等）倒下就输，真人会更护着他们
+	var key_unit: bool = u.unit_id in battle.chapter.lose_ids()
+	var risk := 3.0 if key_unit else 1.2
+	var lethal := u.hp * (0.6 if key_unit else 1.0)
+	var home := u.grid_pos
+	var best_score := -99999.0
+	var best_tile := home
+	var best_target: Unit = null
+	var best_wi := 0
+	for tile in move.keys():
+		u.grid_pos = tile
+		var danger := _danger_at(u, foes)
+		var base := -danger * risk
+		if danger >= lethal:
+			base -= 200.0
+		if not goal.is_empty():
+			var gd := 99
+			for g in goal:
+				gd = mini(gd, GameData.dist(tile, g))
+			base -= gd * 6.0
+			if tile in goal:
+				base += 500.0
+		if base > best_score:
+			best_score = base
+			best_tile = tile
+			best_target = null
+		for e in foes:
+			var d: int = GameData.dist(tile, e.grid_pos)
+			for wi in u.weapons.size():
+				if not battle.board.can_hit_from(u, d, wi):
+					continue
+				var f: Dictionary = Combat.forecast(u, e, wi, battle.board, tile)
+				var dealt: float = f["a_dmg"] * f["a_times"] * f["a_hit"] / 100.0
+				var taken: float = f["d_dmg"] * f["d_times"] * f["d_hit"] / 100.0 if f["d_can"] else 0.0
+				var score := base + dealt * 2.0 - taken * 1.5
+				if f["a_dmg"] * f["a_times"] >= e.hp:
+					score += 40.0
+				if f["d_can"] and f["d_dmg"] * f["d_times"] >= u.hp:
+					score -= 300.0
+				if score > best_score:
+					best_score = score
+					best_tile = tile
+					best_target = e
+					best_wi = wi
+	u.grid_pos = best_tile
+	u.position = u.tile_center()
+	if best_target != null:
+		battle.do_combat(u, best_target, best_wi)
+	else:
+		battle._finish_action(u)
+
+
+## 站在当前格时，下个敌方回合大约要挨多少伤害（能走到并打到它的敌人，按命中率折算）
+func _danger_at(u: Unit, foes: Array) -> float:
+	var total := 0.0
+	for e in foes:
+		if e.hold and not EnemyAI._threatened(e, battle.board, [u]):
+			continue
+		var reach: int = (0 if e.stationary else e.mov) + 2
+		if GameData.dist(e.grid_pos, u.grid_pos) > reach:
+			continue
+		var best := 0.0
+		for wi in e.weapons.size():
+			if GameData.WEAPONS[e.weapons[wi]]["type"] == "staff":
+				continue
+			var f: Dictionary = Combat.forecast(e, u, wi, battle.board, u.grid_pos + Vector2i(0, 1))
+			best = maxf(best, f["a_dmg"] * f["a_times"] * f["a_hit"] / 100.0)
+		total += best
+	return total
+
+
+func _auto_heal(u: Unit, v: Unit) -> void:
+	await battle.do_heal(u, v)
+	battle._finish_action(u)
+
+
+func _new_battle() -> void:
+	if battle != null and is_instance_valid(battle):
+		battle.queue_free()
+		await _frames(3)
+	battle = load("res://scenes/battle.tscn").instantiate()
+	get_tree().root.add_child(battle)
+	battle.set_process_unhandled_input(false)
+	await _frames(6)
+
+
 func _spawn_battle() -> void:
+	# 新开一局从第一章开始；读档时 battle 会用存档里的战役进度覆盖
+	if not CampaignSave.pending_load:
+		Campaign.reset()
 	battle = load("res://scenes/battle.tscn").instantiate()
 	get_tree().root.add_child(battle)
 	# 测试全程直接调用内部方法, 屏蔽真实鼠标输入, 防止用户动鼠标干扰
@@ -866,12 +1246,14 @@ func _check_title_and_narration() -> void:
 	_check(start.text == "新游戏", "标题新游戏按钮默认中文，实际 " + start.text)
 	var cont0 := title.get_node_or_null("ContinueButton") as Button
 	_check(cont0 != null and not cont0.visible, "没有存档时不应显示继续游戏")
-	var ch2 := title.get_node("Chapter2Button") as Button
-	_check(ch2 != null and ch2.text == "第二章", "标题应有第二章入口，实际 " + (ch2.text if ch2 != null else "null"))
-	if ch2 != null:
-		_check(ch2.position.y >= start.position.y + start.size.y - 0.01, "第二章按钮应在开始按钮下方")
-		_check(ch2.size.y >= SafeArea.MIN_HIT, "第二章按钮热区应 ≥ 48")
-		_check(ch2.position.y >= 520.0, "第二章按钮应落在标题立绘下沿之下，避免改动马尾裁切")
+	_check(title.get_node_or_null("Chapter2Button") == null, "第二章不再单独开入口，要从第一章打过去")
+	var sel := title.get_node("ChapterSelectButton") as Button
+	_check(sel != null and sel.text == "选择章节", "标题应有章节选择按钮，实际 " + (sel.text if sel != null else "null"))
+	_check(sel != null and not sel.visible, "没打到第二章时不应显示章节选择")
+	if sel != null:
+		_check(sel.position.y >= start.position.y + start.size.y - 0.01, "章节选择应在开始按钮下方")
+		_check(sel.size.y >= SafeArea.MIN_HIT, "章节选择热区应 ≥ 48")
+		_check(sel.position.y >= 520.0, "章节选择应落在标题立绘下沿之下，避免改动马尾裁切")
 	_check(lang.text == "English", "中文界面的语言按钮应写 English，实际 " + lang.text)
 	var lang_right := lang.position.x + lang.size.x
 	_check(lang_right <= 1280.0 - SafeArea.EDGE_ACTION + 0.01, "语言按钮应避开右缘 80px，右缘 %s" % lang_right)
@@ -879,7 +1261,7 @@ func _check_title_and_narration() -> void:
 	_check(start.size.y >= SafeArea.MIN_HIT, "开始按钮热区应 ≥ 48")
 	GameLocale.toggle()
 	_check(start.text == "New Game", "切换英文后新游戏按钮应为 New Game，实际 " + start.text)
-	_check(ch2 != null and ch2.text == "Chapter 2", "英文第二章按钮应为 Chapter 2，实际 " + (ch2.text if ch2 != null else "null"))
+	_check(sel != null and sel.text == "Chapters", "英文章节选择应为 Chapters，实际 " + (sel.text if sel != null else "null"))
 	_check(lang.text == "中文", "英文界面的语言按钮应写 中文，实际 " + lang.text)
 	_check(tr("新游戏") == "New Game", "切换后 tr(新游戏) 应为 New Game")
 	GameLocale.toggle()

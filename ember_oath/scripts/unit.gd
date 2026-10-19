@@ -21,6 +21,7 @@ var weapons: Array = []         # weapon id 列表
 var items: Array = []           # item id 列表
 var growths := {"hp": 50, "pwr": 30, "skl": 30, "spd": 30, "dfn": 20}
 var stationary := false         # 不移动（守点 BOSS）
+var hold := false               # 守点：我方进入威胁范围前不动
 var is_boss := false
 var grid_pos := Vector2i.ZERO
 var has_acted := false
@@ -101,6 +102,7 @@ func setup(def: Dictionary) -> void:
 	if def.has("growths"):
 		growths = def["growths"]
 	stationary = def.get("stationary", false)
+	hold = def.get("hold", false)
 	is_boss = def.get("boss", false)
 	grid_pos = def.get("pos", Vector2i.ZERO)
 	body_color = def.get("color", Color(0.5, 0.5, 0.6))
@@ -241,6 +243,8 @@ func weapon_kind() -> String:
 func weapon_ranges() -> Array:
 	var out: Array = []
 	for w in weapons:
+		if GameData.WEAPONS[w]["type"] == "staff":
+			continue
 		for r in GameData.WEAPONS[w]["rng"]:
 			if r not in out:
 				out.append(r)
@@ -248,7 +252,34 @@ func weapon_ranges() -> Array:
 
 
 func can_hit(d: int, idx := 0) -> bool:
-	return d in GameData.WEAPONS[weapons[idx]]["rng"]
+	var w: Dictionary = GameData.WEAPONS[weapons[idx]]
+	if w["type"] == "staff":
+		return false
+	return d in w["rng"]
+
+
+## 有没有能拿来攻击的武器（只带杖的治疗者不能攻击）
+func can_attack() -> bool:
+	for w in weapons:
+		if GameData.WEAPONS[w]["type"] != "staff":
+			return true
+	return false
+
+
+## 治疗杖的索引，没有为 -1
+func heal_staff() -> int:
+	for i in weapons.size():
+		if GameData.WEAPONS[weapons[i]]["type"] == "staff":
+			return i
+	return -1
+
+
+## 治疗量 = 杖的回复量 + 力（当魔力用）
+func heal_amount() -> int:
+	var i := heal_staff()
+	if i < 0:
+		return 0
+	return int(GameData.WEAPONS[weapons[i]]["mt"]) + pwr
 
 
 ## 防守时自动选用能打到 dist 的武器, 返回索引(-1 = 无法反击)
@@ -337,6 +368,7 @@ func to_save() -> Dictionary:
 		"items": items.duplicate(),
 		"growths": growths.duplicate(),
 		"stationary": stationary,
+		"hold": hold,
 		"boss": is_boss,
 		"pos": [grid_pos.x, grid_pos.y],
 		"has_acted": has_acted,
@@ -372,6 +404,7 @@ func apply_save(data: Dictionary) -> void:
 		"weapons": data.get("weapons", []),
 		"items": data.get("items", []),
 		"stationary": bool(data.get("stationary", false)),
+		"hold": bool(data.get("hold", false)),
 		"boss": bool(data.get("boss", false)),
 		"pos": pos,
 		"color": _html_color(str(data.get("color", "")), Color(0.5, 0.5, 0.6)),
@@ -639,6 +672,11 @@ func _draw_weapon() -> void:
 			draw_colored_polygon(head, OUTLINE)
 			var head_in := PackedVector2Array([Vector2(15.8, -9.6), Vector2(21.6, -7.4), Vector2(21.6, -2.4), Vector2(15.8, -4.8)])
 			draw_colored_polygon(head_in, steel)
+		"staff":
+			draw_line(Vector2(15, 12), Vector2(15, -12), OUTLINE, 4.2)
+			draw_line(Vector2(15, 12), Vector2(15, -12), wood, 2.4)
+			draw_circle(Vector2(15, -14), 4.2, OUTLINE)
+			draw_circle(Vector2(15, -14), 3.0, Color(0.75, 0.95, 1.0))
 		"bow":
 			draw_arc(Vector2(17, 0), 10, -PI / 2, PI / 2, 12, OUTLINE, 4.2)
 			draw_arc(Vector2(17, 0), 10, -PI / 2, PI / 2, 12, wood, 2.4)

@@ -1,10 +1,14 @@
 class_name EnemyAI
 ## 敌方 AI：能打到就打（优先高期望伤害 / 能击杀的目标），否则向最近目标靠拢
 
-## 返回 {"move_to": Vector2i, "target": Unit 或 null, "weapon": int}
+## 返回 {"move_to": Vector2i, "target": Unit 或 null, "weapon": int, "heal": Unit 或 null}
 static func choose(u: Unit, board: Board, players: Array) -> Dictionary:
 	var alive: Array = players.filter(func(p) -> bool: return p.is_alive())
 	if alive.is_empty():
+		return {"move_to": u.grid_pos, "target": null, "weapon": 0}
+	if not u.can_attack():
+		return _choose_healer(u, board, alive)
+	if u.hold and not _threatened(u, board, alive):
 		return {"move_to": u.grid_pos, "target": null, "weapon": 0}
 	if u.stationary:
 		var t := _best_target_from(u, u.grid_pos, alive, board)
@@ -86,3 +90,44 @@ static func _nearest(from: Vector2i, units: Array) -> Unit:
 			bd = d
 			best = p
 	return best
+
+
+## 守点单位：我方有人进入它的威胁范围（移动范围 + 射程）之前不动
+static func _threatened(u: Unit, board: Board, players: Array) -> bool:
+	var area := board.full_attack_area(u, board.move_range(u))
+	for p in players:
+		if area.has(p.grid_pos):
+			return true
+	return false
+
+
+## 治疗者：能治就治伤得最重的同伴；没人可治就躲在同伴身后、离我方远一点
+static func _choose_healer(u: Unit, board: Board, players: Array) -> Dictionary:
+	var allies: Array = []
+	for v in board.units:
+		if v != u and v.is_alive() and v.is_player() == u.is_player():
+			allies.append(v)
+	var move: Dictionary = board.move_range(u)
+	var best_tile := u.grid_pos
+	var best_target: Unit = null
+	var best_missing := 0
+	for tile in move.keys():
+		for v in allies:
+			var missing: int = v.max_hp - v.hp
+			if missing > best_missing and GameData.dist(tile, v.grid_pos) == 1:
+				best_missing = missing
+				best_tile = tile
+				best_target = v
+	if best_target != null:
+		return {"move_to": best_tile, "target": null, "weapon": 0, "heal": best_target}
+	if allies.is_empty():
+		return {"move_to": u.grid_pos, "target": null, "weapon": 0}
+	var best_score := -9999.0
+	for tile in move.keys():
+		var ally: Unit = _nearest(tile, allies)
+		var foe: Unit = _nearest(tile, players)
+		var score := -float(GameData.dist(tile, ally.grid_pos)) + 0.6 * float(mini(GameData.dist(tile, foe.grid_pos), 6))
+		if score > best_score:
+			best_score = score
+			best_tile = tile
+	return {"move_to": best_tile, "target": null, "weapon": 0}

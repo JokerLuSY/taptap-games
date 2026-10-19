@@ -13,6 +13,7 @@ const PORTRAITS := {
 	"哈洛": "portrait_villager",
 	"村民": "portrait_villager",
 	"老奶奶": "portrait_granny",
+	"托比": "portrait_bandit",
 	# TODO(M3): 「缇娅·觉醒」专用立绘未到，暂复用第一章 portrait_tia。
 	"缇娅·觉醒": "portrait_tia",
 	# TODO(M3): 探子 / 马尔科没有新立绘，暂复用山贼，不挡通关。

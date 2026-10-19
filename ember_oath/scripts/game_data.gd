@@ -10,6 +10,15 @@ const WEAPONS := {
 	"iron_axe": {"name": "铁斧", "type": "axe", "mt": 7, "hit": 75, "crit": 0, "rng": [1]},
 	"war_axe": {"name": "战斧", "type": "axe", "mt": 9, "hit": 65, "crit": 0, "rng": [1]},
 	"iron_bow": {"name": "铁弓", "type": "bow", "mt": 6, "hit": 80, "crit": 5, "rng": [2]},
+	"steel_sword": {"name": "钢剑", "type": "sword", "mt": 8, "hit": 75, "crit": 0, "rng": [1]},
+	# 细剑：艾德里克的家传剑，轻、准、易出必杀
+	"rapier": {"name": "细剑", "type": "sword", "mt": 6, "hit": 95, "crit": 10, "rng": [1]},
+	"iron_lance": {"name": "铁枪", "type": "lance", "mt": 7, "hit": 80, "crit": 0, "rng": [1]},
+	"steel_lance": {"name": "钢枪", "type": "lance", "mt": 10, "hit": 70, "crit": 0, "rng": [1]},
+	"hand_axe": {"name": "手斧", "type": "axe", "mt": 7, "hit": 60, "crit": 0, "rng": [1, 2]},
+	"short_bow": {"name": "短弓", "type": "bow", "mt": 5, "hit": 85, "crit": 5, "rng": [2]},
+	# 治疗杖：不能攻击，也不能反击。回复量 = mt + 使用者的力
+	"heal_staff": {"name": "治疗杖", "type": "staff", "mt": 8, "hit": 100, "crit": 0, "rng": [1]},
 }
 
 ## 武器相克: 剑克斧, 斧克枪, 枪克剑

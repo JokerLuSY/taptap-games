@@ -103,6 +103,8 @@ static func xp_gain(att: Unit, def: Unit, killed: bool) -> int:
 	var base: int = clampi(10 + (def.level - att.level) * 3, 1, 60)
 	if killed:
 		base += 15
+		if def.is_boss:
+			base += 25
 	if att.level > def.level:
 		base = maxi(1, base - (att.level - def.level) * 3)
 	return base
