@@ -3,7 +3,7 @@ extends Node2D
 
 const TILE := 64
 
-enum S { STORY, IDLE, MOVE_SEL, ACTION_MENU, WEAPON_SEL, TARGET_SEL, ITEM_MENU, COMBAT, ENEMY, OVER, HEAL_SEL, PICK }
+enum S { STORY, IDLE, MOVE_SEL, ACTION_MENU, WEAPON_SEL, TARGET_SEL, ITEM_MENU, COMBAT, ENEMY, OVER, HEAL_SEL, PICK, PREP }
 
 var state: int = S.STORY
 var board: Board
@@ -22,6 +22,10 @@ var move_dict: Dictionary = {}
 var pre_move_pos := Vector2i.ZERO
 var _last_path: Array = []    # 最近一次我方移动的路径（撤销时原路走回）
 var targets: Array = []
+var prep: PrepScreen = null      # 出击准备界面
+var prep_pool: Array = []         # 本章可出击的我方单位
+var deployed: Array = []          # 出击中的单位
+var deploy_slots: Array = []      # 可部署的格子
 var _pick_tiles := {}             # 救出 / 放下 / 接手 / 交给：可点的格子
 var _pick_cb: Callable
 var danger_on := false
@@ -524,6 +528,8 @@ func _start_chapter() -> void:
 	update_topbar()
 	board.goal_tiles = chapter.goal_tiles()
 	await chapter.on_battle_start()
+	if chapter.prep_mode() != "":
+		await _run_prep()
 	await _pending_promotions()
 	start_player_phase(true)
 
@@ -750,6 +756,9 @@ func click_tile(p: Vector2i) -> void:
 		S.PICK:
 			if _pick_tiles.has(p):
 				_pick_cb.call(p)
+		S.PREP:
+			if prep != null:
+				prep.on_map_click(p)
 
 
 func cancel() -> void:
@@ -771,6 +780,9 @@ func cancel() -> void:
 		S.PICK:
 			board.clear_highlights()
 			_open_action_menu(selected)
+		S.PREP:
+			if prep != null and prep.in_deploy():
+				prep.show_menu()
 		S.IDLE:
 			board.clear_highlights()
 
@@ -1278,6 +1290,117 @@ func _finish_action(u: Unit) -> void:
 	state = S.IDLE
 	_update_hover_info()
 	after_player_action()
+
+
+# ==================== 出击准备（整备） ====================
+
+func prep_mode() -> String:
+	return chapter.prep_mode()
+
+
+func deploy_limit() -> int:
+	return clampi(chapter.deploy_limit(), forced_ids().filter(func(id) -> bool: return get_unit(id) != null).size(), prep_pool.size())
+
+
+func forced_ids() -> Array:
+	return chapter.forced_ids()
+
+
+func shop_items() -> Array:
+	return chapter.shop_items()
+
+
+## 招募提示：本章说得要谁出击
+func recruit_hints() -> Array:
+	var out: Array = []
+	var table: Dictionary = chapter.recruits()
+	for eid in table:
+		var e := get_unit(eid)
+		if e == null or e.is_player():
+			continue
+		var names: Array = []
+		for id in table[eid]:
+			var who := get_unit(id)
+			names.append(tr(who.display_name) if who != null else id)
+		out.append(tr("说得 %s：需要 %s 出击") % [tr(e.display_name), tr("、").join(PackedStringArray(names))])
+	return out
+
+
+## 开整备：开场站位 + 额外格子是部署格；先上必须出击的，再按顺序补满上限，其余待命
+func _run_prep() -> void:
+	prep_pool = units.filter(func(u) -> bool: return u.is_player() and u.on_map())
+	deploy_slots = []
+	for u in prep_pool:
+		deploy_slots.append(u.grid_pos)
+	for p in chapter.extra_deploy_slots():
+		if board.in_bounds(p) and board.terrain(p)["pass"] and not deploy_slots.has(p):
+			deploy_slots.append(p)
+	deployed = prep_pool.duplicate()
+	var limit := deploy_limit()
+	var forced := forced_ids()
+	var extra := deployed.filter(func(u) -> bool: return not u.unit_id in forced)
+	while deployed.size() > limit and not extra.is_empty():
+		set_deployed(extra.pop_back(), false)
+	state = S.PREP
+	prep = PrepScreen.new()
+	prep.name = "PrepScreen"
+	ui.add_child(prep)
+	prep.setup(self)
+	hint(tr("出击准备：选人、布阵、整理物品，准备好后点【开始战斗】"))
+	await prep.done
+	prep.queue_free()
+	prep = null
+	_finish_prep()
+	state = S.STORY
+
+
+## 结束整备：待命的人写回名单（物品交换的结果要留下），从本章地图上拿掉
+func _finish_prep() -> void:
+	for u in prep_pool:
+		if u in deployed:
+			continue
+		var data: Dictionary = u.to_save()
+		data["status"] = Campaign.status_of(u.unit_id) if Campaign.has_member(u.unit_id) else "active"
+		data["alive"] = true
+		data["hp"] = u.max_hp
+		Campaign.roster[u.unit_id] = data
+		units.erase(u)
+		u.queue_free()
+	board.clear_highlights()
+	update_topbar()
+
+
+## 出击 / 待命：待命的人移到地图外藏起来；出击的放到第一个空着的部署格
+func set_deployed(u: Unit, on: bool) -> void:
+	if on:
+		if u in deployed or deployed.size() >= deploy_limit():
+			return
+		for p in deploy_slots:
+			if board.unit_at(p) == null:
+				u.grid_pos = p
+				u.position = u.tile_center()
+				u.visible = true
+				deployed.append(u)
+				return
+		return
+	if not u in deployed:
+		return
+	deployed.erase(u)
+	u.grid_pos = Unit.OFF_MAP
+	u.visible = false
+
+
+## 布阵：把 u 挪到部署格 p；p 上有出击的同伴就互换
+func swap_deploy(u: Unit, p: Vector2i) -> void:
+	if not deploy_slots.has(p) or not u in deployed:
+		return
+	var other := board.unit_at(p)
+	var from := u.grid_pos
+	if other != null and other != u:
+		other.grid_pos = from
+		other.position = other.tile_center()
+	u.grid_pos = p
+	u.position = u.tile_center()
 
 
 # ==================== 救出 / 放下 / 接手 / 交给 ====================

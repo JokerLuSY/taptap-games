@@ -41,6 +41,33 @@ func after_victory_status() -> Dictionary:
 	return {}
 
 
+# ==================== 出击准备（整备） ====================
+
+## "" 不开整备；"pick" 只选人；"full" 选人 + 布阵 + 物品 + 商店
+func prep_mode() -> String:
+	return ""
+
+
+## 本章出击上限
+func deploy_limit() -> int:
+	return 99
+
+
+## 必须出击的单位（缺省 = 倒下就败北的那几位）
+func forced_ids() -> Array:
+	return lose_ids()
+
+
+## 除开场站位外，额外能部署的格子
+func extra_deploy_slots() -> Array:
+	return []
+
+
+## 商店卖的东西
+func shop_items() -> Array:
+	return ["vulnerary", "iron_sword", "steel_sword", "iron_lance", "iron_axe", "iron_bow", "fire", "heal_staff"]
+
+
 ## 撤离点等目标格（地图上金框标出）
 func goal_tiles() -> Array:
 	return []

@@ -119,6 +119,19 @@ func chapter_id() -> String:
 	return "ch5"
 
 
+## 出击准备：选人 + 布阵 + 物品 + 商店
+func prep_mode() -> String:
+	return "full"
+
+
+func deploy_limit() -> int:
+	return 4
+
+
+func extra_deploy_slots() -> Array:
+	return []
+
+
 func templates() -> Dictionary:
 	return {"church": _CHURCH, "knight": _KNIGHT, "merc": _MERC, "archer": _ARCHER, "mage": _MAGE}
 
@@ -193,7 +206,7 @@ func on_visit(u, pos: Vector2i) -> void:
 	visited[pos] = true
 	if pos == Vector2i(2, 1):
 		await battle.play_dialogue(_visit_farm())
-		u.give("vulnerary")
+		u.receive("vulnerary")
 		battle.notify(tr("获得 伤药"))
 
 

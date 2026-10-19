@@ -425,6 +425,12 @@ func give(id: String, uses := -2) -> bool:
 	return true
 
 
+## 剧情 / 访问得到的东西：背包满了就送进道具库
+func receive(id: String) -> void:
+	if not give(id):
+		Campaign.convoy.append([id, max_uses(id)])
+
+
 ## 用掉一次道具，用完从背包拿掉
 func use_item(idx: int) -> void:
 	item_uses[idx] = int(item_uses[idx]) - 1

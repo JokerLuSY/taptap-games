@@ -134,6 +134,19 @@ func chapter_id() -> String:
 	return "ch3"
 
 
+## 出击准备：选人 + 布阵 + 物品 + 商店
+func prep_mode() -> String:
+	return "full"
+
+
+func deploy_limit() -> int:
+	return 5
+
+
+func extra_deploy_slots() -> Array:
+	return []
+
+
 func templates() -> Dictionary:
 	return {"merc": _MERC, "bandit": _BANDIT, "archer": _ARCHER}
 
@@ -202,7 +215,7 @@ func on_visit(u, pos: Vector2i) -> void:
 		await battle.play_dialogue(_visit_nina())
 		battle.join_unit(NINA, pos)
 	else:
-		u.give("vulnerary")
+		u.receive("vulnerary")
 		battle.notify(tr("获得 伤药"))
 
 
@@ -230,7 +243,7 @@ func on_talked(key: String, _u, _partner) -> void:
 	if key == "tia_edric":
 		var tia = battle.get_unit("tia")
 		if tia != null:
-			tia.give("vulnerary")
+			tia.receive("vulnerary")
 			battle.notify(tr("缇娅 获得 伤药"))
 
 

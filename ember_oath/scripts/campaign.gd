@@ -19,6 +19,7 @@ static var roster := {}
 static var gold := 0
 static var flags := {}
 static var starts := {}             # {章节序号(字符串): 开场快照}
+static var convoy: Array = []       # 道具库：[[物品 id, 剩余次数], ...]，跨章节保留
 
 
 static func reset() -> void:
@@ -27,6 +28,7 @@ static func reset() -> void:
 	gold = 0
 	flags = {}
 	starts = {}
+	convoy = []
 	snapshot_start()
 
 
@@ -103,6 +105,7 @@ static func snapshot_start() -> void:
 		"roster": roster.duplicate(true),
 		"gold": gold,
 		"flags": flags.duplicate(true),
+		"convoy": convoy.duplicate(true),
 	}
 
 
@@ -115,6 +118,8 @@ static func restore_start(idx: int) -> bool:
 	roster = (snap.get("roster", {}) as Dictionary).duplicate(true)
 	gold = int(snap.get("gold", 0))
 	flags = (snap.get("flags", {}) as Dictionary).duplicate(true)
+	var cv = snap.get("convoy", [])
+	convoy = cv.duplicate(true) if cv is Array else []
 	# 之后的章节快照作废：从这一章重新打起
 	for k in starts.keys():
 		if int(k) > idx:
@@ -141,6 +146,7 @@ static func to_dict() -> Dictionary:
 		"gold": gold,
 		"flags": flags.duplicate(true),
 		"starts": starts.duplicate(true),
+		"convoy": convoy.duplicate(true),
 	}
 
 
@@ -151,6 +157,8 @@ static func from_dict(d: Dictionary) -> void:
 	gold = int(d.get("gold", 0))
 	var f = d.get("flags", {})
 	flags = f.duplicate(true) if f is Dictionary else {}
+	var cv = d.get("convoy", [])
+	convoy = cv.duplicate(true) if cv is Array else []
 	var s = d.get("starts", {})
 	starts = s.duplicate(true) if s is Dictionary else {}
 	if starts.is_empty():

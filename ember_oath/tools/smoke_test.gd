@@ -727,6 +727,49 @@ func _check_campaign_chapters() -> void:
 	var kain = battle.get_unit("kain")
 	_check(kain != null and not kain.is_player() and kain.hold, "凯因应是守着不动的敌人")
 	_check(battle.get_unit("nina") == null, "妮娜开场不在队")
+	# ---- 出击准备（整备） ----
+	_mark("出击准备")
+	var in_prep: bool = await _until_prep()
+	_check(in_prep, "第三章开场剧情后应进入出击准备")
+	if in_prep:
+		var pp: PrepScreen = battle.prep
+		var p_tia = battle.get_unit("tia")
+		var p_balto = battle.get_unit("balto")
+		var p_harlo = battle.get_unit("harlo")
+		_check(battle.deploy_limit() == 5 and battle.deployed.size() <= 5, "第三章出击上限 5")
+		_check("tia" in battle.forced_ids() and "edric" in battle.forced_ids(), "缇娅、艾德里克必须出击")
+		battle.set_deployed(p_harlo, false)
+		_check(not (p_harlo in battle.deployed) and not p_harlo.visible, "哈洛改成待命后应离开地图")
+		battle.set_deployed(p_harlo, true)
+		_check(p_harlo in battle.deployed and p_harlo.visible and battle.deploy_slots.has(p_harlo.grid_pos), "哈洛重新出击应站到部署格上")
+		var t_pos: Vector2i = p_tia.grid_pos
+		var b_pos: Vector2i = p_balto.grid_pos
+		battle.swap_deploy(p_tia, b_pos)
+		_check(p_tia.grid_pos == b_pos and p_balto.grid_pos == t_pos, "布阵：缇娅与巴尔托互换位置")
+		var gold_keep: int = battle.gold
+		battle.gold = 1000
+		pp._cur = p_tia
+		var vul_before: int = p_tia.items.count("vulnerary") + Campaign.convoy.size()
+		pp._buy("vulnerary")
+		_check(battle.gold == 700 and p_tia.items.count("vulnerary") + Campaign.convoy.size() == vul_before + 1, "商店：伤药 300G, 金钱应剩 700, 实际 %d" % battle.gold)
+		var inv_before: int = p_tia.inventory_size()
+		pp._to_convoy(0)
+		_check(p_tia.inventory_size() == inv_before - 1 and Campaign.convoy.size() >= 1, "存入道具库后背包少一件")
+		pp._from_convoy(Campaign.convoy.size() - 1)
+		_check(p_tia.inventory_size() == inv_before, "从道具库取回")
+		battle.gold = gold_keep
+		var hints: Array = battle.recruit_hints()
+		_check(hints.size() >= 1 and "凯因" in str(hints), "整备界面应提示说得凯因需要谁出击, 实际 %s" % str(hints))
+		pp.show_pick()
+		pp.show_items()
+		pp.show_shop()
+		pp.show_deploy()
+		pp.on_map_click(p_tia.grid_pos)
+		pp.on_map_click(t_pos)
+		_check(p_tia.grid_pos == t_pos, "布阵点击：缇娅移回原位")
+		pp.show_menu()
+		await _frames(3)
+		_shot("12b_prep.png")
 	await _skip_story()
 	await _frames(10)
 	_shot("12_chapter3_map.png")
@@ -766,6 +809,17 @@ func _check_campaign_chapters() -> void:
 	_check(battle.chapter.chapter_id() == "ch4", "应进入第四章")
 	_check(battle.get_unit("edric") == null, "艾德里克离队后不应出场")
 	_check(battle.get_unit("nina") != null and battle.get_unit("kain") != null, "妮娜、凯因应随队")
+	var ch4_ok: bool = await _until_prep()
+	_check(ch4_ok and battle.deployed.size() == 5 and battle.prep_pool.size() == 6, "第四章 6 人里出击 5 人, 实际 %d/%d" % [battle.deployed.size(), battle.prep_pool.size()])
+	var benched_ids: Array = []
+	for bu in battle.prep_pool:
+		if not bu in battle.deployed:
+			benched_ids.append(bu.unit_id)
+	battle.prep.done.emit()
+	await _frames(3)
+	if not benched_ids.is_empty():
+		var bid: String = benched_ids[0]
+		_check(battle.get_unit(bid) == null and Campaign.status_of(bid) == "active", "待命的 %s 不上场但仍在名单里" % bid)
 	var noya = battle.get_unit("noya")
 	_check(noya != null and not noya.is_player() and not noya.can_attack() and noya.heal_staff() == 0, "诺雅应是只带治疗杖的敌人")
 	_check(battle.board.goal_tiles.size() == 3, "第四章应标出 3 格撤离点")
@@ -911,6 +965,8 @@ func _autoplay(script: Script, max_turns: int) -> Dictionary:
 			print("[AUTOPLAY]   turn %d %s" % [battle.turn, str(alive)])
 		if battle.state == battle.S.STORY:
 			battle.dialogue.skip_all()
+		if battle.state == battle.S.PREP and battle.prep != null:
+			battle.prep.done.emit()
 		if battle.combat_scene.active:
 			battle.combat_scene.skip()
 		if battle.state == battle.S.IDLE:
@@ -1066,11 +1122,24 @@ func _spawn_battle() -> void:
 
 func _skip_story() -> void:
 	var t := 0.0
-	while battle.state == battle.S.STORY and t < 20.0:
-		battle.dialogue.skip_all()
+	while (battle.state == battle.S.STORY or battle.state == battle.S.PREP) and t < 20.0:
+		if battle.state == battle.S.PREP and battle.prep != null:
+			battle.prep.done.emit()   # 整备按默认阵容直接开打
+		else:
+			battle.dialogue.skip_all()
 		await get_tree().create_timer(0.15).timeout
 		t += 0.15
 	await _frames(2)
+
+
+## 跳过开场剧情，停在出击准备界面
+func _until_prep() -> bool:
+	var t := 0.0
+	while battle.state != battle.S.PREP and t < 20.0:
+		battle.dialogue.skip_all()
+		await get_tree().create_timer(0.15).timeout
+		t += 0.15
+	return battle.state == battle.S.PREP and battle.prep != null
 
 
 func _wait_cond(cond: Callable, timeout: float) -> bool:
