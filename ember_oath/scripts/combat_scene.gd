@@ -72,6 +72,10 @@ const FIGHTER_BY_ID := {
 	"silas": "silas",
 	"hawk": "hawk",
 	"barrett": "barrett",
+	"cyril": "cyril",
+	"sparrow": "sparrow",
+	"august": "barrett",
+	"lorenz": "knight",
 }
 const FIGHTER_BY_PREFIX := [["mage", "mage"], ["bandit", "bandit"], ["archer", "archer"], ["church", "church"], ["knight", "knight"], ["merc", "merc"]]
 const FIGHTER_BY_WEAPON := {"sword": "scout", "lance": "balto", "axe": "bandit", "bow": "archer", "staff": "noya", "anima": "mage", "light": "mage", "dark": "mage"}

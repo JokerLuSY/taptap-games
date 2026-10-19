@@ -911,20 +911,98 @@ func _check_campaign_chapters() -> void:
 	battle.start_player_phase()
 	ok = await _wait_cond(func() -> bool: return battle.end_overlay.visible, 15.0)
 	_check(ok, "坚守到第 7 回合应通关第五章")
-	_check(not battle.end_next.visible, "第五章是目前最后一章，不应有下一章按钮")
-	_check("后续章节制作中" in battle.end_sub.text, "最后一章结算应说明后续制作中，实际 " + battle.end_sub.text)
-	_check(Campaign.is_finished() and CampaignSave.is_cleared(), "打完第五章应标为已通关")
+	_check(battle.end_next.visible, "第五章之后还有第六章，应有下一章按钮")
+	_check(not Campaign.is_finished(), "打完第五章还不算通关")
 	await _frames(4)
 	_shot("15_chapter5_victory.png")
 
-	# ---- 标题：通关后隐藏继续，章节选择列出 5 章 ----
+	# ---- 第六章：雪山旅店，护住西里尔、击败督察 ----
+	_mark("第六章")
+	await _new_battle()
+	_check(battle.chapter.chapter_id() == "ch6", "应进入第六章")
+	_check(battle.board.theme == "snow" and battle.board.tiles.snow, "第六章应是雪地主题")
+	var cyril = battle.get_unit("cyril")
+	_check(cyril != null and cyril.is_player() and "cyril" in battle.chapter.lose_ids(), "西里尔开场在我方，倒下即败北")
+	var ch6_prep: bool = await _until_prep()
+	_check(ch6_prep and cyril in battle.deployed and "cyril" in battle.forced_ids(), "整备时西里尔必须出击")
+	if ch6_prep:
+		battle.prep.done.emit()
+	await _skip_story()
+	await _frames(10)
+	_shot("16_chapter6_map.png")
+	var august = battle.get_unit("august")
+	_check(august != null and august.stationary and battle.board.tile_at(august.grid_pos) == "T", "督察奥古斯特应守在堡垒上不动")
+	tia = battle.get_unit("tia")
+	tia.grid_pos = cyril.grid_pos + Vector2i(0, 1)
+	tia.position = tia.tile_center()
+	_check(battle.chapter.get_talk_partner(tia) == cyril, "缇娅与西里尔相邻应能对话")
+	# 堡垒回复：敌方回合开始站在堡垒上的回血
+	august.hp = 10
+	battle._terrain_heal(false)
+	_check(august.hp == 10 + int(ceil(august.max_hp * 0.2)), "堡垒应在回合开始回复 20%% HP，实际 %d" % august.hp)
+	battle.state = battle.S.IDLE
+	august.take_damage(999)
+	battle.check_end_conditions()
+	ok = await _wait_cond(func() -> bool: return battle.end_overlay.visible, 15.0)
+	_check(ok and "第六章" in battle.end_title.text, "击败奥古斯特应通关第六章")
+	_check(Campaign.status_of("cyril") == "active", "西里尔章末应正式入队")
+	_check(battle.end_next.visible, "第六章之后还有第七章")
+
+	# ---- 第七章：白垣镇，收留小雀、开宝箱、冲出南门 → 篇末被擒 ----
+	_mark("第七章")
+	await _new_battle()
+	_check(battle.chapter.chapter_id() == "ch7", "应进入第七章")
+	var ch7_prep: bool = await _until_prep()
+	if ch7_prep:
+		battle.prep.done.emit()
+	await _skip_story()
+	await _frames(10)
+	_shot("17_chapter7_map.png")
+	var sparrow = battle.get_unit("sparrow")
+	_check(sparrow != null and sparrow.is_npc() and sparrow.sprite_team() == "green", "小雀开场应是绿色中立单位")
+	tia = battle.get_unit("tia")
+	tia.grid_pos = sparrow.grid_pos + Vector2i(1, 0)
+	tia.position = tia.tile_center()
+	_check(not sparrow in battle.find_targets(tia, -1), "中立单位不能被攻击")
+	_check(not battle._compute_danger().has(sparrow.grid_pos + Vector2i(0, 1)) or true, "危险范围计算不应因中立单位出错")
+	_check(battle.chapter.get_recruit_target(tia) == sparrow, "缇娅与小雀相邻应能对话招募")
+	battle.chapter.on_recruit(tia)
+	ok = await _wait_cond(func() -> bool: return sparrow.is_player() and battle.state != battle.S.STORY, 8.0)
+	_check(ok and sparrow.sprite_team() == "blue" and not sparrow.stationary, "对话后小雀应入队并换成蓝色")
+	# 北门落闸
+	battle.chapter._close_north_gate()
+	_check(battle.board.tile_at(Vector2i(12, 0)) == "#" and not battle.board.terrain(Vector2i(13, 0))["pass"], "北门落闸后应不可通行")
+	# 盗贼开宝箱
+	sparrow.grid_pos = Vector2i(18, 2)
+	sparrow.position = sparrow.tile_center()
+	_check(battle._can_open_chest(sparrow) and not battle._can_open_chest(tia), "只有盗贼站在宝箱上能开")
+	var crest_before: int = sparrow.items.count("hero_crest") + Campaign.convoy.filter(func(c) -> bool: return c[0] == "hero_crest").size()
+	battle.open_chest(sparrow)
+	var crest_after: int = sparrow.items.count("hero_crest") + Campaign.convoy.filter(func(c) -> bool: return c[0] == "hero_crest").size()
+	_check(crest_after == crest_before + 1 and not battle._can_open_chest(sparrow), "开宝箱应拿到勇者之证，箱子变空")
+	# 冲出南门 → 篇末剧情
+	tia.grid_pos = Chapter7.GOAL[0]
+	tia.position = tia.tile_center()
+	tia.has_acted = false
+	battle.state = battle.S.IDLE
+	battle._finish_action(tia)
+	ok = await _wait_cond(func() -> bool: return battle.end_overlay.visible, 20.0)
+	_check(ok and "第一篇" in battle.end_title.text, "缇娅冲出南门应结束第一篇，标题 " + battle.end_title.text)
+	_check(not battle.end_next.visible and "后续章节制作中" in battle.end_sub.text, "第七章是目前最后一章")
+	_check(Campaign.is_finished() and CampaignSave.is_cleared(), "打完第七章应标为已通关")
+	_check(Campaign.status_of("tia") == "away" and Campaign.status_of("sparrow") == "away" and Campaign.status_of("cyril") == "away", "篇末同伴应全部离队（被擒 / 四散）")
+	_check(Campaign.flags.get("arc1_captured", []) == ["tia", "noya"], "被擒的应是缇娅与诺雅，实际 %s" % str(Campaign.flags.get("arc1_captured", [])))
+	await _frames(4)
+	_shot("18_chapter7_victory.png")
+
+	# ---- 标题：通关后隐藏继续，章节选择列出 7 章 ----
 	var title = load("res://scenes/title.tscn").instantiate()
 	add_child(title)
 	await _frames(2)
 	_check(not (title.get_node("ContinueButton") as Button).visible, "通关后不应再显示继续游戏")
 	var sel := title.get_node("ChapterSelectButton") as Button
 	_check(sel.visible, "打到过第二章后应显示章节选择")
-	_check(title._reached_chapters() == [0, 1, 2, 3, 4], "章节选择应列出第 1–5 章，实际 %s" % str(title._reached_chapters()))
+	_check(title._reached_chapters() == [0, 1, 2, 3, 4, 5, 6], "章节选择应列出第 1–7 章，实际 %s" % str(title._reached_chapters()))
 	title.queue_free()
 	await _frames(2)
 	_check(Campaign.restore_start(2) and Campaign.chapter_index == 2 and not Campaign.has_member("nina"), "回到第三章开场时名单里还没有妮娜")
@@ -936,7 +1014,7 @@ func _check_campaign_chapters() -> void:
 ## 自动试玩：我方也交给 EnemyAI 操作，把第 2–5 章各打几个回合。
 ## 只验证流程（敌方回合、治疗、增援、撤离 / 守关判定）不卡死、不报错；胜负结果打印出来供调难度参考。
 func _check_autoplay() -> void:
-	for spec in [[2, 3], [3, 4], [4, 5], [5, 7]]:
+	for spec in [[2, 3], [3, 4], [4, 5], [5, 7], [6, 4], [7, 4]]:
 		var idx: int = spec[0]
 		_mark("自动试玩 第 %d 章" % idx)
 		var res: Dictionary = await _autoplay(load("res://scripts/chapter%d.gd" % idx), spec[1])

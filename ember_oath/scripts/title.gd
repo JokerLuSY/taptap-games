@@ -159,7 +159,7 @@ func _label(size: int, color: Color, pos: Vector2, box: Vector2) -> Label:
 func _apply_locale(_code: String) -> void:
 	_title.text = tr("炎烬之誓")
 	_sub.text = tr("Emberflame Oath · 战棋原型")
-	_note.text = tr("第一篇 · 灰烬之芽（第 1–5 章，原型 v0.2）")
+	_note.text = tr("第一篇 · 灰烬之芽（第 1–7 章，原型 v0.3）")
 	_start.text = tr("新游戏")
 	_continue.text = tr("继续游戏")
 	_select.text = tr("选择章节")

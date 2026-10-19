@@ -134,6 +134,7 @@ func _build_board() -> void:
 	board = Board.new()
 	board.units = units
 	board.view_size = map_clip.size
+	board.theme = str(chapter.get_script().get_script_constant_map().get("THEME", ""))
 	map_clip.add_child(board)
 	board.load_map(chapter.MAP, chapter.LEVELS, chapter.BG)
 	cursor = MapCursor.new()
@@ -455,6 +456,7 @@ func _start_chapter() -> void:
 	state = S.STORY
 	update_topbar()
 	board.goal_tiles = chapter.goal_tiles()
+	board.opened = chapter.visited
 	var lead := get_unit("tia")
 	if lead != null:
 		board.center_on(lead.grid_pos)
@@ -543,7 +545,7 @@ func enemy_phase() -> void:
 	for e in units.duplicate():
 		if state == S.OVER:
 			return
-		if e.is_player() or not e.is_alive():
+		if e.is_player() or e.is_npc() or not e.is_alive():
 			continue
 		var players: Array = units.filter(func(x) -> bool: return x.is_player() and x.on_map())
 		if players.is_empty():
@@ -813,7 +815,11 @@ func _on_system_title() -> void:
 
 
 func _resume_idle() -> void:
+	chapter.on_resume()
 	board.goal_tiles = chapter.goal_tiles()
+	board.opened = chapter.visited
+	if board.tiles != null:
+		board.tiles.queue_redraw()
 	state = S.IDLE
 	update_topbar()
 	_idle_hint()
@@ -1030,8 +1036,11 @@ func _open_action_menu(u: Unit) -> void:
 		opts.append({"label": tr("对话"), "enabled": true, "cb": _on_menu_talk})
 	if chapter.get_support_partner(u) != null:
 		opts.append({"label": tr("支援"), "enabled": true, "cb": _on_menu_support})
-	if chapter.get_recruit_target(u) != null:
-		opts.append({"label": tr("说得"), "enabled": true, "cb": _on_menu_recruit})
+	var rt = chapter.get_recruit_target(u)
+	if rt != null:
+		opts.append({"label": tr("对话") if rt.is_npc() else tr("说得"), "enabled": true, "cb": _on_menu_recruit})
+	if _can_open_chest(u):
+		opts.append({"label": tr("开宝箱"), "enabled": true, "cb": _on_menu_chest})
 	if not rescue_targets(u).is_empty():
 		opts.append({"label": tr("救出"), "enabled": true, "cb": _on_menu_rescue})
 	if u.carrying != null:
@@ -1227,6 +1236,32 @@ func _on_menu_support() -> void:
 	state = S.COMBAT
 	await chapter.on_support(selected)
 	_finish_action(selected)
+
+
+func _can_open_chest(u: Unit) -> bool:
+	return u.class_label in ["盗贼", "刺客"] and board.tile_at(u.grid_pos) == "Q" \
+		and not chapter.visited.has(u.grid_pos) and chapter.chests().has(u.grid_pos)
+
+
+func _on_menu_chest() -> void:
+	_clear_menu()
+	var u := selected
+	open_chest(u)
+	_finish_action(u)
+
+
+## 盗贼开宝箱：东西进背包（满了进道具库），箱子换成打开的样子
+func open_chest(u: Unit) -> void:
+	var item: String = chapter.chests().get(u.grid_pos, "")
+	chapter.visited[u.grid_pos] = true
+	board.opened = chapter.visited
+	if board.tiles != null:
+		board.tiles.queue_redraw()
+	if item == "":
+		return
+	Audio.play_sfx("coin")
+	u.receive(item)
+	notify(tr("%s 打开了宝箱：获得 %s") % [tr(u.display_name), tr(PrepScreen.item_name(item))])
 
 
 func _on_menu_recruit() -> void:
@@ -1651,7 +1686,7 @@ func toggle_danger() -> void:
 func _compute_danger() -> Dictionary:
 	var all := {}
 	for e in units:
-		if e.is_player() or not e.is_alive():
+		if e.is_player() or e.is_npc() or not e.is_alive():
 			continue
 		var move := board.move_range(e)
 		for t in move:
@@ -1667,7 +1702,7 @@ func _compute_danger() -> Dictionary:
 func find_targets(u: Unit, wi: int) -> Array:
 	var out: Array = []
 	for e in units:
-		if e.is_player() == u.is_player() or not e.is_alive():
+		if e.is_player() == u.is_player() or e.is_npc() or not e.is_alive():
 			continue
 		var d: int = GameData.dist(u.grid_pos, e.grid_pos)
 		if wi == -1:
@@ -2084,7 +2119,7 @@ func _unit_portrait_key(u: Unit) -> String:
 
 func _unit_info_text(u: Unit) -> String:
 	var lines: Array = []
-	var side := tr("我方") if u.is_player() else tr("敌方")
+	var side := tr("我方") if u.is_player() else (tr("中立") if u.is_npc() else tr("敌方"))
 	lines.append(tr("%s  Lv%d %s（%s）") % [tr(u.display_name), u.level, tr(u.class_label), side])
 	lines.append("HP %d/%d   EXP %d" % [u.hp, u.max_hp, u.xp])
 	lines.append(tr("力 %d   技 %d   速 %d") % [u.pwr, u.skl, u.spd])

@@ -78,6 +78,10 @@ const SPRITE_BY_ID := {
 	"silas": "silas",
 	"hawk": "hawk",
 	"barrett": "barrett",
+	"cyril": "cyril",
+	"sparrow": "sparrow",
+	"august": "barrett",
+	"lorenz": "knight",
 }
 const SPRITE_BY_PREFIX := [["mage", "mage"], ["bandit", "bandit"], ["archer", "archer"], ["church", "church"], ["knight", "knight"], ["merc", "merc"]]
 const SPRITE_PX := 4.0
@@ -181,10 +185,13 @@ func sprite_team() -> String:
 
 
 func _apply_team_texture() -> void:
-	var team := "blue" if is_player() else "red"
+	var team := "blue" if is_player() else ("green" if is_npc() else "red")
 	if team == _team:
 		return
 	var path := SPRITE_DIR + sprite_sheet + "_" + team + ".png"
+	if team == "green" and not ResourceLoader.exists(path):
+		team = "red"
+		path = SPRITE_DIR + sprite_sheet + "_red.png"
 	if not ResourceLoader.exists(path):
 		return
 	_team = team
@@ -247,6 +254,11 @@ func team_color() -> Color:
 
 func is_player() -> bool:
 	return faction == "player"
+
+
+## 中立（绿色）：不归任何一方行动，谁也打不了它，只能对话招募
+func is_npc() -> bool:
+	return faction == "npc"
 
 
 func is_alive() -> bool:

@@ -631,6 +631,8 @@ from fe_combat_art_ch2 import UNITS_CH2  # noqa: E402
 
 from fe_combat_art_classes import UNITS_CLASSES  # noqa: E402
 
+from fe_combat_art_ch6 import UNITS_CH6  # noqa: E402
+
 UNITS = {
     "tia": TIA,
     "balto": BALTO,
@@ -640,4 +642,5 @@ UNITS = {
     "boss": BOSS,
     **UNITS_CH2,
     **UNITS_CLASSES,
+    **UNITS_CH6,
 }

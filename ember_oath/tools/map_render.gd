@@ -32,6 +32,7 @@ func _render(idx: int) -> void:
 	board.units = []
 	vp.add_child(board)
 	board.view_size = Vector2(vp.size)
+	board.theme = str(consts.get("THEME", ""))
 	board.load_map(map, consts.get("LEVELS", []), "")
 	board.goal_tiles = ch.goal_tiles()
 	for def in ChapterBase.expand_with(consts.get("UNITS", []), ch.templates()):

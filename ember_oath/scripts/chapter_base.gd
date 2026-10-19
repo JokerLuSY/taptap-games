@@ -68,6 +68,11 @@ func shop_items() -> Array:
 	return ["vulnerary", "iron_sword", "steel_sword", "iron_lance", "iron_axe", "iron_bow", "fire", "heal_staff"]
 
 
+## 宝箱内容：{格子: 物品 id}。盗贼站上去开
+func chests() -> Dictionary:
+	return {}
+
+
 ## 撤离点等目标格（地图上金框标出）
 func goal_tiles() -> Array:
 	return []
@@ -76,7 +81,7 @@ func goal_tiles() -> Array:
 ## 胜利判定。默认：敌人全灭。
 func is_won() -> bool:
 	for u in battle.units:
-		if not u.is_player() and u.is_alive() and not u.get_meta("ally", false):
+		if not u.is_player() and not u.is_npc() and u.is_alive() and not u.get_meta("ally", false):
 			return false
 	return true
 
@@ -98,6 +103,11 @@ func lose_condition() -> String:
 func on_battle_start() -> void:
 	if false:
 		await battle.play_dialogue([])
+
+
+## 读档回到本章检查点后（地图已按 MAP 重建）：把剧情改过的地形等补回来
+func on_resume() -> void:
+	pass
 
 
 func on_turn_start(_t: int) -> void:
@@ -221,6 +231,7 @@ func on_recruit(u) -> void:
 	t.has_acted = true
 	t.queue_redraw()
 	battle.notify(tr("%s 成为同伴了！") % tr(t.display_name))
+	battle._update_hover_info()
 	await on_recruited(t, u)
 
 

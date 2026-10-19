@@ -125,6 +125,8 @@ const TERRAIN := {
 	"G": {"name": "城门", "pass": true, "cost": 1, "dfn": 2, "avo": 20, "heal": 10},
 	"K": {"name": "王座", "pass": true, "cost": 1, "dfn": 3, "avo": 30, "heal": 20},
 	"I": {"name": "石柱", "pass": true, "cost": 2, "dfn": 1, "avo": 20},
+	# 宝箱：盗贼站上去能开（章节 chests() 给内容）
+	"Q": {"name": "宝箱", "pass": true, "cost": 1, "dfn": 0, "avo": 0},
 }
 
 ## 道具：heal 回复量 / promote 转职道具（对应职业表里的 item）/ uses 使用次数 / price 商店价格

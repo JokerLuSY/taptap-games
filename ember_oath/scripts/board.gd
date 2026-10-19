@@ -45,6 +45,8 @@ var overlay: BoardOverlay
 ## 地图比视口小的那一维居中（origin 是居中留出的边）。
 var view_size := Vector2(1280, 720)
 var origin := Vector2.ZERO
+var theme := ""                     # 章节主题："snow" 雪地；火场由地图里有没有火焰格决定
+var opened := {}                    # 已打开的宝箱（就是章节的 visited）
 var scroll := Vector2.ZERO
 var _scroll_tween: Tween
 var tiles: MapTiles = null          # 静态地面（只画一次）
@@ -62,7 +64,7 @@ func _ready() -> void:
 
 ## bg_path 仅为兼容旧调用保留，已不再使用（地图统一走 CC0 图块）
 func load_map(map_rows: Array, map_levels: Array = [], _bg_path := "") -> void:
-	rows = map_rows
+	rows = map_rows.duplicate()      # 章节常量是只读的；剧情会改格子（关城门），拷一份
 	levels = map_levels
 	height = rows.size()
 	width = rows[0].length()
@@ -70,6 +72,16 @@ func load_map(map_rows: Array, map_levels: Array = [], _bg_path := "") -> void:
 	if MapTiles.available():
 		_build_tile_layers()
 	queue_redraw()
+
+
+## 剧情改地形（例如关城门）：改逻辑网格并重画静态层
+func set_tile(p: Vector2i, ch: String) -> void:
+	if not in_bounds(p) or not GameData.TERRAIN.has(ch):
+		return
+	var r: String = rows[p.y]
+	rows[p.y] = r.substr(0, p.x) + ch + r.substr(p.x + 1)
+	if tiles != null:
+		tiles.queue_redraw()
 
 
 func is_burning() -> bool:
@@ -86,6 +98,7 @@ func _build_tile_layers() -> void:
 	tiles.name = "MapTiles"
 	tiles.board = self
 	tiles.burning = burn
+	tiles.snow = theme == "snow"
 	tiles.z_index = -2
 	add_child(tiles)
 	fx = MapFx.new()
@@ -115,8 +128,31 @@ func _build_tile_layers() -> void:
 		# 夜里的火场：整体压暗偏橙，暗角更重；火光在 MapFx 里画在这层之上
 		mat.set_shader_parameter("grade", Color(0.22, 0.07, 0.03, 0.30))
 		mat.set_shader_parameter("vignette", 0.45)
+	if theme == "snow":
+		mat.set_shader_parameter("cloud_strength", 0.16)
+		mat.set_shader_parameter("grade", Color(0.55, 0.7, 1.0, 0.16))
+		mat.set_shader_parameter("vignette", 0.35)
 	atmosphere.material = mat
 	add_child(atmosphere)
+	if theme == "snow":
+		var flakes := CPUParticles2D.new()
+		flakes.name = "Snowfall"
+		flakes.z_index = 7
+		flakes.amount = clampi(width * height / 3, 60, 160)
+		flakes.lifetime = 9.0
+		flakes.preprocess = 9.0
+		flakes.position = Vector2(width * TILE / 2.0, -TILE)
+		flakes.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
+		flakes.emission_rect_extents = Vector2(width * TILE / 2.0 + TILE * 2, 8)
+		flakes.direction = Vector2(-0.25, 1)
+		flakes.spread = 18.0
+		flakes.gravity = Vector2(-4, 10)
+		flakes.initial_velocity_min = 40.0
+		flakes.initial_velocity_max = 70.0
+		flakes.scale_amount_min = 2.0
+		flakes.scale_amount_max = 4.0
+		flakes.color = Color(1, 1, 1, 0.85)
+		add_child(flakes)
 	if burn:
 		var embers := CPUParticles2D.new()
 		embers.name = "Embers"

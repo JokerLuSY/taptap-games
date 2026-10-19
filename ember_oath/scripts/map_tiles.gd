@@ -34,6 +34,12 @@ const TUFTS := [Rect2(0, 160, 16, 16), Rect2(16, 160, 16, 16), Rect2(48, 160, 16
 const PEBBLES := [Rect2(272, 208, 16, 16), Rect2(288, 208, 16, 16), Rect2(304, 208, 16, 16)]
 const BIG_ROCK := Rect2(208, 128, 32, 32)
 const STUMP := Rect2(64, 128, 16, 16)
+## 雪地：TilesetFloor 积雪地、TilesetNature 雪松 / 雪石
+const GRASS_SNOW := [Vector2i(0, 304), Vector2i(0, 304), Vector2i(0, 304), Vector2i(16, 304), Vector2i(32, 304), Vector2i(48, 304), Vector2i(64, 304)]
+const TREES_SNOW := [Rect2(128, 0, 32, 32), Rect2(160, 0, 32, 32), Rect2(192, 0, 32, 32)]
+const ROCK_SNOW := Rect2(32, 192, 32, 32)
+const CHEST_CLOSED := Rect2(0, 0, 16, 16)                               # Chest：大宝箱（关）
+const CHEST_OPEN := Rect2(16, 0, 16, 16)                                # Chest：大宝箱（开）
 const FORT_WALL := [Rect2(176, 144, 16, 16), Rect2(192, 144, 16, 16)]   # TilesetHouse：带垛口的石墙
 const FORT_POST := Rect2(176, 128, 16, 16)                              # TilesetHouse：石柱
 const CASTLE_WALL := Vector2i(64, 0)                                    # TilesetRelief：灰石墙 3×3
@@ -46,6 +52,7 @@ const POST := Rect2(176, 64, 16, 16)                # TilesetHouse：木桩（�
 
 var board: Board
 var burning := false                # 第二章：树换枯树、焦土更暗
+var snow := false                   # 雪地：草地换积雪、树换雪松、石头盖雪、道路换泥路
 var _tex := {}
 
 
@@ -58,7 +65,7 @@ static func available() -> bool:
 
 func _ready() -> void:
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	for n in ["TilesetFloor", "TilesetWater", "TilesetNature", "TilesetHouse", "TilesetVillageAbandoned", "TilesetElement", "TilesetRelief", "TilesetCamp", "TilesetInteriorFloor", "TilesetDungeon"]:
+	for n in ["TilesetFloor", "TilesetWater", "TilesetNature", "TilesetHouse", "TilesetVillageAbandoned", "TilesetElement", "TilesetRelief", "TilesetCamp", "TilesetInteriorFloor", "TilesetDungeon", "Chest"]:
 		if ResourceLoader.exists(DIR + n + ".png"):
 			_tex[n] = load(DIR + n + ".png")
 
@@ -93,13 +100,16 @@ func _draw_ground(p: Vector2i) -> void:
 		for dx in 2:
 			var sub := Vector2i(dx, dy)
 			var dst := Rect2(Vector2(p) * TILE + Vector2(sub) * SUB, Vector2(SUB, SUB))
-			var grass: Array = GRASS_DARK if burning else GRASS
+			var grass: Array = GRASS_SNOW if snow else (GRASS_DARK if burning else GRASS)
 			var g: Vector2i = grass[_hash(p * 2 + sub) % grass.size()]
 			_blit("TilesetFloor", Rect2(g, Vector2(16, 16)), dst)
 			var road: Vector2i = ROAD_SET_DARK if burning else ROAD_SET
 			match t:
 				"R":
-					_blit("TilesetFloor", _sub3(road, p, sub, "RBT"), dst)
+					if snow:
+						_blit("TilesetFloor", _sub3(SAND_SET, p, sub, "RBT"), dst, Color(0.78, 0.66, 0.6))
+					else:
+						_blit("TilesetFloor", _sub3(road, p, sub, "RBT"), dst)
 				"C", "E", "Z":
 					_blit("TilesetFloor", _sub3(road, p, sub, "CEZ" if burning else "CEZRBT"), dst)
 					_soot(p, sub)
@@ -107,6 +117,8 @@ func _draw_ground(p: Vector2i) -> void:
 					_blit("TilesetRelief", _sub3(FORT_SET, p, sub, "T"), dst, Color(0.82, 0.78, 0.74) if burning else Color.WHITE)
 				"~":
 					_blit("TilesetWater", _sub3(WATER_SET, p, sub, "~Bw"), dst)
+					if snow:
+						draw_rect(dst, Color(0.92, 0.96, 1.0, 0.45))     # 结冰的湖面
 				"w":
 					_blit("TilesetWater", _sub3(WATER_SET, p, sub, "~Bw"), dst)
 					draw_rect(dst, Color(0.85, 0.82, 0.55, 0.28))
@@ -238,12 +250,23 @@ func _draw_object(p: Vector2i) -> void:
 	var h := _hash(p)
 	match t:
 		"F":
-			if burning:
+			if snow:
+				_stand("TilesetNature", TREES_SNOW[h % TREES_SNOW.size()], p, 2.0)
+			elif burning:
 				_stand("TilesetNature", DEAD_TREE, p, 2.0)
 			else:
 				_stand("TilesetNature", TREES[h % TREES.size()], p, 2.0)
 		"M":
-			_stand("TilesetNature", ROCKS[h % ROCKS.size()], p, 2.0)
+			if snow:
+				_stand("TilesetNature", ROCK_SNOW, p, 2.0)
+			else:
+				_stand("TilesetNature", ROCKS[h % ROCKS.size()], p, 2.0)
+		"Q":
+			var o := Vector2(p) * TILE
+			draw_set_transform(o + Vector2(32, 52), 0, Vector2(1.0, 0.35))
+			draw_circle(Vector2.ZERO, 20.0, Color(0, 0, 0, 0.25))
+			draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
+			_blit("Chest", CHEST_OPEN if board.opened.has(p) else CHEST_CLOSED, Rect2(o + Vector2(8, 4), Vector2(48, 48)))
 		"H":
 			_stand("TilesetHouse", HUTS[h % HUTS.size()], p, 2.0 if HUTS[h % HUTS.size()].size.x <= 32 else 1.5)
 		"W":
@@ -271,7 +294,10 @@ func _draw_object(p: Vector2i) -> void:
 		"w":
 			_ford(p, h)
 		".":
-			if burning:
+			if snow:
+				if h % 13 == 0:
+					_deco("TilesetNature", PEBBLES[h % PEBBLES.size()], p, h)
+			elif burning:
 				if h % 9 == 0:
 					_deco("TilesetNature", STUMP, p, h)
 			elif h % 11 == 0:

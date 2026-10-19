@@ -12,6 +12,8 @@ const CHAPTERS := [
 	"res://scripts/chapter3.gd",
 	"res://scripts/chapter4.gd",
 	"res://scripts/chapter5.gd",
+	"res://scripts/chapter6.gd",
+	"res://scripts/chapter7.gd",
 ]
 
 static var chapter_index := 0

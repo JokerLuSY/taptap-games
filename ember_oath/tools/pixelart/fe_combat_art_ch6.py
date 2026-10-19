@@ -1,0 +1,141 @@
+"""第 6–7 章新角色的战斗特写数据（原创）。
+
+西里尔：魔道士骨架（举书吟唱），换成乱发、橙色长围巾、旅行长外套；火焰魔导书。
+小雀：探子那套短剑骨架（普攻直刺、必杀斜劈接回身刺），换成扎头巾的短发少女、绿短衫、短匕首。
+"""
+from fe_combat_art import pal, SWORD_BODY, SCOUT_POSES, SCOUT_ANIMS
+from fe_combat_art_classes import MAGE
+
+CYRIL = dict(MAGE)
+CYRIL.update({
+    "reach": 140,
+    "pal": pal(
+        K=(36, 28, 36),
+        H=(84, 96, 132), h=(52, 58, 88),
+        S=(248, 216, 184), s=(212, 168, 136), E=(48, 40, 64), W=(248, 248, 248),
+        T=(128, 96, 68), t=(88, 62, 44),
+        R=(236, 128, 48), r=(176, 76, 32),
+        C=(224, 216, 196), c=(176, 164, 144),
+        B=(80, 60, 52), b=(52, 38, 34),
+        tome=(200, 72, 40), tome_d=(128, 40, 28), page=(248, 240, 216),
+    ),
+    "head": [
+        "....KK.KKKK.K.....",
+        "...KHK.KHHHKHK....",
+        "..KHHHKHHHHHHHK...",
+        "..KhHHHHHHHHHHHK..",
+        ".KhhHHHHHHHHHHHK..",
+        ".KhhHHHhHHHHHHHHK.",
+        ".KhHHhHSSHHSSSHK..",
+        ".KhHHhSSSSSKKSSK..",
+        ".KhHhSSSSSKWEKSK..",
+        ".KhhSSSSSSSKEKSK..",
+        "..KhSSSSSSSSSSSK..",
+        "..KhhSSSSSSSSsK...",
+        "...KhhSSSSSsKK....",
+        "....KKSSSsKK......",
+        "......KKKK........",
+    ],
+    "torso": [
+        "...KKKKKKK....",
+        "..KRRRRRRRKK..",
+        ".KrRRRRRRRRRK.",
+        "KTrrRRRRRRRrK.",
+        "KTKrrrrRRrrKTK",
+        "KTTTKCCCCKTTTK",
+        "KtTTTKCCKTTTtK",
+        "KtTTTTRrTTTTtK",
+        ".KtTTTRrTTTtK.",
+        ".KtTTTTTTTTtK.",
+        ".KttTTTTTTttK.",
+        "..KBBBBBBBBK..",
+        "..KKKKKKKKKK..",
+    ],
+    "skirt": [
+        "...KtTTTTTTTTTTtK...",
+        "...KttTTTTtTTTTttK..",
+        "..KtTTTTTTtTTTTTtK..",
+        "..KtTTTtTTtTTTTTtK..",
+        "..KtTTTtTTtTTtTTtK..",
+        "..KtTTtTTTtTTtTTTK..",
+        ".KtTTTtTTTtTTtTTTtK.",
+        ".KtTTtTTTTtTTTtTTtK.",
+        ".KtTTtTTTTtTTTtTTTK.",
+        ".KtTTtTTTTtTTTtTTTtK",
+        "KttTtTTTTTtTTTtTTTtK",
+        "KtTTtTTTTTtTTTTtTTtK",
+        "KtTtTTTTTTtTTTTtTTtK",
+        "KttttttttttttttttttK",
+        "KKKKKKKKKKKKKKKKKKKK",
+    ],
+    "limbs": {
+        "arm_b": ("t", "t", 2.0), "fore_b": ("s", "s", 1.6), "arm_f": ("T", "t", 2.0), "fore_f": ("S", "s", 1.6),
+        "thigh_b": ("b", "b", 2.3), "shin_b": ("b", "b", 2.1), "thigh_f": ("b", "b", 2.3), "shin_f": ("B", "b", 2.1),
+    },
+})
+
+SPARROW = {
+    "reach": 110,
+    "frame": (72, 72), "foot": (36, 68), "scale": 3,
+    "pal": pal(
+        K=(32, 24, 28),
+        H=(168, 100, 56), h=(116, 66, 40),
+        G=(236, 200, 72), g=(180, 140, 40),
+        S=(248, 214, 176), s=(214, 160, 120), E=(48, 36, 40), W=(248, 248, 248),
+        V=(76, 148, 112), v=(46, 100, 78),
+        T=(204, 178, 128), t=(150, 126, 90),
+        B=(96, 72, 56), b=(60, 44, 36),
+    ),
+    "head": [
+        "...................",
+        ".......KKKKK.......",
+        ".....KKHHHHHKK.....",
+        "....KHHHHHHHHHK....",
+        "...KGGGGGGGGGGGK...",
+        "..KgGGGGGGGGGGGK...",
+        "..KhHHhSSSSSSSHK...",
+        "..KhHhSSSSKKSSSK...",
+        "..KhHhSSSKWEKSSK...",
+        "..KhhSSSSSKEKSSK...",
+        "...KhSSSSSSSSSK....",
+        "....KhSSSSSSsK.....",
+        ".....KKssssKK......",
+        ".......KKKK........",
+    ],
+    "torso": [
+        "...KKKKKKK....",
+        "..KVVVVVVVKK..",
+        ".KvVVVVVVVVVK.",
+        "KTvvVVVVVVvvKT",
+        "KTKvvvvvvvvKTK",
+        "KtTTKKKKKKTTtK",
+        "KtTTTTTTTTTTtK",
+        "KtTTTTTTTTTTtK",
+        ".KtTTTTTTTTtK.",
+        ".KtTTTTTTTTtK.",
+        ".KttTTTTTTttK.",
+        "..KbbbGGbbbK..",
+        "..KKKKKKKKKK..",
+    ],
+    "skirt": [
+        ".KtTTTTTTTTTTtK.",
+        "KttTTTTTTTTTTttK",
+        "KtTTTtTTTTtTTTtK",
+        "KtTTtKTTTtKTTTtK",
+        ".KtK..KtK..KtK..",
+        "..K....K....K...",
+    ],
+    "body": {**SWORD_BODY, "head": (-4, -13)},
+    "limbs": {
+        "arm_b": ("s", "s", 1.8), "fore_b": ("s", "s", 1.5), "arm_f": ("S", "s", 1.8), "fore_f": ("S", "s", 1.5),
+        "thigh_b": ("b", "b", 2.2), "shin_b": ("b", "b", 2.0), "thigh_f": ("b", "b", 2.2), "shin_f": ("B", "b", 2.0),
+    },
+    "weapon": {"type": "sword", "length": 14},
+    "poses": SCOUT_POSES,
+    "anims": SCOUT_ANIMS,
+}
+
+UNITS_CH6 = {
+    "cyril": CYRIL,
+    "sparrow": SPARROW,
+}

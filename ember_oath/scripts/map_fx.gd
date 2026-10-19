@@ -26,7 +26,7 @@ func setup(b: Board, is_burning: bool) -> void:
 			var p := Vector2i(x, y)
 			var t := board.tile_at(p)
 			var h := absi(x * 73 + y * 149 + x * y * 31)
-			if t == "~" and h % 2 == 0:
+			if t == "~" and h % 2 == 0 and b.theme != "snow":
 				_ripples.append([p, h % 4])
 			elif t == "E" or (t == "D" and burning):
 				_add_flame(p, h)

@@ -17,6 +17,7 @@ import os
 RAMPS = {
     "blue": {"1": (208, 232, 248), "2": (136, 184, 248), "3": (80, 128, 224), "4": (48, 80, 176), "5": (32, 44, 112), "K": (16, 24, 52)},
     "red": {"1": (248, 216, 200), "2": (248, 152, 120), "3": (224, 80, 64), "4": (168, 40, 40), "5": (96, 24, 24), "K": (52, 12, 16)},
+    "green": {"1": (216, 248, 200), "2": (144, 216, 120), "3": (80, 168, 72), "4": (40, 112, 48), "5": (24, 64, 32), "K": (12, 36, 16)},
 }
 BASE = {
     "a": (248, 224, 192), "b": (240, 184, 144), "c": (192, 120, 80),
@@ -163,8 +164,9 @@ def preview(path, team="blue"):
 if __name__ == "__main__":
     out_dir = sys.argv[1]
     os.makedirs(out_dir, exist_ok=True)
+    from fe_art_ch6 import GREEN
     for unit in ART:
-        for team in ("blue", "red"):
+        for team in ("blue", "red") + (("green",) if unit in GREEN else ()):
             sheet(unit, team).save(os.path.join(out_dir, f"{unit}_{team}.png"))
     if len(sys.argv) > 2:
         preview(sys.argv[2])
