@@ -20,6 +20,7 @@ var selected: Unit = null
 var sel_weapon := 0
 var move_dict: Dictionary = {}
 var pre_move_pos := Vector2i.ZERO
+var _last_path: Array = []    # 最近一次我方移动的路径（撤销时原路走回）
 var targets: Array = []
 var danger_on := false
 
@@ -423,8 +424,9 @@ func _start_chapter() -> void:
 
 
 func start_player_phase(first := false) -> void:
+	# 敌方也要复位，否则行动过的敌人在我方回合一直是灰的
 	for u in units:
-		if u.is_player() and u.is_alive():
+		if u.is_alive():
 			u.has_acted = false
 			u.queue_redraw()
 	if not first:
@@ -468,8 +470,16 @@ func enemy_phase() -> void:
 			return
 		var act: Dictionary = EnemyAI.choose(e, board, players)
 		var mv: Vector2i = act["move_to"]
+		# 先把光标滑到行动的敌人身上，亮一下它的移动范围，让玩家看清是谁在动
+		cursor.set_grid(e.grid_pos)
+		var erange := board.move_range(e)
+		if mv != e.grid_pos or act.get("target") != null:
+			board.show_move(erange, {})
+			await get_tree().create_timer(ENEMY_FOCUS_TIME).timeout
+			board.clear_highlights()
+			if state == S.OVER:
+				return
 		if mv != e.grid_pos:
-			var erange := board.move_range(e)
 			var path := board.find_path(e, mv, erange)
 			await _animate_move(e, path)
 			e.grid_pos = mv
@@ -480,7 +490,7 @@ func enemy_phase() -> void:
 				return
 		e.has_acted = true
 		e.queue_redraw()
-		await get_tree().create_timer(0.12).timeout
+		await get_tree().create_timer(ENEMY_GAP_TIME).timeout
 	start_player_phase()
 
 
@@ -533,7 +543,8 @@ func _on_cursor_moved() -> void:
 	Audio.play_sfx("cursor")
 	if state == S.MOVE_SEL and selected != null:
 		if move_dict.has(cursor.grid_pos):
-			board.set_path(board.find_path(selected, cursor.grid_pos, move_dict))
+			# 箭头从单位脚下画起（find_path 不含起点）
+			board.set_path([selected.grid_pos] + board.find_path(selected, cursor.grid_pos, move_dict))
 		else:
 			board.set_path([])
 
@@ -688,6 +699,7 @@ func select_unit(u: Unit) -> void:
 		atk.erase(t)
 	board.show_move(move_dict, atk)
 	state = S.MOVE_SEL
+	u.hop()
 	hint(tr("%s：选择移动位置（返回取消）") % tr(u.display_name))
 	_update_hover_info()
 
@@ -720,19 +732,73 @@ func _player_move(u: Unit, dst: Vector2i) -> void:
 	board.clear_highlights()
 	board.set_path([])
 	var path := board.find_path(u, dst, move_dict)
+	_last_path = path.duplicate()
 	await _animate_move(u, path)
 	u.grid_pos = dst
 	u.position = u.tile_center()
 	_open_action_menu(u)
 
 
-func _animate_move(u: Unit, path: Array) -> void:
+const STEP_TIME := 0.09   # 平地每格耗时；高消耗地形按消耗放慢
+const ENEMY_FOCUS_TIME := 0.25   # 敌人行动前亮出移动范围的停顿
+const ENEMY_GAP_TIME := 0.3      # 敌人之间的间隔
+
+
+## 沿路径逐格走：每格转身、起步缓加速、到站缓减速，脚下扬尘
+func _animate_move(u: Unit, path: Array, step_time := STEP_TIME) -> void:
 	if path.is_empty():
 		return
 	var t := create_tween()
-	for step in path:
-		t.tween_property(u, "position", Vector2(step) * TILE + Vector2(TILE / 2.0, TILE / 2.0), 0.11)
+	var prev: Vector2i = u.grid_pos
+	var n := path.size()
+	u.set_walking(true)
+	for i in n:
+		var step: Vector2i = path[i]
+		var cost := 1
+		if board.in_bounds(step):
+			cost = maxi(1, int(board.terrain(step).get("cost", 1)))
+		var dur := step_time * (1.0 + 0.35 * (cost - 1))
+		t.tween_callback(u.face.bind(step - prev))
+		t.tween_callback(_step_dust.bind(u))
+		var pt := t.tween_property(u, "position", Vector2(step) * TILE + Vector2(TILE / 2.0, TILE / 2.0), dur)
+		pt.set_trans(Tween.TRANS_SINE)
+		if n == 1:
+			pt.set_ease(Tween.EASE_IN_OUT)
+		elif i == 0:
+			pt.set_ease(Tween.EASE_IN)
+		elif i == n - 1:
+			pt.set_ease(Tween.EASE_OUT)
+		prev = step
 	await t.finished
+	u.set_walking(false)
+
+
+## 落脚处的一小团尘土
+func _step_dust(u: Unit) -> void:
+	if not is_instance_valid(u):
+		return
+	var p := CPUParticles2D.new()
+	p.one_shot = true
+	p.emitting = false
+	p.amount = 6
+	p.lifetime = 0.35
+	p.explosiveness = 0.9
+	p.direction = Vector2(0, -1)
+	p.spread = 70.0
+	p.initial_velocity_min = 14.0
+	p.initial_velocity_max = 30.0
+	p.gravity = Vector2(0, 40)
+	p.scale_amount_min = 2.0
+	p.scale_amount_max = 3.5
+	var ramp := Gradient.new()
+	ramp.set_color(0, Color(0.86, 0.78, 0.62, 0.55))
+	ramp.set_color(1, Color(0.86, 0.78, 0.62, 0.0))
+	p.color_ramp = ramp
+	# 落在脚底；y 比单位大，y 排序时画在单位前面，像从脚边扬起
+	p.position = u.position + Vector2(0, 18)
+	board.add_child(p)
+	p.emitting = true
+	p.finished.connect(p.queue_free)
 
 
 func _preview_enemy(u: Unit) -> void:
@@ -815,8 +881,22 @@ func _clear_menu() -> void:
 
 func _cancel_action_menu() -> void:
 	_clear_menu()
-	selected.grid_pos = pre_move_pos
-	selected.position = selected.tile_center()
+	var u := selected
+	# 原路快速走回（路径里不含起点，倒序后去掉当前格再补上起点）
+	var back: Array = []
+	if not _last_path.is_empty() and _last_path.back() == u.grid_pos:
+		back = _last_path.duplicate()
+		back.reverse()
+		back.pop_front()
+		back.append(pre_move_pos)
+	_last_path = []
+	if not back.is_empty():
+		state = S.COMBAT
+		await _animate_move(u, back, STEP_TIME * 0.6)
+		if selected != u or state == S.OVER:
+			return
+	u.grid_pos = pre_move_pos
+	u.position = u.tile_center()
 	move_dict = board.move_range(selected)
 	var atk := board.full_attack_area(selected, move_dict)
 	for t in move_dict:
@@ -1368,6 +1448,7 @@ func _float_text(u: Unit, text: String, color: Color) -> void:
 	l.add_theme_font_size_override("font_size", 22)
 	l.add_theme_color_override("font_color", color)
 	l.position = u.position + Vector2(-24, -52)
+	l.z_index = 5   # 棋盘开了 y 排序，飘字要压在所有单位上面
 	board.add_child(l)
 	var t := create_tween().set_parallel(true)
 	t.tween_property(l, "position:y", l.position.y - 30, 0.8)

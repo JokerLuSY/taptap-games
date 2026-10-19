@@ -51,7 +51,15 @@ const CLIFF_S := 16.0               # 南面悬崖高度
 const CLIFF_W := 10.0               # 侧面悬崖宽度
 
 
+var overlay: BoardOverlay
+
+
 func _ready() -> void:
+	# 单位按 y 排序，下排的人压在上排前面；高亮层停在 y=0 永远垫在单位底下
+	y_sort_enabled = true
+	overlay = BoardOverlay.new()
+	overlay.board = self
+	add_child(overlay)
 	_noise.seed = 20261010
 	_noise.frequency = 0.22
 	_noise2.seed = 777
@@ -232,24 +240,29 @@ func find_path(u: Unit, dst: Vector2i, range_dict: Dictionary) -> Array:
 func show_move(move: Dictionary, atk: Dictionary) -> void:
 	move_tiles = move
 	atk_tiles = atk
-	queue_redraw()
+	_redraw_overlay()
 
 
 func clear_highlights() -> void:
 	move_tiles = {}
 	atk_tiles = {}
 	path_tiles = []
-	queue_redraw()
+	_redraw_overlay()
 
 
 func set_danger(tiles: Dictionary) -> void:
 	danger_tiles = tiles
-	queue_redraw()
+	_redraw_overlay()
 
 
 func set_path(path: Array) -> void:
 	path_tiles = path
-	queue_redraw()
+	_redraw_overlay()
+
+
+func _redraw_overlay() -> void:
+	if overlay != null:
+		overlay.queue_redraw()
 
 
 # ---------- 地形纹理生成 ----------
@@ -357,19 +370,7 @@ func _draw() -> void:
 		draw_line(Vector2(x * TILE, 0), Vector2(x * TILE, height * TILE), grid_col)
 	for y in height + 1:
 		draw_line(Vector2(0, y * TILE), Vector2(width * TILE, y * TILE), grid_col)
-	# 高亮：危险 -> 移动 -> 攻击
-	for p in danger_tiles:
-		_fill(p, Color(1, 0.2, 0.2, 0.16))
-	for p in move_tiles:
-		_fill(p, Color(0.3, 0.6, 1.0, 0.30))
-	for p in atk_tiles:
-		_fill(p, Color(1.0, 0.25, 0.2, 0.38))
-	# 路径预览
-	if path_tiles.size() >= 2:
-		var pts := PackedVector2Array()
-		for p in path_tiles:
-			pts.append(Vector2(p) * TILE + Vector2(TILE / 2.0, TILE / 2.0))
-		draw_polyline(pts, Color(1, 1, 1, 0.75), 4.0)
+	# 高亮与路径箭头由 overlay 子节点绘制（BoardOverlay）
 
 
 func _draw_tile(p: Vector2i) -> void:

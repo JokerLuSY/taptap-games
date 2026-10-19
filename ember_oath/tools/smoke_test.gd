@@ -68,6 +68,11 @@ func _run() -> void:
 	var tia = battle.get_unit("tia")
 	var balto = battle.get_unit("balto")
 	var bandit = battle.get_unit("bandit1")
+	# 像素地图小人：第一章所有单位都应有 CC0 走路帧
+	for u_ in battle.units:
+		_check(u_.has_sprite(), "地图单位应有像素走路帧: " + u_.unit_id)
+	_check(tia.sprite_sheet == "SorcererBlack", "缇娅应用 SorcererBlack 帧, 实际 " + tia.sprite_sheet)
+	_check(bandit.sprite_sheet == "FighterWhite", "山贼应用 FighterWhite 帧, 实际 " + bandit.sprite_sheet)
 
 	# ---- 主指针点选（鼠标 / 触摸共用 click_tile） ----
 	var vp: Vector2 = battle.board.get_global_transform_with_canvas() * tia.position
@@ -99,6 +104,30 @@ func _run() -> void:
 	_check(battle.move_dict.has(Vector2i(5, 5)), "缇娅应能走到桥 (5,5)")
 	_check(not battle.move_dict.has(Vector2i(0, 5)), "缇娅不应能踏进河流 (0,5)")
 	_shot("02_move_range.png")
+	# 路径箭头：从单位脚下画起，长度 = 路径 + 起点
+	battle.cursor.set_grid(Vector2i(5, 5), true)
+	battle._on_cursor_moved()
+	var arrow: Array = battle.board.path_tiles
+	var probe_path: Array = battle.board.find_path(tia, Vector2i(5, 5), battle.move_dict)
+	_check(not arrow.is_empty() and arrow[0] == tia.grid_pos, "路径箭头应从缇娅脚下起画")
+	_check(arrow.size() == probe_path.size() + 1, "箭头格数应为路径+起点, 实际 %d" % arrow.size())
+	await _frames(3)
+	_shot("02b_path_arrow.png")
+	battle.cancel()
+	await _frames(2)
+	# 朝向：往右走一格应转向右，走完应停止走路姿态
+	var home: Vector2i = tia.grid_pos
+	await battle._animate_move(tia, [home + Vector2i(1, 0)])
+	_check(tia.facing == Vector2i.RIGHT, "向右走后缇娅应面朝右, 实际 %s" % tia.facing)
+	_check(not tia.walking, "走完应退出走路姿态")
+	tia.grid_pos = home + Vector2i(1, 0)
+	await battle._animate_move(tia, [home])
+	_check(tia.facing == Vector2i.LEFT, "向左走回后应面朝左, 实际 %s" % tia.facing)
+	tia.grid_pos = home
+	tia.position = tia.tile_center()
+	tia.face(Vector2i.DOWN)
+	battle.click_tile(tia.grid_pos)
+	await _frames(2)
 	battle.cancel()
 	await _frames(2)
 	_check(battle.state == battle.S.IDLE, "取消后应回到 IDLE, 实际 %d" % battle.state)
@@ -282,6 +311,9 @@ func _run() -> void:
 	ok = await _wait_cond(func() -> bool: return battle.state == battle.S.IDLE and battle.turn == 2, 40.0)
 	_check(ok, "敌方回合后应回到我方第 2 回合, state=%d turn=%d" % [battle.state, battle.turn])
 	_check(tia.is_alive() and balto.is_alive(), "第 1 轮敌方回合后我方应全员存活")
+	for u_ in battle.units:
+		if u_.is_alive() and not u_.is_player():
+			_check(not u_.has_acted, "我方回合开始时敌人应复位为未行动: " + u_.unit_id)
 	_shot("06_turn2.png")
 
 	# ---- 访问民居（东屋给伤药） ----
