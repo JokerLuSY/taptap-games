@@ -187,8 +187,8 @@ func _run() -> void:
 	await _frames(2)
 	_shot("04b_combat_scene.png")  # 必杀命中：左缇娅朝右，右山贼朝左
 	var cs: CombatScene = battle.combat_scene
-	_check_fighter(cs._att_node, "martial_hero", false, "缇娅")
-	_check_fighter(cs._def_node, "mwp2", true, "山贼")
+	_check_fighter(cs._att_node, "tia", false, "缇娅")
+	_check_fighter(cs._def_node, "bandit", true, "山贼")
 	_check(cs._att_node.current_anim() == "crit", "缇娅必杀应播第二套招式, 实际 " + cs._att_node.current_anim())
 	_check(cs._def_node.current_anim() == "death", "被必杀击杀的山贼应立刻播倒地, 实际 " + cs._def_node.current_anim())
 	# 面板：攻方显示预测数字，命中当帧 HP 数字已更新
@@ -540,7 +540,7 @@ func _check_chapter2() -> void:
 	await _frames(4)
 	_check(battle.chapter.f_awaken, "跳过觉醒台词后应完成转职")
 	_check(tia.class_label == "炎刃使", "缇娅应转职为炎刃使，实际 " + tia.class_label)
-	_check(CombatScene.fighter_key_for(tia) == "martial_hero", "觉醒后炎刃使仍应用缇娅的战斗条带")
+	_check(CombatScene.fighter_key_for(tia) == "tia", "觉醒后炎刃使仍应用缇娅的战斗条带")
 	_check(tia.level == 1 and tia.xp == 0, "转职后应为 Lv1 且经验清零，Lv%d xp%d" % [tia.level, tia.xp])
 	_check(tia.max_hp == 23 and tia.pwr == 7 and tia.dfn == 4, "转职加成应为 HP23 力7 防4，实际 HP%d 力%d 防%d" % [tia.max_hp, tia.pwr, tia.dfn])
 	_check(tia.skl == 6 and tia.spd == 7, "未写进加成的技速应保留")
@@ -694,14 +694,14 @@ func _check_infra() -> void:
 	fx.free()
 	scene.free()
 	var probe := Unit.new()
-	var expect_map := {"tia": "martial_hero", "balto": "mwp3", "brock": "mwp", "marco": "mwp",
-		"scout1": "fantasy_warrior", "bandit3": "mwp2", "bandit_r1": "mwp2", "archer2": "huntress2"}
+	var expect_map := {"tia": "tia", "balto": "balto", "brock": "boss", "marco": "boss",
+		"scout1": "scout", "bandit3": "bandit", "bandit_r1": "bandit", "archer2": "archer"}
 	for id in expect_map:
 		probe.unit_id = id
 		_check(CombatScene.fighter_key_for(probe) == expect_map[id], "%s 应映射 %s, 实际 %s" % [id, expect_map[id], CombatScene.fighter_key_for(probe)])
 	probe.unit_id = "stranger"
 	probe.weapons = ["iron_bow"]
-	_check(CombatScene.fighter_key_for(probe) == "huntress2", "未登记的弓手应按武器兜底到 huntress2")
+	_check(CombatScene.fighter_key_for(probe) == "archer", "未登记的弓手应按武器兜底到 archer")
 	probe.free()
 	var area := SafeArea.rect()
 	_check(area.position == Vector2(64, 48), "安全区原点应为 (64, 48)，实际 %s" % area.position)

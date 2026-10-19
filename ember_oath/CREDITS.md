@@ -11,16 +11,8 @@
 - `art/units/fe/*.png` 为本项目原创像素图（GBA 火纹风，整只按阵营上色），源数据在 `tools/pixelart/fe_art.py`，
   用 `python -P -E tools/pixelart/fe_units.py art/units/fe` 重新生成。
 
-## LuizMelo 横版角色包（战斗特写）
-- 作者：LuizMelo — https://luizmelo.itch.io/
-- 许可：CC0 1.0 Universal（各包 `License.txt`；Medieval Warrior Pack 原包无许可文件，以 itch 页面声明为准）
-- 使用：`art/cc0/luizmelo/<套名>/` 下的 idle / run / attack / crit / hit / death 条带（原图未改动，仅改文件名）
-
-| 本作单位 | 套名 | 原包（动作） |
-|---|---|---|
-| 缇娅 | martial_hero | [Martial Hero](https://luizmelo.itch.io/martial-hero)（Attack1 / 必杀 Attack2） |
-| 巴尔托 | mwp3 | [Medieval Warrior Pack 3](https://luizmelo.itch.io/medieval-warrior-pack-3)（Attack1 / 必杀 Attack3） |
-| 山贼 | mwp2 | [Medieval Warrior Pack 2](https://luizmelo.itch.io/medieval-warrior-pack-2)（大刀 Attack2 / 必杀狼牙棒 Attack4 / 长枪 Attack3） |
-| 布洛克、马尔科 | mwp | [Medieval Warrior Pack](https://luizmelo.itch.io/medieval-warrior-pack)（马尔科偏红调色） |
-| 弓箭手 | huntress2 | [Huntress 2](https://luizmelo.itch.io/huntress-2)（含箭矢） |
-| 探子 | fantasy_warrior | [Fantasy Warrior](https://luizmelo.itch.io/fantasy-warrior)（Attack1 / 必杀 Attack3） |
+## 战斗特写角色（原创）
+- `art/combat/fe/<角色>/<动作>.png` 与 `scripts/combat_sets.gd` 由 `tools/pixelart/fe_combat.py` 生成（数据在 `fe_combat_art.py`），
+  头、躯干、马身逐像素手画，四肢与武器按骨架姿势栅格化。重新生成：
+  `python -P -E tools/pixelart/fe_combat.py art/combat/fe scripts/combat_sets.gd`
+- 刀光特效 `art/cc0/ninja_adventure/fx/SlashCurved.png` 来自 Ninja Adventure（CC0，原包 `FX/Attack/SlashCurved`）

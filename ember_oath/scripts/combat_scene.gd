@@ -1,6 +1,6 @@
 class_name CombatScene
 extends CanvasLayer
-## 战斗特写演出：GBA 火纹式横版对砍。角色是 LuizMelo 的 CC0 横版动作条带（CombatFighter），
+## 战斗特写演出：GBA 火纹式横版对砍。角色是原创像素条带（CombatFighter，tools/pixelart/fe_combat.py 生成），
 ## 背景按地形换四层远景并做视差；底部双方面板显示 HIT / DMG / CRT 和 HP。点击 / 回车可跳过。
 
 signal finished
@@ -57,17 +57,18 @@ const TERRAIN_BG := {
 const PARALLAX := [0.0, 0.12, 0.35, 0.65]
 const BG_ZOOM := 1.08
 
-## 单位 → 战斗条带套（见 CombatFighter.SETS）。按 id，再按 id 前缀，最后按武器类型兜底。
+## 单位 → 战斗条带套（见 CombatSets.SETS）。按 id，再按 id 前缀，最后按武器类型兜底。
 const FIGHTER_BY_ID := {
-	"tia": "martial_hero",
-	"balto": "mwp3",
-	"brock": "mwp",
-	"marco": "mwp",
-	"scout1": "fantasy_warrior",
+	"tia": "tia",
+	"balto": "balto",
+	"brock": "boss",
+	"marco": "boss",
+	"scout1": "scout",
 }
-const FIGHTER_BY_PREFIX := [["bandit", "mwp2"], ["archer", "huntress2"]]
-const FIGHTER_BY_WEAPON := {"sword": "fantasy_warrior", "lance": "mwp2", "axe": "mwp2", "bow": "huntress2"}
-## 同一套条带的不同角色靠调色区分（马尔科和布洛克同用络腮胡战士）
+const FIGHTER_BY_PREFIX := [["bandit", "bandit"], ["archer", "archer"]]
+const FIGHTER_BY_WEAPON := {"sword": "scout", "lance": "balto", "axe": "bandit", "bow": "archer"}
+const SLASH_FX := "res://art/cc0/ninja_adventure/fx/SlashCurved.png"
+## 同一套条带的不同角色靠调色区分（马尔科和布洛克同用角盔头目）
 const TINT_BY_ID := {"marco": Color(1.0, 0.80, 0.70)}
 
 ## 背景在角色下面，斩击火花在角色上面。
@@ -361,7 +362,7 @@ static func fighter_key_for(u: Unit) -> String:
 	for rule in FIGHTER_BY_PREFIX:
 		if u.unit_id.begins_with(rule[0]):
 			return rule[1]
-	return str(FIGHTER_BY_WEAPON.get(u.weapon_kind(), "fantasy_warrior"))
+	return str(FIGHTER_BY_WEAPON.get(u.weapon_kind(), "scout"))
 
 
 func _setup_units(wi: int) -> void:
@@ -560,7 +561,7 @@ func _crit_charge(striker: CombatFighter) -> void:
 ## 近战：跑到对手面前 → 出招（出手帧结算）→ 后跳归位
 func _strike_melee(striker: CombatFighter, victim: CombatFighter, ev: Dictionary, dir: float, crit: bool) -> void:
 	var home := striker.position.x
-	var reach := 175.0 if striker.set_key == "mwp" else 150.0
+	var reach := float(CombatFighter.SETS.get(striker.set_key, {}).get("reach", 140))
 	var target_x := victim.position.x - dir * reach
 	var run_time := clampf(absf(target_x - home) / 1500.0, 0.12, 0.32)
 	striker.play_loop("run")
@@ -601,11 +602,11 @@ func _strike_bow(striker: CombatFighter, victim: CombatFighter, ev: Dictionary, 
 		_apply_damage(ev)
 		return
 	var arrow := Sprite2D.new()
-	arrow.texture = load(CombatFighter.ROOT + "huntress2/arrow.png")
+	arrow.texture = load(CombatFighter.ROOT + "arrow.png")
 	arrow.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	arrow.scale = Vector2(4.0 * dir, 4.0)
-	var from := striker.position + Vector2(dir * 60, -70)
-	var to := victim.position + Vector2(-dir * 30, -72)
+	arrow.scale = Vector2(3.0 * dir, 3.0)
+	var from := striker.position + Vector2(dir * 50, -84)
+	var to := victim.position + Vector2(-dir * 30, -84)
 	arrow.position = from
 	_add_fx(arrow)
 	var fly := create_tween()
@@ -646,6 +647,8 @@ func _impact(striker: CombatFighter, victim: CombatFighter, ev: Dictionary, dir:
 		_hit_react(victim)
 	_shake(crit)
 	var hit_pos := victim.position + Vector2(-dir * 10, -80)
+	if striker.weapon_kind != "bow":
+		_slash_fx(hit_pos, dir, crit)
 	_spark_effect(hit_pos, Color(1.0, 0.85, 0.5), 18 if crit else 10)
 	if crit:
 		_flash_rect.color.a = 0.55
@@ -685,6 +688,33 @@ func _shake(strong := false) -> void:
 	for i in 6 if strong else 4:
 		t.tween_property(_stage, "position", Vector2(randi_range(-amp, amp), randi_range(-amp * 0.6, amp * 0.6)), 0.03)
 	t.tween_property(_stage, "position", Vector2.ZERO, 0.05)
+
+
+## 刀光：Ninja Adventure 的弧形斩击帧（CC0），朝攻击方向，必杀放大
+func _slash_fx(pos: Vector2, dir: float, crit: bool) -> void:
+	if not ResourceLoader.exists(SLASH_FX):
+		return
+	var sf := SpriteFrames.new()
+	sf.add_animation("s")
+	sf.set_animation_loop("s", false)
+	sf.set_animation_speed("s", 20.0)
+	var tex: Texture2D = load(SLASH_FX)
+	for i in 4:
+		var at := AtlasTexture.new()
+		at.atlas = tex
+		at.region = Rect2(i * 32, 0, 32, 32)
+		sf.add_frame("s", at)
+	var fx := AnimatedSprite2D.new()
+	fx.sprite_frames = sf
+	fx.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	var k := 6.0 if crit else 4.5
+	fx.scale = Vector2(k * dir, k)
+	fx.position = pos
+	if crit:
+		fx.modulate = Color(1.0, 0.9, 0.55)
+	_add_fx(fx)
+	fx.play("s")
+	fx.animation_finished.connect(fx.queue_free)
 
 
 ## 火花粒子

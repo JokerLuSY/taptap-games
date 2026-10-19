@@ -1,27 +1,14 @@
 class_name CombatFighter
 extends Node2D
-## 战斗特写里的一名角色：LuizMelo 的 CC0 横版动作条带（见 CREDITS.md）。
+## 战斗特写里的一名角色：原创 GBA 火纹风横版条带（tools/pixelart/fe_combat.py 生成）。
 ## 节点原点就是脚底中心；条带原生全部朝右，朝左时整个节点 scale.x = -1。
 
-signal impact            # 攻击动画走到出手帧（刀光 / 放箭那一帧）
+signal impact            # 攻击动画走到出手帧（刀落下 / 放箭 / 枪刺出那一帧）
 
-const ROOT := "res://art/cc0/luizmelo/"
-## 每套条带：单帧尺寸、脚底锚点（帧内像素）、整数放大倍数（最近邻），各动作 [帧率, 出手帧]。
-## 帧数按贴图宽度 / 帧宽自动算。放大倍数让各套身高都落在 135~165px。
-const SETS := {
-	"martial_hero": {"frame": Vector2i(200, 200), "feet": Vector2(99, 122), "scale": 3,
-		"anims": {"idle": [10, -1], "run": [14, -1], "attack": [16, 4], "crit": [12, 4], "hit": [12, -1], "death": [9, -1]}},
-	"mwp3": {"frame": Vector2i(135, 135), "feet": Vector2(69, 86), "scale": 4,
-		"anims": {"idle": [10, -1], "run": [12, -1], "attack": [12, 2], "crit": [11, 3], "hit": [12, -1], "death": [10, -1]}},
-	"mwp2": {"frame": Vector2i(150, 150), "feet": Vector2(73, 95), "scale": 4,
-		"anims": {"idle": [9, -1], "run": [14, -1], "attack": [11, 2], "crit": [10, 2], "thrust": [11, 2], "hit": [12, -1], "death": [9, -1]}},
-	"mwp": {"frame": Vector2i(184, 137), "feet": Vector2(85, 125), "scale": 2,
-		"anims": {"idle": [8, -1], "run": [14, -1], "attack": [10, 2], "crit": [9, 2], "hit": [10, -1], "death": [11, -1]}},
-	"huntress2": {"frame": Vector2i(100, 100), "feet": Vector2(48, 67), "scale": 4,
-		"anims": {"idle": [10, -1], "run": [12, -1], "attack": [12, 3], "hit": [12, -1], "death": [11, -1]}},
-	"fantasy_warrior": {"frame": Vector2i(162, 162), "feet": Vector2(81, 101), "scale": 3,
-		"anims": {"idle": [10, -1], "run": [14, -1], "attack": [16, 4], "crit": [14, 4], "hit": [12, -1], "death": [10, -1]}},
-}
+const ROOT := "res://art/combat/fe/"
+## 每套条带：单帧尺寸、脚底锚点（帧内像素）、整数放大倍数、出手距离、各动作 [帧率, 出手帧]。
+## 帧数按贴图宽度 / 帧宽自动算。数据由生成器写进 CombatSets，不在这里手改。
+const SETS := CombatSets.SETS
 const LOOPING := ["idle", "run"]
 const SHADER := preload("res://shaders/combat_fighter.gdshader")
 
