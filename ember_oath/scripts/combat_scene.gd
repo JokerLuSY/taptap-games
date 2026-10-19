@@ -1,7 +1,7 @@
 class_name CombatScene
 extends CanvasLayer
-## 战斗特写演出：GBA 火纹式横版对砍（按地形换分层远景）。只有缇娅剑士与山贼有最早风横排条带，其它职业用程序 Q 版。
-## 点击 / 回车可跳过。对砍 tween 时序不在这里改，帧只在既有关键点切换。
+## 战斗特写演出：GBA 火纹式横版对砍。角色是 LuizMelo 的 CC0 横版动作条带（CombatFighter），
+## 背景按地形换四层远景并做视差；底部双方面板显示 HIT / DMG / CRT 和 HP。点击 / 回车可跳过。
 
 signal finished
 
@@ -13,15 +13,14 @@ const GROUND_COLORS := {
 	"X": Color(0.50, 0.47, 0.42),
 }
 
-const ATT_X := 380.0
-const DEF_X := 900.0
+const ATT_X := 400.0
+const DEF_X := 880.0
 ## 角色脚底世界坐标。分层远景是 1280×720 整图，地面带盖住 y=438..559，脚底就落在这条带上。
 const FEET_Y := 520.0
-## 没有像素帧时的程序 Q 版。像素帧不乘这个系数。
+## 条带缺图时的程序 Q 版兜底放大倍数
 const UNIT_SCALE := 3.2
-## 约等于 48px 地图精灵 × UNIT_SCALE。各帧按脚底缩放到这个视觉高度，挥砍时人不忽大忽小。
-const SPRITE_TARGET_H := 154.0
-const HP_BAR_W := 300.0
+const HP_BAR_W := 250.0
+const PANEL_Y := 566.0
 
 ## 分层战斗背景套。从远到近四层，全部 1280×720，LINEAR，脚底仍落在 FEET_Y。
 const BG_SETS := {
@@ -54,80 +53,44 @@ const TERRAIN_BG := {
 	"f": "scorch",
 	"B": "scorch",
 }
+## 视差：镜头横移 cam_x 时，各层（远→近）跟着移动的比例；整套放大一点留出移动余量
+const PARALLAX := [0.0, 0.12, 0.35, 0.65]
+const BG_ZOOM := 1.08
 
-## 帧序：0 待机 / 1 前冲 / 2 挥砍命中 / 3 收招。山贼的 3 同时当作受击。
-## 普攻读 {id}.png，必杀读 {id}_crit.png（终包帧序 1,2,2,3）。不再读 *_frames/。
-const POSE_IDLE := 0
-const POSE_LUNGE := 1
-const POSE_STRIKE := 2
-const POSE_RECOVER := 3
-## 每格脚底（相对该格左上角，像素）。缩放后对齐节点原点，也就是 FEET_Y。脚不在格子正中。
-const FRAME_FEET := {
-	"tia_sword": [
-		Vector2(38.0, 289.0), Vector2(13.0, 289.0), Vector2(26.0, 289.0), Vector2(130.5, 291.0),
-	],
-	"bandit_axe": [
-		Vector2(168.5, 288.0), Vector2(179.5, 288.0), Vector2(258.5, 288.0), Vector2(120.0, 280.0),
-	],
+## 单位 → 战斗条带套（见 CombatFighter.SETS）。按 id，再按 id 前缀，最后按武器类型兜底。
+const FIGHTER_BY_ID := {
+	"tia": "martial_hero",
+	"balto": "mwp3",
+	"brock": "mwp",
+	"marco": "mwp",
+	"scout1": "fantasy_warrior",
 }
-const FRAME_FEET_CRIT := {
-	"tia_sword": [
-		Vector2(13.0, 289.0), Vector2(26.0, 289.0), Vector2(26.0, 289.0), Vector2(130.5, 291.0),
-	],
-	"bandit_axe": [
-		Vector2(179.5, 288.0), Vector2(258.5, 288.0), Vector2(258.5, 288.0), Vector2(120.0, 280.0),
-	],
-}
-## 待机帧发顶到脚底的像素高度，普通条和必杀条共用这个缩放。
-const FRAME_BODY_H := {"tia_sword": 282.0, "bandit_axe": 239.0}
-const HIT_FRAME := {"tia_sword": -1, "bandit_axe": 3}
-## 职业 → 最早风 id。只有这两张；其余职业空字符串，走程序 Q 版。
-const CLASS_SHEET := {
-	"剑士": "tia_sword",
-	"山贼": "bandit_axe",
-}
-const SHEET_IDS: Array[String] = ["bandit_axe", "tia_sword"]
-## 条带画布上的原生朝向。true = 朝右。缺省朝右。
-## tia_sword 与 tia_sword_crit 朝右；bandit_axe 与 bandit_axe_crit 朝左（火纹敌方位）。
-## 必杀条和普通条挂在同一个父节点上，共用这一次翻转，不再按帧单独镜像。
-const SHEET_FACES_RIGHT := {
-	"tia_sword": true,
-	"bandit_axe": false,
-}
-## 背景在角色下面，斩击火花在角色上面。身体不靠绘制顺序碰运气。
+const FIGHTER_BY_PREFIX := [["bandit", "mwp2"], ["archer", "huntress2"]]
+const FIGHTER_BY_WEAPON := {"sword": "fantasy_warrior", "lance": "mwp2", "axe": "mwp2", "bow": "huntress2"}
+## 同一套条带的不同角色靠调色区分（马尔科和布洛克同用络腮胡战士）
+const TINT_BY_ID := {"marco": Color(1.0, 0.80, 0.70)}
+
+## 背景在角色下面，斩击火花在角色上面。
 const Z_BG := 0
 const Z_FIGHTER := 10
 const Z_FX := 30
-## 挥砍/受击把身体切成互不相连的色块，块与块之间的透明缝比 16px 宽。
-## 中景灌丛的硬下沿会从腰腹、躯干、头发这些缝里穿出来。扁长闭运算补不住。
-## 按帧把够大的色块在本帧轮廓里先按行、再按列、再按行填实。
-## 不到这个面积的火花不参与拉轮廓，也不和邻帧粘在一起。磁盘上的 earliest 正稿不改。
-## 贴在身体上的碎片并进轮廓后还要再补一轮。按行填完，腰腹左右的凹湾仍在身体凸包里，灌丛绿会留在那里。
-## 最后按本帧凸包补实。孤立火花不拉轮廓，也不和邻帧粘在一起。
-const BODY_FILL_MIN := 80
-const BODY_FILL_ROUNDS := 4
-const _POSE_SHADER := preload("res://shaders/combat_pose.gdshader")
-
-static var _sealed_tex: Dictionary = {}
 
 var active := false
 
 var _root: Node2D
-var _stage: Node2D                  # 背景 + 单位（震屏对象）
-var _ui: Node2D                     # 顶部/底部 UI（不震）
+var _cam: Node2D                    # 镜头推拉（必杀时推近）
+var _stage: Node2D                  # 背景 + 单位 + 特效（震屏对象）
+var _ambient: Node2D                # 环境粒子（不随震屏）
+var _ui: Node2D                     # 底部面板（不震）
 var _flash_rect: ColorRect
-var _att_node: Unit = null
-var _def_node: Unit = null
+var _layers: Array = []
+var _cam_x := 0.0
+var _att_node: CombatFighter = null
+var _def_node: CombatFighter = null
 var _att_real: Unit = null
 var _def_real: Unit = null
-var _att_name: Label
-var _def_name: Label
-var _att_wpn: Label
-var _def_wpn: Label
-var _att_hp_fill: ColorRect
-var _def_hp_fill: ColorRect
-var _att_hp_label: Label
-var _def_hp_label: Label
+var _fc: Dictionary = {}
+var _panels := {}                   # "a" / "d" → {name, wpn, hp_fill, hp_label, stats}
 var _skip := false
 
 
@@ -136,62 +99,70 @@ func _ready() -> void:
 	layer = 10
 	_root = Node2D.new()
 	add_child(_root)
+	_cam = Node2D.new()
+	_root.add_child(_cam)
 	_stage = Node2D.new()
-	_root.add_child(_stage)
+	_cam.add_child(_stage)
+	_ambient = Node2D.new()
+	_root.add_child(_ambient)
 	_ui = Node2D.new()
 	_root.add_child(_ui)
 	_flash_rect = ColorRect.new()
 	_flash_rect.color = Color(1, 1, 1, 0)
 	_flash_rect.size = Vector2(1280, 720)
+	_flash_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_root.add_child(_flash_rect)
 
 
-func play(att: Unit, def: Unit, wi: int, events: Array, terrain_char: String) -> void:
+## fc 是 Combat.forecast 的结果，只用来在面板上显示命中 / 伤害 / 必杀
+func play(att: Unit, def: Unit, wi: int, events: Array, terrain_char: String, fc := {}) -> void:
 	if active:
 		return
 	active = true
 	_skip = false
 	_att_real = att
 	_def_real = def
+	_fc = fc
+	_cam.scale = Vector2.ONE
+	_cam.position = Vector2.ZERO
 	_rebuild_bg(GROUND_COLORS.get(terrain_char, GROUND_COLORS["."]), terrain_char)
-	_setup_units()
-	_setup_labels(wi)
-	_update_bars()
+	_build_ambient(str(TERRAIN_BG.get(terrain_char, DEFAULT_BG_SET)))
+	_setup_units(wi)
+	_build_panels(wi)
+	_update_bars(0.0)
 	visible = true
 	_root.modulate.a = 1.0
 	Audio.play_music("combat")
-	# 开场白闪 + 双方入场
-	_flash_rect.color.a = 0.65
-	var ft := create_tween()
-	ft.tween_property(_flash_rect, "color:a", 0.0, 0.22)
-	await get_tree().create_timer(0.12).timeout
+	# 开场：白闪 + 双方跑进场，镜头从右往中间收
+	_flash_rect.color.a = 0.6
+	create_tween().tween_property(_flash_rect, "color:a", 0.0, 0.22)
+	_set_cam(70.0)
 	await _slide_in()
-	# 逐次攻击
 	for ev in events:
 		if _skip:
 			_apply_damage(ev)
 		else:
 			await _strike(ev)
 		_update_bars()
-	# 阵亡倒下
+	# 阵亡：倒地动作已在命中时开始播，这里等它播完再淡出
 	if not _skip:
-		var dead_node: Unit = null
+		var dead: CombatFighter = null
 		if not _att_real.is_alive():
-			dead_node = _att_node
+			dead = _att_node
 		elif not _def_real.is_alive():
-			dead_node = _def_node
-		if dead_node != null:
-			var dir := 1.0 if dead_node == _att_node else -1.0
-			var dt := create_tween().set_parallel(true)
-			dt.tween_property(dead_node, "rotation", dir * PI / 2.0, 0.4)
-			dt.tween_property(dead_node, "modulate:a", 0.0, 0.4)
-			await get_tree().create_timer(0.45).timeout
+			dead = _def_node
+		if dead != null:
+			if dead.current_anim() != "death":
+				dead.play_once("death")
+			await get_tree().create_timer(0.75).timeout
+			var dt := create_tween()
+			dt.tween_property(dead, "modulate:a", 0.0, 0.3)
+			await dt.finished
 		else:
 			await get_tree().create_timer(0.35).timeout
-	# 谢幕
 	var out := create_tween()
 	out.tween_property(_root, "modulate:a", 0.0, 0.22)
-	await get_tree().create_timer(0.24).timeout
+	await out.finished
 	visible = false
 	active = false
 	Audio.play_music("map")
@@ -210,11 +181,12 @@ func _input(event: InputEvent) -> void:
 		skip()
 
 
-# ==================== 构建 ====================
+# ==================== 背景 ====================
 
 func _rebuild_bg(ground_color: Color, terrain_char: String) -> void:
 	for c in _stage.get_children():
 		c.queue_free()
+	_layers = []
 	if _build_layered_bg(_layered_bg_paths(terrain_char)):
 		return
 	# 天空三段渐变
@@ -249,19 +221,6 @@ func _rebuild_bg(ground_color: Color, terrain_char: String) -> void:
 	horizon.position = Vector2(0, 430)
 	horizon.size = Vector2(1280, 5)
 	_stage.add_child(horizon)
-	# 地面装饰草丛
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 42
-	var grass_col := ground_color.darkened(0.22)
-	for i in 14:
-		var gx := rng.randf_range(30, 1250)
-		var gy := rng.randf_range(460, 690)
-		var tri := PackedVector2Array([
-			Vector2(gx, gy), Vector2(gx + 4, gy - 12), Vector2(gx + 8, gy)])
-		var g := Polygon2D.new()
-		g.polygon = tri
-		g.color = grass_col
-		_stage.add_child(g)
 	_pin_stage_background()
 
 
@@ -277,868 +236,6 @@ func _add_fx(node: CanvasItem) -> void:
 	node.z_index = Z_FX
 	node.z_as_relative = true
 	_stage.add_child(node)
-
-
-func _setup_units() -> void:
-	_att_node = _make_fighter(_att_real, false)
-	_def_node = _make_fighter(_def_real, true)
-	_att_node.position = Vector2(-200, FEET_Y)
-	_def_node.position = Vector2(1480, FEET_Y)
-	_stage.add_child(_att_node)
-	_stage.add_child(_def_node)
-
-
-func _make_fighter(u: Unit, face_left: bool) -> Unit:
-	var c := Unit.new()
-	c.display_name = u.display_name
-	c.faction = u.faction
-	c.is_boss = u.is_boss
-	c.armor_color = u.armor_color
-	c.hair_style = u.hair_style
-	c.hair_color = u.hair_color
-	c.skin_color = u.skin_color
-	c.scar = u.scar
-	c.weapons = u.weapons.duplicate()
-	c.draw_ring = false
-	c.draw_hp_bar = false
-	var sheet := _sheet_id_for(u)
-	var frames := _load_strip(sheet, false)
-	var crit_frames := _load_strip(sheet, true)
-	if frames.is_empty():
-		c.scale = Vector2(-UNIT_SCALE if face_left else UNIT_SCALE, UNIT_SCALE)
-		return c
-	# 攻击方要朝右、防守方要朝左。条带原生朝向不一定朝右，差多少翻多少。
-	# 程序 Q 版仍走上面的 face_left。像素帧自身不再乘 UNIT_SCALE。
-	c.suppress_draw = true
-	var want_right := not face_left
-	var need_flip := want_right != _sheet_faces_right(sheet)
-	c.scale = Vector2(-1.0 if need_flip else 1.0, 1.0)
-	var sc: float = SPRITE_TARGET_H / float(FRAME_BODY_H[sheet])
-	var sprite := Sprite2D.new()
-	sprite.name = "CombatPose"
-	sprite.centered = false
-	sprite.scale = Vector2(sc, sc)
-	_lock_combat_sprite(sprite)
-	c.z_index = Z_FIGHTER
-	c.z_as_relative = true
-	c.add_child(sprite)
-	c.set_meta("combat_sprite", sprite)
-	c.set_meta("combat_frames_normal", frames)
-	c.set_meta("combat_frames_crit", crit_frames)
-	c.set_meta("combat_frames", frames)
-	c.set_meta("combat_px_scale", sc)
-	c.set_meta("combat_hit_frame", int(HIT_FRAME.get(sheet, -1)))
-	c.set_meta("combat_sheet", sheet)
-	c.set_meta("combat_sheet_mode", "normal")
-	_set_pose(c, POSE_IDLE)
-	return c
-
-
-## 剑士 / 山贼用最早风条带。已转职或其它职业不借用这两张皮，走程序 Q 版。
-func _sheet_id_for(u: Unit) -> String:
-	if CLASS_SHEET.has(u.class_label):
-		return CLASS_SHEET[u.class_label]
-	if u.class_label == "":
-		if u.unit_id == "tia":
-			return "tia_sword"
-		if u.unit_id.begins_with("bandit"):
-			return "bandit_axe"
-	if _is_sheet(u.unit_id):
-		return u.unit_id
-	return ""
-
-
-func _is_sheet(id: String) -> bool:
-	return id != "" and SHEET_IDS.has(id)
-
-
-func _sheet_faces_right(sheet_id: String) -> bool:
-	return bool(SHEET_FACES_RIGHT.get(sheet_id, true))
-
-
-## 横排 4 格。普攻 {id}.png，必杀 {id}_crit.png。缺文件则返回空，调用方改画程序 Q 版。
-func _load_strip(sheet_id: String, crit: bool) -> Array:
-	if not _is_sheet(sheet_id):
-		return []
-	var feet_table: Dictionary = FRAME_FEET_CRIT if crit else FRAME_FEET
-	if not feet_table.has(sheet_id):
-		return []
-	var path := "res://art/combat/%s%s.png" % [sheet_id, "_crit" if crit else ""]
-	if not ResourceLoader.exists(path):
-		return []
-	var tex := load(path) as Texture2D
-	if tex == null:
-		return []
-	var feet: Array = feet_table[sheet_id]
-	var full_w := tex.get_width()
-	var full_h := tex.get_height()
-	if full_w < feet.size() or full_h <= 0:
-		return []
-	var sealed := _sealed_texture(tex, path, feet.size())
-	var base_w := int(full_w / feet.size())
-	var extra := full_w - base_w * feet.size()
-	var frames: Array = []
-	var x := 0
-	for i in feet.size():
-		var fw := base_w + (1 if i < extra else 0)
-		var atlas := AtlasTexture.new()
-		atlas.atlas = sealed
-		atlas.region = Rect2(x, 0, fw, full_h)
-		# 最近邻也不要从相邻帧渗一像素进来。
-		atlas.filter_clip = true
-		frames.append({"tex": atlas, "feet": feet[i], "src": path})
-		x += fw
-	return frames
-
-
-## 每张条带只补一次。分帧处理，避免相邻帧的身体被补到一起。
-func _sealed_texture(tex: Texture2D, path: String, frame_count: int) -> Texture2D:
-	if _sealed_tex.has(path):
-		return _sealed_tex[path]
-	var src := tex.get_image()
-	if src == null:
-		return tex
-	if src.is_compressed():
-		src.decompress()
-	var sealed := _seal_strip(src, frame_count)
-	var out := ImageTexture.create_from_image(sealed)
-	_sealed_tex[path] = out
-	return out
-
-
-func _seal_strip(src: Image, frame_count: int) -> Image:
-	var out := src.duplicate()
-	var full_w := src.get_width()
-	var h := src.get_height()
-	var base_w := int(full_w / frame_count)
-	var extra := full_w - base_w * frame_count
-	var x0 := 0
-	for i in frame_count:
-		var fw := base_w + (1 if i < extra else 0)
-		_seal_rect(out, x0, fw, h)
-		x0 += fw
-	return out
-
-
-## 只处理这一格。左右邻帧的轮廓不会被这条缝拉到一起。
-func _seal_rect(img: Image, x0: int, w: int, h: int) -> void:
-	if w <= 0 or h <= 0:
-		return
-	var local := Image.create(w, h, false, Image.FORMAT_RGBA8)
-	local.blit_rect(img, Rect2i(x0, 0, w, h), Vector2i.ZERO)
-	if local.get_format() != Image.FORMAT_RGBA8:
-		local.convert(Image.FORMAT_RGBA8)
-	var bytes := local.get_data()
-	var n := w * h
-	if bytes.size() < n * 4:
-		return
-	var opaque := PackedByteArray()
-	opaque.resize(n)
-	for i in n:
-		opaque[i] = 1 if bytes[i * 4 + 3] >= 128 else 0
-	var mask := opaque.duplicate()
-	for _round in BODY_FILL_ROUNDS:
-		var labels := PackedInt32Array()
-		labels.resize(n)
-		var sizes := PackedInt32Array()
-		sizes.append(0)
-		var stack := PackedInt32Array()
-		for i in n:
-			if mask[i] == 0 or labels[i] != 0:
-				continue
-			var label := sizes.size()
-			sizes.append(0)
-			stack.resize(0)
-			stack.append(i)
-			labels[i] = label
-			var count := 0
-			var sp := 0
-			while sp < stack.size():
-				var p := stack[sp]
-				sp += 1
-				count += 1
-				var x := p % w
-				var y := int(p / w)
-				if x > 0:
-					var left := p - 1
-					if mask[left] == 1 and labels[left] == 0:
-						labels[left] = label
-						stack.append(left)
-				if x + 1 < w:
-					var right := p + 1
-					if mask[right] == 1 and labels[right] == 0:
-						labels[right] = label
-						stack.append(right)
-				if y > 0:
-					var up := p - w
-					if mask[up] == 1 and labels[up] == 0:
-						labels[up] = label
-						stack.append(up)
-				if y + 1 < h:
-					var down := p + w
-					if mask[down] == 1 and labels[down] == 0:
-						labels[down] = label
-						stack.append(down)
-			sizes[label] = count
-		var solid := PackedByteArray()
-		solid.resize(n)
-		for i in n:
-			if mask[i] == 1 and sizes[labels[i]] >= BODY_FILL_MIN:
-				solid[i] = 1
-		for pass_i in 3:
-			if pass_i == 1:
-				for x in w:
-					var top := -1
-					var bottom := -1
-					for y in h:
-						if solid[y * w + x] != 0:
-							if top < 0:
-								top = y
-							bottom = y
-					if top < 0:
-						continue
-					for y in range(top, bottom + 1):
-						solid[y * w + x] = 1
-			else:
-				for y in h:
-					var left_x := -1
-					var right_x := -1
-					var row := y * w
-					for x in w:
-						if solid[row + x] != 0:
-							if left_x < 0:
-								left_x = x
-							right_x = x
-					if left_x < 0:
-						continue
-					for x in range(left_x, right_x + 1):
-						solid[row + x] = 1
-		for y in range(1, h - 1):
-			var row := y * w
-			for x in w:
-				if solid[row + x] != 0 or mask[row + x] != 0:
-					continue
-				var above := solid[row - w + x] != 0 or mask[row - w + x] != 0
-				var below := solid[row + w + x] != 0 or mask[row + w + x] != 0
-				if above and below:
-					solid[row + x] = 1
-		for y in h:
-			var row := y * w
-			for x in range(1, w - 1):
-				if solid[row + x] != 0 or mask[row + x] != 0:
-					continue
-				if (solid[row + x - 1] != 0 or mask[row + x - 1] != 0) and (solid[row + x + 1] != 0 or mask[row + x + 1] != 0):
-					solid[row + x] = 1
-		var changed := false
-		var nxt := PackedByteArray()
-		nxt.resize(n)
-		for i in n:
-			var on := 1 if (solid[i] != 0 or opaque[i] != 0) else 0
-			nxt[i] = on
-			if on != mask[i]:
-				changed = true
-		mask = nxt
-		if not changed:
-			break
-	mask = _seal_fill_hull(mask, w, h)
-	var queue := PackedInt32Array()
-	var colored := PackedByteArray()
-	colored.resize(n)
-	for i in n:
-		if opaque[i] == 1 and mask[i] == 0:
-			bytes[i * 4 + 3] = 0
-		elif opaque[i] == 1:
-			bytes[i * 4 + 3] = 255
-			colored[i] = 1
-			queue.append(i)
-	var head := 0
-	while head < queue.size():
-		var p := queue[head]
-		head += 1
-		var x := p % w
-		var y := int(p / w)
-		var base := p * 4
-		var cr := bytes[base]
-		var cg := bytes[base + 1]
-		var cb := bytes[base + 2]
-		if x > 0:
-			var j := p - 1
-			if mask[j] != 0 and colored[j] == 0:
-				var jb := j * 4
-				bytes[jb] = cr
-				bytes[jb + 1] = cg
-				bytes[jb + 2] = cb
-				bytes[jb + 3] = 255
-				colored[j] = 1
-				queue.append(j)
-		if x + 1 < w:
-			var j2 := p + 1
-			if mask[j2] != 0 and colored[j2] == 0:
-				var jb2 := j2 * 4
-				bytes[jb2] = cr
-				bytes[jb2 + 1] = cg
-				bytes[jb2 + 2] = cb
-				bytes[jb2 + 3] = 255
-				colored[j2] = 1
-				queue.append(j2)
-		if y > 0:
-			var j3 := p - w
-			if mask[j3] != 0 and colored[j3] == 0:
-				var jb3 := j3 * 4
-				bytes[jb3] = cr
-				bytes[jb3 + 1] = cg
-				bytes[jb3 + 2] = cb
-				bytes[jb3 + 3] = 255
-				colored[j3] = 1
-				queue.append(j3)
-		if y + 1 < h:
-			var j4 := p + w
-			if mask[j4] != 0 and colored[j4] == 0:
-				var jb4 := j4 * 4
-				bytes[jb4] = cr
-				bytes[jb4 + 1] = cg
-				bytes[jb4 + 2] = cb
-				bytes[jb4 + 3] = 255
-				colored[j4] = 1
-				queue.append(j4)
-	local.set_data(w, h, false, Image.FORMAT_RGBA8, bytes)
-	img.blit_rect(local, Rect2i(0, 0, w, h), Vector2i(x0, 0))
-
-
-## 返回新数组。只读入参，避免改到调用方那份拷贝。
-func _seal_fill_hull(mask: PackedByteArray, w: int, h: int) -> PackedByteArray:
-	var n := w * h
-	var labels := PackedInt32Array()
-	labels.resize(n)
-	var sizes := PackedInt32Array()
-	sizes.append(0)
-	var stack := PackedInt32Array()
-	for i in n:
-		if mask[i] == 0 or labels[i] != 0:
-			continue
-		var label := sizes.size()
-		sizes.append(0)
-		stack.resize(0)
-		stack.append(i)
-		labels[i] = label
-		var count := 0
-		var sp := 0
-		while sp < stack.size():
-			var p := stack[sp]
-			sp += 1
-			count += 1
-			var x := p % w
-			var y := int(p / w)
-			if x > 0 and mask[p - 1] == 1 and labels[p - 1] == 0:
-				labels[p - 1] = label
-				stack.append(p - 1)
-			if x + 1 < w and mask[p + 1] == 1 and labels[p + 1] == 0:
-				labels[p + 1] = label
-				stack.append(p + 1)
-			if y > 0 and mask[p - w] == 1 and labels[p - w] == 0:
-				labels[p - w] = label
-				stack.append(p - w)
-			if y + 1 < h and mask[p + w] == 1 and labels[p + w] == 0:
-				labels[p + w] = label
-				stack.append(p + w)
-		sizes[label] = count
-	var pts: Array[Vector2i] = []
-	for y in h:
-		var row := y * w
-		for x in w:
-			var i := row + x
-			if mask[i] == 0 or sizes[labels[i]] < BODY_FILL_MIN:
-				continue
-			var edge := x == 0 or y == 0 or x == w - 1 or y == h - 1
-			if not edge:
-				if mask[i - 1] == 0 or mask[i + 1] == 0 or mask[i - w] == 0 or mask[i + w] == 0:
-					edge = true
-			if edge:
-				# 顶点用像素中心。和下面的内点测试同一套坐标，复查时轮廓才不会再向外长一圈。
-				pts.append(Vector2i(x * 2 + 1, y * 2 + 1))
-	var hull := _convex_hull(pts)
-	var out := PackedByteArray()
-	out.resize(n)
-	for i in n:
-		if mask[i] != 0 and sizes[labels[i]] >= BODY_FILL_MIN:
-			out[i] = 1
-	if hull.size() >= 3:
-		var inside := _hull_centers(hull, w, h)
-		for i in n:
-			if inside[i] != 0:
-				out[i] = 1
-	# 贴在凸包边上的小碎片会把轮廓再撑出一圈透底。整块丢掉，避免只抠掉中间一像素留下横缝。
-	# 离身体远的火花仍整块保留。
-	var drop := PackedByteArray()
-	drop.resize(sizes.size())
-	for y in h:
-		var row := y * w
-		for x in w:
-			var i := row + x
-			if mask[i] == 0 or out[i] != 0 or sizes[labels[i]] >= BODY_FILL_MIN:
-				continue
-			var touch := false
-			if x > 0 and out[i - 1] != 0:
-				touch = true
-			elif x + 1 < w and out[i + 1] != 0:
-				touch = true
-			elif y > 0 and out[i - w] != 0:
-				touch = true
-			elif y + 1 < h and out[i + w] != 0:
-				touch = true
-			if touch:
-				drop[labels[i]] = 1
-	for i in n:
-		if mask[i] == 0 or out[i] != 0:
-			continue
-		if drop[labels[i]] == 0:
-			out[i] = 1
-	return out
-
-
-static func count_hull_holes(mask: PackedByteArray, w: int, h: int) -> int:
-	var n := w * h
-	var labels := PackedInt32Array()
-	labels.resize(n)
-	var sizes := PackedInt32Array()
-	sizes.append(0)
-	var stack := PackedInt32Array()
-	for i in n:
-		if mask[i] == 0 or labels[i] != 0:
-			continue
-		var label := sizes.size()
-		sizes.append(0)
-		stack.resize(0)
-		stack.append(i)
-		labels[i] = label
-		var count := 0
-		var sp := 0
-		while sp < stack.size():
-			var p := stack[sp]
-			sp += 1
-			count += 1
-			var x := p % w
-			var y := int(p / w)
-			if x > 0 and mask[p - 1] == 1 and labels[p - 1] == 0:
-				labels[p - 1] = label
-				stack.append(p - 1)
-			if x + 1 < w and mask[p + 1] == 1 and labels[p + 1] == 0:
-				labels[p + 1] = label
-				stack.append(p + 1)
-			if y > 0 and mask[p - w] == 1 and labels[p - w] == 0:
-				labels[p - w] = label
-				stack.append(p - w)
-			if y + 1 < h and mask[p + w] == 1 and labels[p + w] == 0:
-				labels[p + w] = label
-				stack.append(p + w)
-		sizes[label] = count
-	var pts: Array[Vector2i] = []
-	for y in h:
-		var row := y * w
-		for x in w:
-			var i := row + x
-			if mask[i] == 0 or sizes[labels[i]] < BODY_FILL_MIN:
-				continue
-			var edge := x == 0 or y == 0 or x == w - 1 or y == h - 1
-			if not edge:
-				if mask[i - 1] == 0 or mask[i + 1] == 0 or mask[i - w] == 0 or mask[i + w] == 0:
-					edge = true
-			if edge:
-				pts.append(Vector2i(x * 2 + 1, y * 2 + 1))
-	var hull := _convex_hull(pts)
-	if hull.size() < 3:
-		return 0
-	var inside := _hull_centers(hull, w, h)
-	var holes := 0
-	for i in n:
-		if inside[i] != 0 and mask[i] == 0:
-			holes += 1
-	return holes
-
-
-static func _convex_hull(pts: Array[Vector2i]) -> PackedVector2Array:
-	var hull := PackedVector2Array()
-	if pts.size() <= 1:
-		for p in pts:
-			hull.append(Vector2(p))
-		return hull
-	pts.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
-		if a.x == b.x:
-			return a.y < b.y
-		return a.x < b.x
-	)
-	var lower: Array[Vector2i] = []
-	for p in pts:
-		while lower.size() >= 2 and _hull_cross(lower[lower.size() - 2], lower[lower.size() - 1], p) <= 0:
-			lower.remove_at(lower.size() - 1)
-		lower.append(p)
-	var upper: Array[Vector2i] = []
-	for i in range(pts.size() - 1, -1, -1):
-		var p: Vector2i = pts[i]
-		while upper.size() >= 2 and _hull_cross(upper[upper.size() - 2], upper[upper.size() - 1], p) <= 0:
-			upper.remove_at(upper.size() - 1)
-		upper.append(p)
-	for i in lower.size() - 1:
-		hull.append(Vector2(lower[i]))
-	for i in upper.size() - 1:
-		hull.append(Vector2(upper[i]))
-	return hull
-
-
-static func _hull_cross(o: Vector2i, a: Vector2i, b: Vector2i) -> int:
-	return (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x)
-
-
-## 像素中心在凸包内才算身体。顶点也是像素中心（坐标乘 2 再加 1）。
-## 不用扫描线向外取整，避免轮廓一圈圈变大。
-static func _hull_centers(hull: PackedVector2Array, w: int, h: int) -> PackedByteArray:
-	var inside := PackedByteArray()
-	inside.resize(w * h)
-	var n := hull.size()
-	var xmin := w
-	var xmax := 0
-	var ymin := h
-	var ymax := 0
-	for i in n:
-		var hx := int(floor(hull[i].x / 2.0))
-		var hy := int(floor(hull[i].y / 2.0))
-		xmin = mini(xmin, hx)
-		xmax = maxi(xmax, hx)
-		ymin = mini(ymin, hy)
-		ymax = maxi(ymax, hy)
-	xmin = clampi(xmin, 0, w - 1)
-	xmax = clampi(xmax, 0, w - 1)
-	ymin = clampi(ymin, 0, h - 1)
-	ymax = clampi(ymax, 0, h - 1)
-	for y in range(ymin, ymax + 1):
-		var py := float(y * 2 + 1)
-		for x in range(xmin, xmax + 1):
-			var px := float(x * 2 + 1)
-			var sign := 0
-			var ok := true
-			for i in n:
-				var a := hull[i]
-				var b := hull[(i + 1) % n]
-				var c := (b.x - a.x) * (py - a.y) - (b.y - a.y) * (px - a.x)
-				if absf(c) <= 0.001:
-					continue
-				var s := 1 if c > 0.0 else -1
-				if sign == 0:
-					sign = s
-				elif s != sign:
-					ok = false
-					break
-			if ok:
-				inside[y * w + x] = 1
-	return inside
-
-
-func _set_pose(node: Unit, pose: int) -> void:
-	if node == null or not is_instance_valid(node) or not node.has_meta("combat_sprite"):
-		return
-	var frames: Array = node.get_meta("combat_frames")
-	if frames.is_empty():
-		return
-	var fr: Dictionary = frames[clampi(pose, 0, frames.size() - 1)]
-	var sprite: Sprite2D = node.get_meta("combat_sprite")
-	var sc: float = node.get_meta("combat_px_scale")
-	var feet: Vector2 = fr["feet"]
-	_lock_combat_sprite(sprite)
-	sprite.texture = fr["tex"]
-	# 脚底点对齐节点原点。父节点 scale.x 绕原点镜像，原点不动，翻转后脚仍踩在 FEET_Y。
-	sprite.position = Vector2(-feet.x, -feet.y) * sc
-	if node.is_inside_tree():
-		_refresh_body_occluder()
-
-
-## 立绘本体：alpha 锁死为 1，最近邻，直通 alpha 的 mix 混合。
-## 镀金 / 闪白 / 阵亡淡出走父节点 modulate，不走这张精灵自己的 alpha。
-func _lock_combat_sprite(sprite: Sprite2D) -> void:
-	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	sprite.texture_repeat = CanvasItem.TEXTURE_REPEAT_DISABLED
-	sprite.modulate = Color(1, 1, 1, 1)
-	sprite.self_modulate = Color(1, 1, 1, 1)
-	if not (sprite.material is ShaderMaterial) or (sprite.material as ShaderMaterial).shader != _POSE_SHADER:
-		var mat := ShaderMaterial.new()
-		mat.shader = _POSE_SHADER
-		sprite.material = mat
-
-
-func _use_crit_frames(node: Unit, on: bool) -> void:
-	if node == null or not is_instance_valid(node) or not node.has_meta("combat_frames_normal"):
-		return
-	var crit: Array = node.get_meta("combat_frames_crit")
-	if on and not crit.is_empty():
-		node.set_meta("combat_frames", crit)
-		node.set_meta("combat_sheet_mode", "crit")
-	else:
-		node.set_meta("combat_frames", node.get_meta("combat_frames_normal"))
-		node.set_meta("combat_sheet_mode", "normal")
-
-
-## 154px 缩放之后，腰腹左右还露着未缩放帧边。灌丛硬边就从那条边上穿出来。
-## 挡板跟角色走，盖住本帧身体和未缩放帧腰线之间的凸包，颜色仍取身体原色。
-const WAIST_EDGE_DY := [84, 80, 77, 70]
-var _occluder: Sprite2D
-
-
-func _refresh_body_occluder() -> void:
-	if _stage == null or _att_node == null or _def_node == null:
-		return
-	if not is_instance_valid(_att_node) or not is_instance_valid(_def_node):
-		return
-	if not _att_node.is_inside_tree():
-		return
-	var img := build_waist_occluder([_att_node, _def_node])
-	if _occluder == null or not is_instance_valid(_occluder):
-		_occluder = Sprite2D.new()
-		_occluder.name = "BodyOccluder"
-		_occluder.centered = false
-		_occluder.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-		_occluder.texture_repeat = CanvasItem.TEXTURE_REPEAT_DISABLED
-		_stage.add_child(_occluder)
-	_occluder.z_index = Z_FIGHTER - 1
-	_occluder.z_as_relative = true
-	_occluder.texture = ImageTexture.create_from_image(img)
-
-
-## 返回一张和视口同大的挡板。调用方自己挂到舞台上。冒烟可以直接读像素。
-func build_waist_occluder(nodes: Array) -> Image:
-	var w := 1280
-	var h := 720
-	var n := w * h
-	var color := PackedByteArray()
-	color.resize(n * 4)
-	var opaque := PackedByteArray()
-	opaque.resize(n)
-	var extras: Array[Vector2i] = []
-	for node in nodes:
-		if not (node is Node2D):
-			continue
-		var body := node as Node2D
-		if not body.has_meta("combat_sprite"):
-			continue
-		var sprite: Sprite2D = body.get_meta("combat_sprite")
-		if sprite == null or not (sprite.texture is AtlasTexture):
-			continue
-		var atlas := sprite.texture as AtlasTexture
-		var src := atlas.atlas.get_image()
-		if src == null:
-			continue
-		if src.is_compressed():
-			src.decompress()
-		if src.get_format() != Image.FORMAT_RGBA8:
-			src.convert(Image.FORMAT_RGBA8)
-		var region := atlas.region
-		var x0 := int(region.position.x)
-		var y0 := int(region.position.y)
-		var fw := int(region.size.x)
-		var fh := int(region.size.y)
-		var full_w := src.get_width()
-		var bytes := src.get_data()
-		var sc := sprite.scale
-		var sp := sprite.position
-		var us := body.scale
-		var up := body.position
-		for y in fh:
-			var row := (y0 + y) * full_w + x0
-			for x in fw:
-				var si := (row + x) * 4
-				if si + 3 >= bytes.size() or bytes[si + 3] < 128:
-					continue
-				var lx := sp.x + (float(x) + 0.5) * sc.x
-				var ly := sp.y + (float(y) + 0.5) * sc.y
-				var sx := int(floor(up.x + lx * us.x))
-				var sy := int(floor(up.y + ly * us.y))
-				if sx < 0 or sy < 0 or sx >= w or sy >= h:
-					continue
-				var di := sy * w + sx
-				opaque[di] = 1
-				var db := di * 4
-				color[db] = bytes[si]
-				color[db + 1] = bytes[si + 1]
-				color[db + 2] = bytes[si + 2]
-				color[db + 3] = 255
-		var feet_x := 0.0
-		if absf(sc.x) > 0.001:
-			feet_x = -sp.x / sc.x
-		for dy in WAIST_EDGE_DY:
-			var ey := int(floor(up.y - float(dy)))
-			var ex0 := int(floor(up.x + (0.0 - feet_x) * us.x))
-			var ex1 := int(floor(up.x + (float(fw) - feet_x) * us.x))
-			if ey >= 0 and ey < h:
-				if ex0 >= 0 and ex0 < w:
-					extras.append(Vector2i(ex0, ey))
-				if ex1 >= 0 and ex1 < w:
-					extras.append(Vector2i(ex1, ey))
-	var pts: Array[Vector2i] = []
-	for y in h:
-		var row := y * w
-		for x in w:
-			if opaque[row + x] == 0:
-				continue
-			var edge := x == 0 or y == 0 or x == w - 1 or y == h - 1
-			if not edge:
-				if opaque[row + x - 1] == 0 or opaque[row + x + 1] == 0 or opaque[row - w + x] == 0 or opaque[row + w + x] == 0:
-					edge = true
-			if edge:
-				pts.append(Vector2i(x, y))
-	for p in extras:
-		pts.append(p)
-	var hull := _convex_hull(pts)
-	var mask := _mask_hull_span(hull, w, h)
-	for i in n:
-		if opaque[i] != 0:
-			mask[i] = 1
-	for p in extras:
-		var ei := p.y * w + p.x
-		if ei >= 0 and ei < n:
-			mask[ei] = 1
-	# 帧边顶点落在像素中心外侧时，扫描线会留一像素灌丛。向外补两像素，边上的采样才进得了身子。
-	var grown := PackedByteArray()
-	grown.resize(n)
-	for y in h:
-		var row := y * w
-		for x in w:
-			if mask[row + x] == 0:
-				continue
-			for dy in range(-2, 3):
-				var ny := y + dy
-				if ny < 0 or ny >= h:
-					continue
-				var nrow := ny * w
-				for dx in range(-2, 3):
-					var nx := x + dx
-					if nx < 0 or nx >= w:
-						continue
-					grown[nrow + nx] = 1
-	mask = grown
-	var queue := PackedInt32Array()
-	var colored := PackedByteArray()
-	colored.resize(n)
-	for i in n:
-		if opaque[i] == 0:
-			continue
-		colored[i] = 1
-		queue.append(i)
-	var head := 0
-	while head < queue.size():
-		var p := queue[head]
-		head += 1
-		var x := p % w
-		var y := int(p / w)
-		var base := p * 4
-		var cr := color[base]
-		var cg := color[base + 1]
-		var cb := color[base + 2]
-		if x > 0:
-			var j := p - 1
-			if mask[j] != 0 and colored[j] == 0:
-				var jb := j * 4
-				color[jb] = cr
-				color[jb + 1] = cg
-				color[jb + 2] = cb
-				color[jb + 3] = 255
-				colored[j] = 1
-				queue.append(j)
-		if x + 1 < w:
-			var j2 := p + 1
-			if mask[j2] != 0 and colored[j2] == 0:
-				var jb2 := j2 * 4
-				color[jb2] = cr
-				color[jb2 + 1] = cg
-				color[jb2 + 2] = cb
-				color[jb2 + 3] = 255
-				colored[j2] = 1
-				queue.append(j2)
-		if y > 0:
-			var j3 := p - w
-			if mask[j3] != 0 and colored[j3] == 0:
-				var jb3 := j3 * 4
-				color[jb3] = cr
-				color[jb3 + 1] = cg
-				color[jb3 + 2] = cb
-				color[jb3 + 3] = 255
-				colored[j3] = 1
-				queue.append(j3)
-		if y + 1 < h:
-			var j4 := p + w
-			if mask[j4] != 0 and colored[j4] == 0:
-				var jb4 := j4 * 4
-				color[jb4] = cr
-				color[jb4 + 1] = cg
-				color[jb4 + 2] = cb
-				color[jb4 + 3] = 255
-				colored[j4] = 1
-				queue.append(j4)
-	var img := Image.create(w, h, false, Image.FORMAT_RGBA8)
-	img.set_data(w, h, false, Image.FORMAT_RGBA8, color)
-	return img
-
-
-static func _mask_hull_span(hull: PackedVector2Array, w: int, h: int) -> PackedByteArray:
-	var mask := PackedByteArray()
-	mask.resize(w * h)
-	var n := hull.size()
-	if n < 3:
-		return mask
-	var ymin := h
-	var ymax := 0
-	for i in n:
-		ymin = mini(ymin, int(floor(hull[i].y)))
-		ymax = maxi(ymax, int(floor(hull[i].y)))
-	ymin = clampi(ymin, 0, h - 1)
-	ymax = clampi(ymax, 0, h - 1)
-	for y in range(ymin, ymax + 1):
-		var py := float(y) + 0.5
-		var lo := 100000.0
-		var hi := -100000.0
-		var hit := 0
-		for i in n:
-			var a := hull[i]
-			var b := hull[(i + 1) % n]
-			var ay := a.y
-			var by := b.y
-			var ax := a.x
-			var bx := b.x
-			if ay > by:
-				var ty := ay
-				ay = by
-				by = ty
-				var tx := ax
-				ax = bx
-				bx = tx
-			if py < ay or py > by:
-				continue
-			var x := ax
-			if absf(by - ay) >= 0.0001:
-				var t := (py - ay) / (by - ay)
-				x = ax + (bx - ax) * t
-			else:
-				lo = minf(lo, minf(ax, bx))
-				hi = maxf(hi, maxf(ax, bx))
-			lo = minf(lo, x)
-			hi = maxf(hi, x)
-			hit += 1
-		if hit < 2:
-			continue
-		var x0 := clampi(int(floor(lo)), 0, w - 1)
-		var x1 := clampi(int(floor(hi)), 0, w - 1)
-		for x in range(x0, x1 + 1):
-			mask[y * w + x] = 1
-	for i in n:
-		var vx := clampi(int(floor(hull[i].x)), 0, w - 1)
-		var vy := clampi(int(floor(hull[i].y)), 0, h - 1)
-		mask[vy * w + vx] = 1
-	return mask
-
-
-func _set_hit_pose(node: Unit) -> void:
-	if node == null or not node.has_meta("combat_hit_frame"):
-		return
-	var hf: int = node.get_meta("combat_hit_frame")
-	if hf >= 0:
-		_set_pose(node, hf)
 
 
 ## 当前地形对应的分层路径。未登记字符默认 grass。任一层资源缺失时返回空数组（那时才回退色块）。
@@ -1161,7 +258,7 @@ func _usable_layered_paths(paths: Array) -> Array:
 	return out
 
 
-## 铺四层 Sprite2D。路径为空、任一层缺失或加载失败时不改舞台，返回 false。
+## 铺四层 Sprite2D（以脚底线为基准放大 BG_ZOOM，留出视差余量）。缺层时不改舞台，返回 false。
 func _build_layered_bg(paths: Array) -> bool:
 	var usable := _usable_layered_paths(paths)
 	if usable.is_empty():
@@ -1176,36 +273,210 @@ func _build_layered_bg(paths: Array) -> bool:
 		var spr := Sprite2D.new()
 		spr.texture = tex
 		spr.centered = false
-		spr.position = Vector2.ZERO
+		spr.scale = Vector2(BG_ZOOM, BG_ZOOM)
 		spr.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 		_stage.add_child(spr)
+		_layers.append(spr)
 	_pin_stage_background()
+	_set_cam(_cam_x)
 	return true
 
 
-func _setup_labels(wi: int) -> void:
-	for c in _ui.get_children():
-		if c is Label and c.get_meta("perm", false) == false:
-			c.queue_free()
-	# 名字
-	if _att_name == null:
-		_att_name = _make_ui_label(Vector2(60, 28), 30, HORIZONTAL_ALIGNMENT_LEFT)
-		_def_name = _make_ui_label(Vector2(1220, 28), 30, HORIZONTAL_ALIGNMENT_RIGHT)
-		_att_wpn = _make_ui_label(Vector2(60, 66), 20, HORIZONTAL_ALIGNMENT_LEFT)
-		_def_wpn = _make_ui_label(Vector2(1220, 66), 20, HORIZONTAL_ALIGNMENT_RIGHT)
-		_att_name.set_meta("perm", true)
-		_def_name.set_meta("perm", true)
-		_att_wpn.set_meta("perm", true)
-		_def_wpn.set_meta("perm", true)
-		_build_hp_bars()
-	_att_name.text = tr(_att_real.display_name)
-	_def_name.text = tr(_def_real.display_name)
+## 镜头横移：近景移得多、远景移得少
+func _set_cam(x: float) -> void:
+	_cam_x = x
+	for i in _layers.size():
+		var spr: Sprite2D = _layers[i]
+		if not is_instance_valid(spr):
+			continue
+		var f: float = PARALLAX[mini(i, PARALLAX.size() - 1)]
+		spr.position = Vector2(640.0 * (1.0 - BG_ZOOM) - x * f, FEET_Y * (1.0 - BG_ZOOM))
+
+
+func _pan_cam(x: float, time: float) -> void:
+	create_tween().tween_method(_set_cam, _cam_x, x, time).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+
+
+## 镜头推近 / 复原（以 focus 为中心缩放 _cam）
+func _zoom(s: float, focus: Vector2, time: float) -> void:
+	var t := create_tween().set_parallel(true)
+	t.tween_property(_cam, "scale", Vector2(s, s), time).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	t.tween_property(_cam, "position", focus * (1.0 - s), time).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+
+
+## 环境粒子：草地飘花粉、森林落叶、焦土火星上飘
+func _build_ambient(set_name: String) -> void:
+	for c in _ambient.get_children():
+		c.queue_free()
+	var p := CPUParticles2D.new()
+	p.amount = 26
+	p.lifetime = 7.0
+	p.preprocess = 7.0
+	p.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
+	p.scale_amount_min = 2.0
+	p.scale_amount_max = 4.0
+	match set_name:
+		"scorch":
+			p.position = Vector2(640, 600)
+			p.emission_rect_extents = Vector2(700, 30)
+			p.direction = Vector2(0.2, -1)
+			p.spread = 25.0
+			p.initial_velocity_min = 40.0
+			p.initial_velocity_max = 90.0
+			p.gravity = Vector2(10, -6)
+			p.color = Color(1.0, 0.55, 0.18, 0.9)
+			p.amount = 40
+		"forest":
+			p.position = Vector2(640, -20)
+			p.emission_rect_extents = Vector2(700, 10)
+			p.direction = Vector2(-0.4, 1)
+			p.spread = 30.0
+			p.initial_velocity_min = 25.0
+			p.initial_velocity_max = 55.0
+			p.gravity = Vector2(-4, 12)
+			p.angular_velocity_min = -90.0
+			p.angular_velocity_max = 90.0
+			p.color = Color(0.45, 0.62, 0.25, 0.85)
+			p.scale_amount_min = 3.0
+			p.scale_amount_max = 5.0
+		_:
+			p.position = Vector2(640, 380)
+			p.emission_rect_extents = Vector2(700, 160)
+			p.direction = Vector2(-1, -0.2)
+			p.spread = 40.0
+			p.initial_velocity_min = 12.0
+			p.initial_velocity_max = 30.0
+			p.gravity = Vector2(0, -2)
+			p.color = Color(1.0, 0.97, 0.8, 0.7)
+			p.amount = 20
+	_ambient.add_child(p)
+
+
+# ==================== 角色 ====================
+
+## 单位 → 条带套名
+static func fighter_key_for(u: Unit) -> String:
+	if FIGHTER_BY_ID.has(u.unit_id):
+		return FIGHTER_BY_ID[u.unit_id]
+	for rule in FIGHTER_BY_PREFIX:
+		if u.unit_id.begins_with(rule[0]):
+			return rule[1]
+	return str(FIGHTER_BY_WEAPON.get(u.weapon_kind(), "fantasy_warrior"))
+
+
+func _setup_units(wi: int) -> void:
 	var dist: int = GameData.dist(_att_real.grid_pos, _def_real.grid_pos)
-	_att_wpn.text = tr(_att_real.weapon(wi)["name"])
-	_def_wpn.text = tr(_def_real.weapon(maxi(0, _def_real.counter_weapon(dist)))["name"])
+	var dwi := maxi(0, _def_real.counter_weapon(dist))
+	_att_node = _make_fighter(_att_real, wi, false)
+	_def_node = _make_fighter(_def_real, dwi, true)
+	_att_node.position = Vector2(-220, FEET_Y)
+	_def_node.position = Vector2(1500, FEET_Y)
+	_stage.add_child(_att_node)
+	_stage.add_child(_def_node)
 
 
-func _make_ui_label(pos: Vector2, size: int, align: HorizontalAlignment) -> Label:
+func _make_fighter(u: Unit, wi: int, face_left: bool) -> CombatFighter:
+	var f := CombatFighter.new()
+	f.name = "Fighter_" + u.unit_id
+	f.z_index = Z_FIGHTER
+	f.z_as_relative = true
+	var kind := "sword"
+	if wi >= 0 and wi < u.weapons.size():
+		kind = str(u.weapon(wi)["type"])
+	if not f.setup(fighter_key_for(u), kind, face_left, TINT_BY_ID.get(u.unit_id, Color.WHITE)):
+		# 缺图兜底：程序 Q 版（站在 CombatFighter 里，镜像由父节点负责）
+		var c := Unit.new()
+		c.faction = u.faction
+		c.is_boss = u.is_boss
+		c.armor_color = u.armor_color
+		c.hair_style = u.hair_style
+		c.hair_color = u.hair_color
+		c.skin_color = u.skin_color
+		c.scar = u.scar
+		c.weapons = u.weapons.duplicate()
+		c.draw_ring = false
+		c.draw_hp_bar = false
+		c.facing = Vector2i.RIGHT
+		c.scale = Vector2(UNIT_SCALE, UNIT_SCALE)
+		c.position = Vector2(0, -20 * UNIT_SCALE)
+		f.add_child(c)
+		f.weapon_kind = kind
+		f.scale = Vector2(-1.0 if face_left else 1.0, 1.0)
+	return f
+
+
+# ==================== 底部面板 ====================
+
+func _build_panels(wi: int) -> void:
+	for c in _ui.get_children():
+		c.queue_free()
+	_panels = {}
+	var dist: int = GameData.dist(_att_real.grid_pos, _def_real.grid_pos)
+	var dwi := _def_real.counter_weapon(dist)
+	var a_stats := [_fc.get("a_hit", -1), _fc.get("a_dmg", -1), _fc.get("a_crit", -1)]
+	var d_stats := [_fc.get("d_hit", -1), _fc.get("d_dmg", -1), _fc.get("d_crit", -1)]
+	if not _fc.get("d_can", true) or dwi < 0:
+		d_stats = [-1, -1, -1]
+	_panels["a"] = _make_panel(0.0, _att_real, tr(_att_real.weapon(wi)["name"]), a_stats, int(_fc.get("a_times", 1)))
+	var dwpn := tr(_def_real.weapon(dwi)["name"]) if dwi >= 0 else "--"
+	_panels["d"] = _make_panel(640.0, _def_real, dwpn, d_stats, int(_fc.get("d_times", 1)))
+
+
+func _make_panel(x: float, u: Unit, wpn: String, stats: Array, times: int) -> Dictionary:
+	var base := Color(0.14, 0.25, 0.52) if u.is_player() else Color(0.50, 0.15, 0.15)
+	var bg := ColorRect.new()
+	bg.color = Color(base.r, base.g, base.b, 0.94)
+	bg.position = Vector2(x, PANEL_Y)
+	bg.size = Vector2(640, 720 - PANEL_Y)
+	_ui.add_child(bg)
+	var edge := ColorRect.new()
+	edge.color = base.lightened(0.45)
+	edge.position = Vector2(x, PANEL_Y)
+	edge.size = Vector2(640, 3)
+	_ui.add_child(edge)
+	var sep := ColorRect.new()
+	sep.color = Color(0, 0, 0, 0.35)
+	sep.position = Vector2(x + 380, PANEL_Y + 16)
+	sep.size = Vector2(2, 720 - PANEL_Y - 32)
+	_ui.add_child(sep)
+	var name_l := _label(Vector2(x + 40, PANEL_Y + 12), 30)
+	name_l.text = tr(u.display_name)
+	var wpn_l := _label(Vector2(x + 40, PANEL_Y + 54), 20)
+	wpn_l.text = wpn
+	wpn_l.add_theme_color_override("font_color", Color(0.92, 0.9, 0.8))
+	var hp_l := _label(Vector2(x + 40, PANEL_Y + 96), 26)
+	var bar_bg := ColorRect.new()
+	bar_bg.color = Color(0, 0, 0, 0.55)
+	bar_bg.position = Vector2(x + 110, PANEL_Y + 106)
+	bar_bg.size = Vector2(HP_BAR_W, 16)
+	_ui.add_child(bar_bg)
+	var fill := ColorRect.new()
+	fill.position = bar_bg.position + Vector2(2, 2)
+	fill.size = Vector2(HP_BAR_W - 4, 12)
+	_ui.add_child(fill)
+	# 每格 HP 一道刻度（GBA 式）
+	var mhp := maxi(1, u.max_hp)
+	if mhp <= 60:
+		for i in range(1, mhp):
+			var tick := ColorRect.new()
+			tick.color = Color(0, 0, 0, 0.28)
+			tick.position = fill.position + Vector2((HP_BAR_W - 4) * i / float(mhp), 0)
+			tick.size = Vector2(1, 12)
+			_ui.add_child(tick)
+	var keys := ["HIT", "DMG", "CRT"]
+	for i in 3:
+		var k := _label(Vector2(x + 410, PANEL_Y + 14 + i * 40), 22)
+		k.text = keys[i]
+		k.add_theme_color_override("font_color", Color(1.0, 0.9, 0.55))
+		var v := _label(Vector2(x + 490, PANEL_Y + 12 + i * 40), 26)
+		var n: int = int(stats[i])
+		v.text = "--" if n < 0 else str(n)
+		if i == 1 and n >= 0 and times > 1:
+			v.text += " ×%d" % times
+	return {"fill": fill, "hp": hp_l, "unit": u}
+
+
+func _label(pos: Vector2, size: int) -> Label:
 	var l := Label.new()
 	l.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 	l.position = pos
@@ -1214,39 +485,31 @@ func _make_ui_label(pos: Vector2, size: int, align: HorizontalAlignment) -> Labe
 	l.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.7))
 	l.add_theme_constant_override("shadow_offset_x", 2)
 	l.add_theme_constant_override("shadow_offset_y", 2)
-	if align != HORIZONTAL_ALIGNMENT_LEFT:
-		l.position -= Vector2(240, 0)
-		l.size = Vector2(240, size + 10)
-		l.horizontal_alignment = align
 	_ui.add_child(l)
 	return l
 
 
-func _build_hp_bars() -> void:
-	_att_hp_fill = _make_hp_bar(Vector2(60, 630), true)
-	_def_hp_fill = _make_hp_bar(Vector2(1280 - 60 - HP_BAR_W, 630), false)
+## HP 条：命中当帧就开始消减（不再等整套动作播完）
+func _update_bars(time := 0.3) -> void:
+	for side in _panels:
+		var p: Dictionary = _panels[side]
+		var u: Unit = p["unit"]
+		var r: float = clampf(float(u.hp) / float(maxi(1, u.max_hp)), 0.0, 1.0)
+		var fill: ColorRect = p["fill"]
+		fill.color = _hp_color(r)
+		(p["hp"] as Label).text = str(u.hp)
+		if time <= 0.0:
+			fill.size.x = (HP_BAR_W - 4) * r
+		else:
+			create_tween().tween_property(fill, "size:x", (HP_BAR_W - 4) * r, time).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 
 
-func _make_hp_bar(pos: Vector2, left_side: bool) -> ColorRect:
-	var name_l := _make_ui_label(pos + Vector2(0, -34), 20, HORIZONTAL_ALIGNMENT_LEFT if left_side else HORIZONTAL_ALIGNMENT_RIGHT)
-	name_l.set_meta("perm", true)
-	var bg := ColorRect.new()
-	bg.color = Color(0, 0, 0, 0.55)
-	bg.position = pos
-	bg.size = Vector2(HP_BAR_W, 16)
-	_ui.add_child(bg)
-	var fill := ColorRect.new()
-	fill.color = Color(0.3, 0.9, 0.3)
-	fill.position = pos + Vector2(2, 2)
-	fill.size = Vector2(HP_BAR_W - 4, 12)
-	_ui.add_child(fill)
-	var num := _make_ui_label(pos + Vector2(HP_BAR_W + 12, -6), 22, HORIZONTAL_ALIGNMENT_LEFT)
-	num.set_meta("perm", true)
-	if left_side:
-		_att_hp_label = num
-	else:
-		_def_hp_label = num
-	return fill
+func _hp_color(ratio: float) -> Color:
+	if ratio > 0.5:
+		return Color(0.3, 0.9, 0.3)
+	if ratio > 0.25:
+		return Color(0.95, 0.8, 0.2)
+	return Color(0.9, 0.25, 0.2)
 
 
 # ==================== 演出 ====================
@@ -1255,172 +518,158 @@ func _slide_in() -> void:
 	if _skip:
 		_att_node.position.x = ATT_X
 		_def_node.position.x = DEF_X
+		_set_cam(0.0)
 		return
+	_att_node.play_loop("run")
+	_def_node.play_loop("run")
 	var t := create_tween().set_parallel(true)
-	t.tween_property(_att_node, "position:x", ATT_X, 0.35).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	t.tween_property(_def_node, "position:x", DEF_X, 0.35).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	await get_tree().create_timer(0.42).timeout
+	t.tween_property(_att_node, "position:x", ATT_X, 0.38).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	t.tween_property(_def_node, "position:x", DEF_X, 0.38).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	t.tween_method(_set_cam, _cam_x, 0.0, 0.45).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	await t.finished
+	_att_node.play_loop("idle")
+	_def_node.play_loop("idle")
+	await get_tree().create_timer(0.12).timeout
 
 
-## 单次攻击演出：按武器流派 + 是否暴击分支
+## 单次攻击：必杀先蓄力，弓手原地放箭，其余跑到对面挥砍
 func _strike(ev: Dictionary) -> void:
-	var striker: Unit = _att_node if ev["side"] == "a" else _def_node
-	var victim: Unit = _def_node if ev["side"] == "a" else _att_node
+	var striker: CombatFighter = _att_node if ev["side"] == "a" else _def_node
+	var victim: CombatFighter = _def_node if ev["side"] == "a" else _att_node
 	var dir: float = 1.0 if ev["side"] == "a" else -1.0
-	if ev.get("crit", false):
-		await _strike_crit(striker, victim, ev, dir)
-		return
-	match striker.weapon_kind():
-		"bow":
-			await _strike_bow(striker, victim, ev, dir)
-		"axe":
-			await _strike_melee(striker, victim, ev, dir, "axe")
-		"lance":
-			await _strike_melee(striker, victim, ev, dir, "lance")
-		_:
-			await _strike_melee(striker, victim, ev, dir, "sword")
-
-
-## 近战通用：剑=快斩 / 枪=蓄力突刺 / 斧=跳劈
-func _strike_melee(striker: Unit, victim: Unit, ev: Dictionary, dir: float, style: String) -> void:
-	var start_x: float = striker.position.x
-	var start_y: float = striker.position.y
-	var victim_x: float = victim.position.x
-	var approach_time := 0.13
-	# 流派起手式
-	match style:
-		"sword":
-			pass  # 直接快斩
-		"lance":
-			# 先后撤蓄力再长突
-			var back := create_tween()
-			back.tween_property(striker, "position:x", start_x - dir * 26.0, 0.10)
-			await get_tree().create_timer(0.12).timeout
-			approach_time = 0.15
-		"axe":
-			# 跃起（前冲帧跟这次起跳一起换，不另加等待）
-			_set_pose(striker, POSE_LUNGE)
-			var hop := create_tween()
-			hop.tween_property(striker, "position:y", start_y - 40.0, 0.14).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-			await get_tree().create_timer(0.14).timeout
-	_set_pose(striker, POSE_LUNGE)
-	var t := create_tween()
-	t.tween_property(striker, "position:x", victim_x - dir * 110.0, approach_time).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-	if style == "axe":
-		t.parallel().tween_property(striker, "position:y", start_y, approach_time).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-	await get_tree().create_timer(approach_time + 0.02).timeout
-	_set_pose(striker, POSE_STRIKE)
-	_impact(striker, victim, ev, dir, style, false)
-	await get_tree().create_timer(0.24).timeout
-	# 归位
-	_set_pose(striker, POSE_RECOVER)
-	var back2 := create_tween()
-	back2.tween_property(striker, "position:x", start_x, 0.16)
-	await get_tree().create_timer(0.18).timeout
-	_set_pose(striker, POSE_IDLE)
-
-
-## 弓手：原地拉弓, 箭矢飞行
-func _strike_bow(striker: Unit, victim: Unit, ev: Dictionary, dir: float) -> void:
-	# 拉弓蓄力（微微后仰）
-	var draw := create_tween()
-	draw.tween_property(striker, "position:x", striker.position.x - dir * 10.0, 0.14)
-	Audio.play_sfx("bow", randf_range(0.95, 1.05))
-	await get_tree().create_timer(0.16).timeout
+	var crit: bool = ev.get("crit", false)
+	if crit:
+		await _crit_charge(striker)
 	if _skip:
 		_apply_damage(ev)
 		return
-	# 箭矢
-	var arrow := ColorRect.new()
-	arrow.color = Color(0.95, 0.88, 0.70)
-	arrow.size = Vector2(22, 3)
-	var from := striker.position + Vector2(dir * 30, -60)
-	var to := victim.position + Vector2(-dir * 20, -55)
+	if striker.weapon_kind == "bow":
+		await _strike_bow(striker, victim, ev, dir, crit)
+	else:
+		await _strike_melee(striker, victim, ev, dir, crit)
+
+
+func _crit_charge(striker: CombatFighter) -> void:
+	striker.set_glow(Color(1.0, 0.82, 0.3, 1.0))
+	_big_text(tr("必 杀 !"), Color(1.0, 0.85, 0.25))
+	_zoom(1.1, Vector2(striker.position.x, FEET_Y - 90), 0.25)
+	await get_tree().create_timer(0.38).timeout
+	striker.set_glow(Color(1.0, 0.82, 0.3, 0.0))
+
+
+## 近战：跑到对手面前 → 出招（出手帧结算）→ 后跳归位
+func _strike_melee(striker: CombatFighter, victim: CombatFighter, ev: Dictionary, dir: float, crit: bool) -> void:
+	var home := striker.position.x
+	var reach := 175.0 if striker.set_key == "mwp" else 150.0
+	var target_x := victim.position.x - dir * reach
+	var run_time := clampf(absf(target_x - home) / 1500.0, 0.12, 0.32)
+	striker.play_loop("run")
+	var t := create_tween()
+	t.tween_property(striker, "position:x", target_x, run_time).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	_pan_cam(dir * 30.0, run_time)
+	await t.finished
+	if _skip:
+		_apply_damage(ev)
+		striker.position.x = home
+		striker.play_loop("idle")
+		return
+	var anim := striker.attack_anim(crit)
+	striker.play_once(anim)
+	await striker.impact
+	_impact(striker, victim, ev, dir, crit)
+	if striker.is_playing(anim):
+		await striker.sprite.animation_finished
+	# 后跳归位
+	striker.play_loop("idle")
+	var back := create_tween().set_parallel(true)
+	back.tween_property(striker, "position:x", home, 0.24).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	back.tween_property(striker, "position:y", FEET_Y - 22.0, 0.12).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	back.chain().tween_property(striker, "position:y", FEET_Y, 0.12).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	_pan_cam(0.0, 0.3)
+	if crit:
+		_zoom(1.0, Vector2(640, FEET_Y - 90), 0.3)
+	await back.finished
+
+
+## 弓手：原地拉弓，放箭帧射出箭矢，箭到才结算
+func _strike_bow(striker: CombatFighter, victim: CombatFighter, ev: Dictionary, dir: float, crit: bool) -> void:
+	Audio.play_sfx("bow", randf_range(0.95, 1.05))
+	var anim := striker.attack_anim(crit)
+	striker.play_once(anim)
+	await striker.impact
+	if _skip:
+		_apply_damage(ev)
+		return
+	var arrow := Sprite2D.new()
+	arrow.texture = load(CombatFighter.ROOT + "huntress2/arrow.png")
+	arrow.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	arrow.scale = Vector2(4.0 * dir, 4.0)
+	var from := striker.position + Vector2(dir * 60, -70)
+	var to := victim.position + Vector2(-dir * 30, -72)
 	arrow.position = from
-	arrow.rotation = (to - from).angle()
-	arrow.pivot_offset = Vector2(11, 1.5)
 	_add_fx(arrow)
 	var fly := create_tween()
-	fly.tween_property(arrow, "position", to, 0.16).set_trans(Tween.TRANS_LINEAR)
-	await get_tree().create_timer(0.16).timeout
+	fly.tween_property(arrow, "position", to, 0.17)
+	await fly.finished
 	arrow.queue_free()
-	_impact(striker, victim, ev, dir, "bow", false)
-	await get_tree().create_timer(0.22).timeout
-	# 归位
-	var back := create_tween()
-	back.tween_property(striker, "position:x", striker.position.x + dir * 10.0, 0.12)
+	_impact(striker, victim, ev, dir, crit)
+	if striker.is_playing(anim):
+		await striker.sprite.animation_finished
+	striker.play_loop("idle")
+	if crit:
+		_zoom(1.0, Vector2(640, FEET_Y - 90), 0.3)
+	await get_tree().create_timer(0.25).timeout
 
 
-## 暴击：金色蓄力慢动作 + 重击
-func _strike_crit(striker: Unit, victim: Unit, ev: Dictionary, dir: float) -> void:
-	var start_x: float = striker.position.x
-	var victim_x: float = victim.position.x
-	# 蓄力：全身金光 + 大字。暴击条带只换皮，时序不动。
-	_use_crit_frames(striker, true)
-	_set_pose(striker, POSE_IDLE)
-	striker.modulate = Color(1.6, 1.3, 0.5)
-	_big_text(tr("必 杀 !"), Color(1.0, 0.85, 0.25))
-	await get_tree().create_timer(0.34).timeout
-	striker.modulate = Color.WHITE
-	# 慢速突进（压迫感）
-	_set_pose(striker, POSE_LUNGE)
-	var t := create_tween()
-	t.tween_property(striker, "position:x", victim_x - dir * 110.0, 0.30).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-	await get_tree().create_timer(0.32).timeout
-	_set_pose(striker, POSE_STRIKE)
-	_impact(striker, victim, ev, dir, "crit", true)
-	await get_tree().create_timer(0.36).timeout
-	_set_pose(striker, POSE_RECOVER)
-	var back2 := create_tween()
-	back2.tween_property(striker, "position:x", start_x, 0.18)
-	await get_tree().create_timer(0.20).timeout
-	_use_crit_frames(striker, false)
-	_set_pose(striker, POSE_IDLE)
-
-
-## 命中/未命中结算 + 打击特效
-func _impact(striker: Unit, victim: Unit, ev: Dictionary, dir: float, style: String, is_crit: bool) -> void:
-	var victim_x: float = victim.position.x
+## 命中 / 未命中结算 + 打击感（顿帧、闪白、震屏、击退、火花、伤害数字）
+func _impact(striker: CombatFighter, victim: CombatFighter, ev: Dictionary, dir: float, crit: bool) -> void:
 	if _skip:
 		_apply_damage(ev)
 		return
+	var vx := victim.position.x
 	if not ev["landed"]:
 		Audio.play_sfx("miss")
 		_damage_label(victim, "MISS", Color(0.85, 0.85, 0.9), 1.0)
 		var dg := create_tween()
-		dg.tween_property(victim, "position:x", victim_x + dir * 30.0, 0.08)
-		dg.tween_property(victim, "position:x", victim_x, 0.12)
+		dg.tween_property(victim, "position:x", vx + dir * 46.0, 0.09).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		dg.tween_property(victim, "position:x", vx, 0.16)
 		return
-	_set_hit_pose(victim)
 	_apply_damage(ev)
-	if is_crit:
-		Audio.play_sfx("crit")
+	_update_bars(0.25)
+	Audio.play_sfx("crit" if crit else striker.weapon_kind, randf_range(0.95, 1.05))
+	var real_victim: Unit = _def_real if ev["side"] == "a" else _att_real
+	var dying := not real_victim.is_alive()
+	victim.flash(1.0, 0.25)
+	if dying:
+		victim.play_once("death")
 	else:
-		Audio.play_sfx(striker.weapon_kind(), randf_range(0.95, 1.05))
-	_flash_unit(victim)
-	_shake(is_crit)
-	# 打击特效：斩击弧线（颜色随使用者）
-	match style:
-		"sword", "crit":
-			_slash_effect(victim.position + Vector2(0, -50), striker.hair_color.lightened(0.55), is_crit)
-		"lance":
-			_thrust_effect(victim.position + Vector2(0, -50), dir)
-		"axe":
-			_slash_effect(victim.position + Vector2(0, -50), Color(0.95, 0.9, 0.8), is_crit)
-		"bow":
-			_spark_effect(victim.position + Vector2(0, -50), Color(0.95, 0.85, 0.5), 6)
-	_spark_effect(victim.position + Vector2(0, -50), Color(1.0, 0.75, 0.35), 16 if is_crit else 8)
-	_damage_label(victim, "-%d" % ev["dmg"], Color(1.0, 0.35, 0.20) if is_crit else Color(1.0, 0.5, 0.4), 1.6 if is_crit else 1.0)
-	# 打击停顿 + 击退
-	await get_tree().create_timer(0.05 if not is_crit else 0.10).timeout
+		_hit_react(victim)
+	_shake(crit)
+	var hit_pos := victim.position + Vector2(-dir * 10, -80)
+	_spark_effect(hit_pos, Color(1.0, 0.85, 0.5), 18 if crit else 10)
+	if crit:
+		_flash_rect.color.a = 0.55
+		create_tween().tween_property(_flash_rect, "color:a", 0.0, 0.25)
+	_damage_label(victim, str(ev["dmg"]), Color(1.0, 0.35, 0.2) if crit else Color(1.0, 0.92, 0.85), 1.5 if crit else 1.0)
+	# 顿帧：双方动画停一下，打击更有分量
+	for f in [striker, victim]:
+		if f.sprite != null:
+			f.sprite.speed_scale = 0.0
+	await get_tree().create_timer(0.12 if crit else 0.06).timeout
+	for f in [striker, victim]:
+		if is_instance_valid(f) and f.sprite != null:
+			f.sprite.speed_scale = 1.0
+	if dying:
+		return
 	var kb := create_tween()
-	var kb_dist := 34.0 if is_crit else 22.0
-	kb.tween_property(victim, "position:x", victim_x + dir * kb_dist, 0.08)
-	kb.tween_property(victim, "position:x", victim_x, 0.12)
-	kb.tween_callback(func() -> void:
-		if is_instance_valid(victim):
-			_set_pose(victim, POSE_IDLE)
-	)
+	kb.tween_property(victim, "position:x", vx + dir * (36.0 if crit else 22.0), 0.08)
+	kb.tween_property(victim, "position:x", vx, 0.14)
+
+
+func _hit_react(victim: CombatFighter) -> void:
+	await victim.play_once("hit")
+	if is_instance_valid(victim) and victim.current_anim() == "hit":
+		victim.play_loop("idle")
 
 
 func _apply_damage(ev: Dictionary) -> void:
@@ -1430,65 +679,37 @@ func _apply_damage(ev: Dictionary) -> void:
 	real_victim.take_damage(ev["dmg"])
 
 
-func _flash_unit(victim: Unit) -> void:
-	victim.modulate = Color(3.0, 3.0, 3.0)
-	var t := create_tween()
-	t.tween_property(victim, "modulate", Color.WHITE, 0.25)
-
-
 func _shake(strong := false) -> void:
 	var t := create_tween()
-	var amp := 11.0 if strong else 6.0
+	var amp := 12.0 if strong else 6.0
 	for i in 6 if strong else 4:
-		t.tween_property(_stage, "position", Vector2(randi_range(-amp, amp), randi_range(-amp * 0.7, amp * 0.7)), 0.03)
+		t.tween_property(_stage, "position", Vector2(randi_range(-amp, amp), randi_range(-amp * 0.6, amp * 0.6)), 0.03)
 	t.tween_property(_stage, "position", Vector2.ZERO, 0.05)
-
-
-## 斩击弯月弧
-func _slash_effect(pos: Vector2, color: Color, big := false) -> void:
-	var s := 1.5 if big else 1.0
-	var slash := Polygon2D.new()
-	slash.polygon = PackedVector2Array([
-		Vector2(-34, -16) * s, Vector2(-4, -4) * s, Vector2(34, -22) * s, Vector2(10, 2) * s,
-		Vector2(30, 16) * s, Vector2(-2, 10) * s, Vector2(-30, 20) * s, Vector2(-10, 0) * s])
-	slash.color = Color(color.r, color.g, color.b, 0.95)
-	slash.position = pos
-	_add_fx(slash)
-	var t := create_tween().set_parallel(true)
-	t.tween_property(slash, "scale", Vector2(1.25, 1.25), 0.18)
-	t.tween_property(slash, "modulate:a", 0.0, 0.18)
-	t.finished.connect(slash.queue_free)
-
-
-## 突刺直线
-func _thrust_effect(pos: Vector2, dir: float) -> void:
-	var line := ColorRect.new()
-	line.color = Color(0.95, 0.95, 1.0, 0.95)
-	line.size = Vector2(56, 4)
-	line.position = pos + Vector2(-28 if dir > 0 else -28 + 56, -2)
-	line.scale.x = dir
-	_add_fx(line)
-	var t := create_tween().set_parallel(true)
-	t.tween_property(line, "scale:x", dir * 1.4, 0.14)
-	t.tween_property(line, "modulate:a", 0.0, 0.14)
-	t.finished.connect(line.queue_free)
 
 
 ## 火花粒子
 func _spark_effect(pos: Vector2, color: Color, n: int) -> void:
-	for i in n:
-		var p := ColorRect.new()
-		var sz := randf_range(2.5, 5.0)
-		p.color = color
-		p.size = Vector2(sz, sz)
-		p.position = pos
-		_add_fx(p)
-		var ang := randf_range(0, TAU)
-		var dist := randf_range(24, 60)
-		var t := create_tween().set_parallel(true)
-		t.tween_property(p, "position", pos + Vector2(cos(ang), sin(ang)) * dist, randf_range(0.18, 0.3))
-		t.tween_property(p, "modulate:a", 0.0, 0.3)
-		t.finished.connect(p.queue_free)
+	var p := CPUParticles2D.new()
+	p.one_shot = true
+	p.emitting = false
+	p.amount = n
+	p.lifetime = 0.35
+	p.explosiveness = 1.0
+	p.direction = Vector2(0, -1)
+	p.spread = 180.0
+	p.initial_velocity_min = 120.0
+	p.initial_velocity_max = 320.0
+	p.gravity = Vector2(0, 600)
+	p.scale_amount_min = 3.0
+	p.scale_amount_max = 6.0
+	var ramp := Gradient.new()
+	ramp.set_color(0, color)
+	ramp.set_color(1, Color(color.r, color.g * 0.6, color.b * 0.3, 0.0))
+	p.color_ramp = ramp
+	p.position = pos
+	_add_fx(p)
+	p.emitting = true
+	p.finished.connect(p.queue_free)
 
 
 ## 中央大字（必杀等）
@@ -1501,7 +722,7 @@ func _big_text(text: String, color: Color) -> void:
 	l.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.8))
 	l.add_theme_constant_override("shadow_offset_x", 3)
 	l.add_theme_constant_override("shadow_offset_y", 3)
-	l.position = Vector2(0, 130)
+	l.position = Vector2(0, 110)
 	l.size = Vector2(1280, 100)
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.scale = Vector2(0.5, 0.5)
@@ -1514,40 +735,19 @@ func _big_text(text: String, color: Color) -> void:
 	t.finished.connect(l.queue_free)
 
 
-func _damage_label(victim: Unit, text: String, color: Color, scale := 1.0) -> void:
+func _damage_label(victim: CombatFighter, text: String, color: Color, scale := 1.0) -> void:
 	var l := Label.new()
+	l.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 	l.text = text
-	l.add_theme_font_size_override("font_size", 42)
+	l.add_theme_font_size_override("font_size", 44)
 	l.add_theme_color_override("font_color", color)
-	l.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.75))
-	l.add_theme_constant_override("shadow_offset_x", 2)
-	l.add_theme_constant_override("shadow_offset_y", 2)
-	l.position = victim.position + Vector2(-40, -190)
+	l.add_theme_color_override("font_outline_color", Color(0.1, 0.05, 0.05))
+	l.add_theme_constant_override("outline_size", 8)
+	l.position = victim.position + Vector2(-40, -240)
 	l.scale = Vector2(scale, scale)
 	l.pivot_offset = Vector2(40, 20)
 	_ui.add_child(l)
 	var t := create_tween().set_parallel(true)
-	t.tween_property(l, "position:y", l.position.y - 50, 0.7)
-	t.tween_property(l, "modulate:a", 0.0, 0.7)
+	t.tween_property(l, "position:y", l.position.y - 50, 0.7).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	t.tween_property(l, "modulate:a", 0.0, 0.7).set_delay(0.25)
 	t.finished.connect(l.queue_free)
-
-
-func _update_bars() -> void:
-	var ra: float = clampf(float(_att_real.hp) / float(maxi(1, _att_real.max_hp)), 0.0, 1.0)
-	var rd: float = clampf(float(_def_real.hp) / float(maxi(1, _def_real.max_hp)), 0.0, 1.0)
-	_att_hp_fill.color = _hp_color(ra)
-	_def_hp_fill.color = _hp_color(rd)
-	_att_hp_label.text = "%d/%d" % [_att_real.hp, _att_real.max_hp]
-	_def_hp_label.text = "%d/%d" % [_def_real.hp, _def_real.max_hp]
-	# 平滑消减
-	var t := create_tween().set_parallel(true)
-	t.tween_property(_att_hp_fill, "size:x", (HP_BAR_W - 4) * ra, 0.3).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	t.tween_property(_def_hp_fill, "size:x", (HP_BAR_W - 4) * rd, 0.3).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-
-
-func _hp_color(ratio: float) -> Color:
-	if ratio > 0.5:
-		return Color(0.3, 0.9, 0.3)
-	if ratio > 0.25:
-		return Color(0.95, 0.8, 0.2)
-	return Color(0.9, 0.25, 0.2)

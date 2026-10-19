@@ -1117,8 +1117,9 @@ func do_combat(att: Unit, def: Unit, wi: int) -> void:
 	board.clear_highlights()
 	await chapter.on_before_combat(att, def)
 	state = S.COMBAT
+	var fc := Combat.forecast(att, def, wi, board)
 	var events := Combat.resolve(att, def, wi, board)
-	await combat_scene.play(att, def, wi, events, board.tile_at(def.grid_pos))
+	await combat_scene.play(att, def, wi, events, board.tile_at(def.grid_pos), fc)
 	for u in [att, def]:
 		if not u.is_alive() and u.visible:
 			await _death_anim(u)

@@ -165,23 +165,30 @@ func _run() -> void:
 	_check(confirm != null and confirm.custom_minimum_size.y >= SafeArea.MIN_HIT, "确认攻击热区应 ≥ 48")
 	_shot("04_forecast.png")
 	Combat.force_crit = true  # 截一张暴击挥砍
+	var hp_before: int = bandit.hp
 	battle._on_forecast_ok()
-	# 0.12 白闪 + 0.42 入场 + 0.34 必杀蓄力 + 0.32 突进后进入挥砍，停在这一帧
-	await get_tree().create_timer(1.30).timeout
-	_shot("04b_combat_scene.png")  # 必杀挥砍：左缇娅朝右，右山贼朝左
-	_check_combat_feet(battle.combat_scene._att_node, "缇娅")
-	_check_combat_feet(battle.combat_scene._def_node, "山贼")
-	_check(_fighter_faces_right(battle.combat_scene._att_node), "左方缇娅应朝右")
-	_check(not _fighter_faces_right(battle.combat_scene._def_node), "右方山贼应朝左")
-	_check(battle.combat_scene._att_node.scale.x > 0.0, "朝右的缇娅条带站左侧不应镜像")
-	_check(battle.combat_scene._def_node.scale.x > 0.0, "朝左的山贼条带站右侧不应再镜像")
-	_check(absf(battle.combat_scene._att_node.position.y - CombatScene.FEET_Y) < 1.5, "挥砍中缇娅脚底世界坐标应仍是 FEET_Y")
-	_check(absf(battle.combat_scene._def_node.position.y - CombatScene.FEET_Y) < 1.5, "受击中山贼脚底世界坐标应仍是 FEET_Y")
-	_check(str(battle.combat_scene._att_node.get_meta("combat_sheet", "")) == "tia_sword", "缇娅应使用 tia_sword")
-	_check(str(battle.combat_scene._att_node.get_meta("combat_sheet_mode", "")) == "crit", "暴击演出应标记 crit")
-	_check(battle.combat_scene._att_node.get_meta("combat_frames_crit") != battle.combat_scene._att_node.get_meta("combat_frames_normal"), "必杀应换上 _crit 条带，而不是复用普通四帧")
-	_check(str(battle.combat_scene._def_node.get_meta("combat_sheet", "")) == "bandit_axe", "山贼应使用 bandit_axe")
-	_check(str(battle.combat_scene._def_node.get_meta("combat_sheet_mode", "")) == "normal", "受击方应保持普通条带")
+	# 入场 0.5s + 必杀蓄力 0.38s + 跑步约 0.2s 后进入出招；等到命中再截图
+	# 不能用 _wait_cond：它会顺手跳过战斗演出
+	var waited := 0.0
+	while bandit.hp >= hp_before and waited < 4.0:
+		await get_tree().process_frame
+		waited += get_process_delta_time()
+	_check(bandit.hp < hp_before, "必杀应在 4 秒内命中山贼")
+	await _frames(2)
+	_shot("04b_combat_scene.png")  # 必杀命中：左缇娅朝右，右山贼朝左
+	var cs: CombatScene = battle.combat_scene
+	_check_fighter(cs._att_node, "martial_hero", false, "缇娅")
+	_check_fighter(cs._def_node, "mwp2", true, "山贼")
+	_check(cs._att_node.current_anim() == "crit", "缇娅必杀应播第二套招式, 实际 " + cs._att_node.current_anim())
+	_check(cs._def_node.current_anim() == "death", "被必杀击杀的山贼应立刻播倒地, 实际 " + cs._def_node.current_anim())
+	# 面板：攻方显示预测数字，命中当帧 HP 数字已更新
+	var fc: Dictionary = Combat.forecast(tia, bandit, 0, battle.board)
+	var a_hp: Label = cs._panels["a"]["hp"]
+	var d_hp: Label = cs._panels["d"]["hp"]
+	_check(a_hp.text == str(tia.hp), "攻方面板 HP 应为 %d, 实际 %s" % [tia.hp, a_hp.text])
+	_check(d_hp.text == str(bandit.hp), "命中当帧守方面板 HP 应已更新为 %d, 实际 %s" % [bandit.hp, d_hp.text])
+	_check(_ui_has_text(cs._ui, str(fc["a_hit"])), "面板应显示缇娅命中率 %d" % fc["a_hit"])
+	_check(_ui_has_text(cs._ui, "HIT") and _ui_has_text(cs._ui, "CRT"), "面板应有 HIT / DMG / CRT 栏")
 	Combat.force_crit = false
 	var ok: bool = await _wait_cond(func() -> bool: return battle.state == battle.S.IDLE, 15.0)
 	_check(ok, "战斗应结束并回到 IDLE")
@@ -519,7 +526,7 @@ func _check_chapter2() -> void:
 	await _frames(4)
 	_check(battle.chapter.f_awaken, "跳过觉醒台词后应完成转职")
 	_check(tia.class_label == "炎刃使", "缇娅应转职为炎刃使，实际 " + tia.class_label)
-	_check(battle.combat_scene._sheet_id_for(tia) == "", "觉醒后炎刃使应走程序 Q 版")
+	_check(CombatScene.fighter_key_for(tia) == "martial_hero", "觉醒后炎刃使仍应用缇娅的战斗条带")
 	_check(tia.level == 1 and tia.xp == 0, "转职后应为 Lv1 且经验清零，Lv%d xp%d" % [tia.level, tia.xp])
 	_check(tia.max_hp == 23 and tia.pwr == 7 and tia.dfn == 4, "转职加成应为 HP23 力7 防4，实际 HP%d 力%d 防%d" % [tia.max_hp, tia.pwr, tia.dfn])
 	_check(tia.skl == 6 and tia.spd == 7, "未写进加成的技速应保留")
@@ -613,33 +620,26 @@ func _check_infra() -> void:
 		"res://art/combat/bg/mid_scorch.png",
 		"res://art/combat/bg/ground_strip_scorch.png",
 	]
-	for sheet in CombatScene.SHEET_IDS:
-		combat_art.append("res://art/combat/%s.png" % sheet)
-		combat_art.append("res://art/combat/%s_crit.png" % sheet)
-		_check(not FileAccess.file_exists("res://art/combat/%s_frames/00.png" % sheet), sheet + " 运行时不应再依赖旧单帧目录")
-		var mapped := false
-		for v in CombatScene.CLASS_SHEET.values():
-			if v == sheet:
-				mapped = true
-				break
-		_check(mapped, "条带应有职业映射: " + sheet)
 	for path in combat_art:
 		_check(FileAccess.file_exists(path), "战斗资源应存在: " + path)
-	_check(CombatScene.SHEET_IDS.size() == 2, "战斗条带只保留缇娅与山贼")
-	for sheet in CombatScene.SHEET_IDS:
-		_check(CombatScene.SHEET_FACES_RIGHT.has(sheet), "条带应登记原生朝向: " + sheet)
-	_check(CombatScene.SHEET_FACES_RIGHT["tia_sword"] == true, "tia_sword 原生应朝右")
-	_check(CombatScene.SHEET_FACES_RIGHT["bandit_axe"] == false, "bandit_axe 原生应朝左")
-	_check(not FileAccess.file_exists("res://art/combat/archer_bow.png"), "日系整包不应留在运行时")
-	for sheet in CombatScene.SHEET_IDS:
-		for suffix in ["", "_crit"]:
-			var imp_path := "res://art/combat/%s%s.png.import" % [sheet, suffix]
-			var imp := FileAccess.get_file_as_string(imp_path)
-			_check(imp.contains("process/premult_alpha=false"), imp_path + " 应为直通 alpha，不要预乘")
-			_check(imp.contains("process/fix_alpha_border=false"), imp_path + " 不应把不透明 RGB 扩到透明边")
-			_check(imp.contains("mipmaps/generate=false"), imp_path + " 不应生成 mipmap")
-			_check(imp.contains("compress/mode=0"), imp_path + " 应为无损压缩")
-	_check(is_equal_approx(CombatScene.SPRITE_TARGET_H, 154.0), "最早风视觉高度应为 154")
+	_check(not FileAccess.file_exists("res://art/combat/tia_sword.png"), "旧的抠坏条带不应留在运行时")
+	_check(not FileAccess.file_exists("res://shaders/combat_pose.gdshader"), "旧的补洞着色器应已删除")
+	for key in CombatFighter.SETS:
+		_check(CombatFighter.has_set(key), "战斗条带套应齐全: " + key)
+		var sf := CombatFighter.frames_for(key)
+		_check(sf != null, "条带套应能切帧: " + key)
+		if sf == null:
+			continue
+		for anim in ["idle", "run", "attack", "hit", "death"]:
+			_check(sf.has_animation(anim) and sf.get_frame_count(anim) >= 3, "%s 应有 %s 动画（≥3 帧）" % [key, anim])
+		var cfg: Dictionary = CombatFighter.SETS[key]
+		var fs: Vector2i = cfg["frame"]
+		var body_px: float = float(fs.y) * int(cfg["scale"])
+		_check(body_px >= 200.0, "%s 放大后帧高应足够（%s）" % [key, body_px])
+		for anim in cfg["anims"]:
+			var hit_idx: int = int(cfg["anims"][anim][1])
+			if hit_idx >= 0 and sf.has_animation(anim):
+				_check(hit_idx < sf.get_frame_count(anim), "%s/%s 出手帧应在帧数内" % [key, anim])
 	_check(is_equal_approx(CombatScene.FEET_Y, 520.0), "脚底世界坐标应为 520")
 	var scene := CombatScene.new()
 	add_child(scene)
@@ -679,35 +679,15 @@ func _check_infra() -> void:
 	_check(fx.z_index == CombatScene.Z_FX and fx.z_index > CombatScene.Z_FIGHTER, "斩击特效应画在角色之上")
 	fx.free()
 	scene.free()
-	scene = CombatScene.new()
 	var probe := Unit.new()
-	probe.unit_id = "tia"
-	probe.class_label = "剑士"
-	_check(scene._sheet_id_for(probe) == "tia_sword", "缇娅剑士应映射 tia_sword")
-	probe.class_label = "炎刃使"
-	_check(scene._sheet_id_for(probe) == "", "缇娅炎刃使应走程序 Q 版")
-	probe.class_label = "不灭巫女"
-	_check(scene._sheet_id_for(probe) == "", "缇娅不灭巫女应走程序 Q 版")
-	probe.unit_id = "bandit_r1"
-	probe.class_label = ""
-	_check(scene._sheet_id_for(probe) == "bandit_axe", "未标职业的山贼 id 应映射 bandit_axe")
-	probe.unit_id = "archer2"
-	probe.class_label = ""
-	_check(scene._sheet_id_for(probe) == "", "弓箭手不应再映射日系条带")
-	probe.unit_id = "balto"
-	probe.class_label = "圣骑士"
-	_check(scene._sheet_id_for(probe) == "", "巴尔托应走程序 Q 版")
-	probe.unit_id = "brock"
-	probe.class_label = "山贼头目"
-	_check(scene._sheet_id_for(probe) == "", "山贼头目应走程序 Q 版")
-	probe.unit_id = "probe"
-	for label in CombatScene.CLASS_SHEET:
-		probe.class_label = label
-		var expect: String = CombatScene.CLASS_SHEET[label]
-		var got := scene._sheet_id_for(probe)
-		_check(got == expect, "职业 %s 应映射 %s，实际 %s" % [label, expect, got])
-	_check_sheet_facing(scene)
-	scene.free()
+	var expect_map := {"tia": "martial_hero", "balto": "mwp3", "brock": "mwp", "marco": "mwp",
+		"scout1": "fantasy_warrior", "bandit3": "mwp2", "bandit_r1": "mwp2", "archer2": "huntress2"}
+	for id in expect_map:
+		probe.unit_id = id
+		_check(CombatScene.fighter_key_for(probe) == expect_map[id], "%s 应映射 %s, 实际 %s" % [id, expect_map[id], CombatScene.fighter_key_for(probe)])
+	probe.unit_id = "stranger"
+	probe.weapons = ["iron_bow"]
+	_check(CombatScene.fighter_key_for(probe) == "huntress2", "未登记的弓手应按武器兜底到 huntress2")
 	probe.free()
 	var area := SafeArea.rect()
 	_check(area.position == Vector2(64, 48), "安全区原点应为 (64, 48)，实际 %s" % area.position)
@@ -1164,7 +1144,9 @@ func _check_layered_stage(scene: CombatScene, tag: String) -> void:
 			_check(spr.texture != null, tag + " 分层纹理应加载成功")
 			_check(spr.texture_filter == CanvasItem.TEXTURE_FILTER_LINEAR, tag + " 分层应为 LINEAR")
 			_check(spr.z_index == CombatScene.Z_BG and spr.z_index < CombatScene.Z_FIGHTER, tag + " 分层应压在角色下面")
-			_check(not spr.centered and spr.position == Vector2.ZERO, tag + " 分层应左上对齐铺满")
+			_check(not spr.centered, tag + " 分层应左上对齐")
+			var cover := Rect2(spr.position, spr.texture.get_size() * spr.scale)
+			_check(cover.has_point(Vector2(1, 1)) and cover.has_point(Vector2(1279, 719)), tag + " 视差层应盖满屏幕, 实际 %s" % cover)
 		else:
 			_check(false, tag + " 分层舞台不应混入 " + c.get_class())
 	_check(sprites == 4, tag + " 应正好四层 Sprite，实际 %d" % sprites)
@@ -1175,293 +1157,30 @@ func _check_layered_stage(scene: CombatScene, tag: String) -> void:
 		_check(ground.contains("ground_strip_" + tag), tag + " 最近层应为地面带，实际 " + ground)
 
 
-## 左方朝右、右方朝左。原生朝左的条带站在右侧时不应再镜像。
-func _check_sheet_facing(scene: CombatScene) -> void:
-	var tia := Unit.new()
-	tia.unit_id = "tia"
-	tia.class_label = "剑士"
-	var bandit := Unit.new()
-	bandit.unit_id = "bandit1"
-	bandit.class_label = "山贼"
-	var tia_left := scene._make_fighter(tia, false)
-	var tia_right := scene._make_fighter(tia, true)
-	var bandit_left := scene._make_fighter(bandit, false)
-	var bandit_right := scene._make_fighter(bandit, true)
-	_check(_fighter_faces_right(tia_left), "缇娅站左侧应朝右")
-	_check(not _fighter_faces_right(tia_right), "缇娅站右侧应朝左")
-	_check(_fighter_faces_right(bandit_left), "山贼站左侧应朝右")
-	_check(not _fighter_faces_right(bandit_right), "山贼站右侧应朝左")
-	_check(tia_left.scale.x > 0.0, "朝右条带站左侧 scale.x 应为正")
-	_check(tia_right.scale.x < 0.0, "朝右条带站右侧应水平翻转")
-	_check(bandit_left.scale.x < 0.0, "朝左条带站左侧应水平翻转")
-	_check(bandit_right.scale.x > 0.0, "朝左条带站右侧 scale.x 应为正")
-	for fighter in [tia_left, tia_right, bandit_left, bandit_right]:
-		fighter.position = Vector2(CombatScene.ATT_X, CombatScene.FEET_Y)
-		_check_combat_feet(fighter, "朝向样本")
-		for pose in [CombatScene.POSE_IDLE, CombatScene.POSE_STRIKE]:
-			scene._set_pose(fighter, pose)
-			_check_anchor_on_feet(fighter, "普通帧")
-		_check_no_body_slit(fighter, "普通挥砍")
-		if int(fighter.get_meta("combat_hit_frame", -1)) >= 0:
-			scene._set_hit_pose(fighter)
-			_check_no_body_slit(fighter, "受击")
-		scene._use_crit_frames(fighter, true)
-		scene._set_pose(fighter, CombatScene.POSE_STRIKE)
-		_check_anchor_on_feet(fighter, "必杀挥砍")
-		_check_no_body_slit(fighter, "必杀挥砍")
-		fighter.free()
-	var plain := Unit.new()
-	plain.unit_id = "nobody"
-	plain.class_label = "无"
-	var q_left := scene._make_fighter(plain, true)
-	var q_right := scene._make_fighter(plain, false)
-	_check(is_equal_approx(q_left.scale.x, -CombatScene.UNIT_SCALE), "无条带朝左应镜像程序小人")
-	_check(is_equal_approx(q_right.scale.x, CombatScene.UNIT_SCALE), "无条带朝右应正向程序小人")
-	_check(is_equal_approx(q_left.scale.y, CombatScene.UNIT_SCALE), "无条带纵向缩放应保持")
-	q_left.free()
-	q_right.free()
-	_check_waist_occluder(scene)
-	tia.free()
-	bandit.free()
-	plain.free()
+## 战斗角色：用对条带套、朝向正确、脚底锚点落在节点原点、最近邻、画在背景与特效之间
+func _check_fighter(node: CombatFighter, key: String, face_left: bool, who: String) -> void:
+	_check(node != null, who + "特写应有角色节点")
+	if node == null:
+		return
+	_check(node.set_key == key, "%s应使用 %s 条带, 实际 %s" % [who, key, node.set_key])
+	_check(node.sprite != null and node.sprite.sprite_frames != null, who + "应挂上动作条带")
+	_check((node.scale.x < 0.0) == face_left, who + ("应朝左" if face_left else "应朝右"))
+	_check(absf(node.position.y - CombatScene.FEET_Y) < 30.0, who + "脚底应在地面带上, y=%s" % node.position.y)
+	_check(node.z_index == CombatScene.Z_FIGHTER and node.z_index < CombatScene.Z_FX, who + "应画在背景之上、特效之下")
+	if node.sprite == null:
+		return
+	_check(node.sprite.texture_filter == CanvasItem.TEXTURE_FILTER_NEAREST, who + "条带应为最近邻过滤")
+	var cfg: Dictionary = CombatFighter.SETS[key]
+	var feet: Vector2 = cfg["feet"]
+	var anchored: Vector2 = node.sprite.position + feet * node.sprite.scale
+	_check(anchored.length() < 0.6, who + "脚底锚点应在节点原点, 偏差 %s" % anchored)
 
 
-## 实机腰腹挡板：未缩放帧边上的采样点必须是身体色，不能是灌丛绿。
-func _check_waist_occluder(scene: CombatScene) -> void:
-	var tia := Unit.new()
-	tia.unit_id = "tia"
-	tia.class_label = "剑士"
-	var bandit := Unit.new()
-	bandit.unit_id = "bandit1"
-	bandit.class_label = "山贼"
-	var att := scene._make_fighter(tia, false)
-	var def := scene._make_fighter(bandit, true)
-	att.position = Vector2(CombatScene.DEF_X - 110.0, CombatScene.FEET_Y)
-	def.position = Vector2(CombatScene.DEF_X, CombatScene.FEET_Y)
-	scene._use_crit_frames(att, true)
-	scene._set_pose(att, CombatScene.POSE_STRIKE)
-	scene._set_hit_pose(def)
-	var img := scene.build_waist_occluder([att, def])
-	var left := [Vector2i(764, 440), Vector2i(770, 440), Vector2i(780, 450)]
-	var right := [Vector2i(1020, 440), Vector2i(1040, 440), Vector2i(1066, 440)]
-	for p in left:
-		_check_not_bush(img, p, "腰腹左")
-	for p in right:
-		_check_not_bush(img, p, "腰腹右")
-	var bush := 0
-	for y in range(430, 456):
-		for x in range(764, 1067):
-			var c := img.get_pixel(x, y)
-			if c.a < 0.5:
-				continue
-			if _is_bush_rgb(int(round(c.r * 255.0)), int(round(c.g * 255.0)), int(round(c.b * 255.0))):
-				bush += 1
-	_check(bush == 0, "腰腹挡板轮廓内不应有灌丛绿，实际 %d" % bush)
-	att.free()
-	def.free()
-	tia.free()
-	bandit.free()
-
-
-func _check_not_bush(img: Image, p: Vector2i, tag: String) -> void:
-	var c := img.get_pixel(p.x, p.y)
-	var r := int(round(c.r * 255.0))
-	var g := int(round(c.g * 255.0))
-	var b := int(round(c.b * 255.0))
-	_check(c.a > 0.5 and not _is_bush_rgb(r, g, b), "%s (%d,%d) 应为身体色，实际 %d,%d,%d" % [tag, p.x, p.y, r, g, b])
-
-
-func _is_bush_rgb(r: int, g: int, b: int) -> bool:
-	if r == 46 and g == 77 and b == 41:
-		return true
-	if r == 29 and g == 63 and b == 37:
-		return true
-	if r == 56 and g == 96 and b == 48:
-		return true
-	if r == 36 and g == 80 and b == 44:
-		return true
+func _ui_has_text(root: Node, text: String) -> bool:
+	for c in root.get_children():
+		if c is Label and (c as Label).text.begins_with(text):
+			return true
 	return false
-
-
-func _fighter_faces_right(node: Node) -> bool:
-	var body := node as Node2D
-	var sheet := str(node.get_meta("combat_sheet", ""))
-	var native := bool(CombatScene.SHEET_FACES_RIGHT.get(sheet, true))
-	return native != (body.scale.x < 0.0)
-
-
-func _check_anchor_on_feet(node: Node, tag: String) -> void:
-	var body := node as Node2D
-	var pose := node.get_node_or_null("CombatPose") as Sprite2D
-	_check(pose != null and pose.texture != null, tag + " 应挂上像素帧")
-	if pose == null or pose.texture == null:
-		return
-	var planted := false
-	for fr in node.get_meta("combat_frames"):
-		if fr["tex"] == pose.texture:
-			var feet: Vector2 = fr["feet"]
-			var anchored: Vector2 = (pose.position + feet * pose.scale) * body.scale
-			_check(anchored.length() < 0.6, tag + " 翻转后脚底应仍在节点原点，偏差 %s" % anchored)
-			var world_y := body.position.y + anchored.y
-			_check(absf(world_y - CombatScene.FEET_Y) < 1.5, tag + " 脚底世界坐标应为 FEET_Y，实际 %s" % world_y)
-			planted = true
-			break
-	_check(planted, tag + " 当前帧应能对上脚底点")
-
-
-## 轮廓内的透明洞，以及上下都是实心的横缝，会让灌丛硬边穿进腰腹、躯干、头发。
-func _check_no_body_slit(node: Node, tag: String) -> void:
-	var pose := node.get_node_or_null("CombatPose") as Sprite2D
-	if pose == null or not (pose.texture is AtlasTexture):
-		_check(false, tag + " 应有图集帧")
-		return
-	var atlas := pose.texture as AtlasTexture
-	var img := atlas.atlas.get_image()
-	_check(img != null, tag + " 补实后的条带应能读回像素")
-	if img == null:
-		return
-	var region := atlas.region
-	var x0 := int(region.position.x)
-	var y0 := int(region.position.y)
-	var fw := int(region.size.x)
-	var fh := int(region.size.y)
-	var view := img.get_region(Rect2i(x0, y0, fw, fh))
-	if view.get_format() != Image.FORMAT_RGBA8:
-		view.convert(Image.FORMAT_RGBA8)
-	var bytes := view.get_data()
-	var n := fw * fh
-	var opaque := PackedByteArray()
-	opaque.resize(n)
-	var slits := 0
-	for i in n:
-		opaque[i] = 1 if bytes[i * 4 + 3] >= 128 else 0
-	for y in range(1, fh - 1):
-		for x in fw:
-			var i := y * fw + x
-			if opaque[i] == 1:
-				continue
-			if opaque[i - fw] == 1 and opaque[i + fw] == 1:
-				slits += 1
-	_check(slits == 0, tag + " 身体不应留下透明横缝，实际 %d" % slits)
-	var gaps := _count_large_span_gaps(opaque, fw, fh, CombatScene.BODY_FILL_MIN)
-	_check(gaps == 0, tag + " 身体轮廓内不应留下透明洞，实际 %d" % gaps)
-	var holes := CombatScene.count_hull_holes(opaque, fw, fh)
-	_check(holes == 0, tag + " 身体凸包内不应透出背景，实际 %d" % holes)
-	var bush := 0
-	for i in n:
-		if opaque[i] == 0:
-			continue
-		var r := bytes[i * 4]
-		var g := bytes[i * 4 + 1]
-		var b := bytes[i * 4 + 2]
-		if (r == 46 and g == 77 and b == 41) or (r == 29 and g == 63 and b == 37):
-			bush += 1
-	_check(bush == 0, tag + " 身体填色不应是灌丛绿，实际 %d" % bush)
-
-
-## 够大的色块在每一行、每一列上，首尾不透明像素之间不得再透明。
-func _count_large_span_gaps(opaque: PackedByteArray, w: int, h: int, min_size: int) -> int:
-	var n := w * h
-	var labels := PackedInt32Array()
-	labels.resize(n)
-	var sizes := PackedInt32Array()
-	sizes.append(0)
-	var stack := PackedInt32Array()
-	for i in n:
-		if opaque[i] == 0 or labels[i] != 0:
-			continue
-		var label := sizes.size()
-		sizes.append(0)
-		stack.resize(0)
-		stack.append(i)
-		labels[i] = label
-		var count := 0
-		var sp := 0
-		while sp < stack.size():
-			var p := stack[sp]
-			sp += 1
-			count += 1
-			var x := p % w
-			var y := int(p / w)
-			if x > 0 and opaque[p - 1] == 1 and labels[p - 1] == 0:
-				labels[p - 1] = label
-				stack.append(p - 1)
-			if x + 1 < w and opaque[p + 1] == 1 and labels[p + 1] == 0:
-				labels[p + 1] = label
-				stack.append(p + 1)
-			if y > 0 and opaque[p - w] == 1 and labels[p - w] == 0:
-				labels[p - w] = label
-				stack.append(p - w)
-			if y + 1 < h and opaque[p + w] == 1 and labels[p + w] == 0:
-				labels[p + w] = label
-				stack.append(p + w)
-		sizes[label] = count
-	var gaps := 0
-	for y in h:
-		var left := -1
-		var right := -1
-		var row := y * w
-		for x in w:
-			var i := row + x
-			if opaque[i] == 1 and sizes[labels[i]] >= min_size:
-				if left < 0:
-					left = x
-				right = x
-		if left >= 0:
-			for x in range(left, right + 1):
-				if opaque[row + x] == 0:
-					gaps += 1
-	for x in w:
-		var top := -1
-		var bottom := -1
-		for y in h:
-			var i := y * w + x
-			if opaque[i] == 1 and sizes[labels[i]] >= min_size:
-				if top < 0:
-					top = y
-				bottom = y
-		if top >= 0:
-			for y in range(top, bottom + 1):
-				if opaque[y * w + x] == 0:
-					gaps += 1
-	return gaps
-
-
-func _check_combat_feet(node: Node, who: String) -> void:
-	var pose := node.get_node_or_null("CombatPose") as Sprite2D
-	_check(pose != null and pose.texture != null, who + "特写应挂上像素帧")
-	if pose == null or pose.texture == null:
-		return
-	_check(pose.texture_filter == CanvasItem.TEXTURE_FILTER_NEAREST, who + "战斗立绘应为最近邻过滤")
-	_check(pose.texture_repeat == CanvasItem.TEXTURE_REPEAT_DISABLED, who + "战斗立绘不应重复贴图")
-	_check(is_equal_approx(pose.modulate.a, 1.0) and is_equal_approx(pose.self_modulate.a, 1.0), who + "立绘自身 alpha 应为 1，实际 modulate %s self %s" % [pose.modulate.a, pose.self_modulate.a])
-	var pose_mat := pose.material as ShaderMaterial
-	_check(pose_mat != null and pose_mat.shader != null, who + "立绘应使用直通 alpha 着色器")
-	if pose_mat != null and pose_mat.shader != null:
-		var pose_code := pose_mat.shader.code
-		_check(pose_code.contains("blend_mix") and pose_code.contains("discard") and not pose_code.contains("blend_premul_alpha"), who + "立绘应为 mix 混合并丢弃半透明采样")
-	var pose_atlas := pose.texture as AtlasTexture
-	_check(pose_atlas != null and pose_atlas.filter_clip, who + "图集应裁切，避免邻帧渗色")
-	_check((node as CanvasItem).z_index == CombatScene.Z_FIGHTER and (node as CanvasItem).z_index < CombatScene.Z_FX, who + "应画在背景之上、特效之下")
-	var sheet := str(node.get_meta("combat_sheet", ""))
-	var body_h: float = float(CombatScene.FRAME_BODY_H.get(sheet, 0.0))
-	var expect_sc := CombatScene.SPRITE_TARGET_H / body_h
-	_check(is_equal_approx(pose.scale.y, expect_sc), who + " 缩放应按待机身高收到 154px，实际 %s" % pose.scale.y)
-	var planted := false
-	for fr in node.get_meta("combat_frames"):
-		if fr["tex"] == pose.texture:
-			var feet: Vector2 = fr["feet"]
-			var body := node as Node2D
-			var local: Vector2 = pose.position + feet * pose.scale
-			var anchored: Vector2 = local * body.scale
-			_check(anchored.length() < 0.6, who + " 翻转后脚底仍应在节点原点，偏差 %s" % anchored)
-			_check(is_equal_approx(body.scale.y, 1.0), who + " 纵向不应被翻转")
-			var src := str(fr["src"])
-			var want_crit := str(node.get_meta("combat_sheet_mode", "")) == "crit"
-			_check(src.ends_with("_crit.png") == want_crit, who + " 当前帧应来自%s，实际 %s" % ["必杀条" if want_crit else "普通条", src])
-			planted = true
-			break
-	_check(planted, who + " 当前帧应来自最早风横排条带")
 
 
 func _check(cond: bool, msg: String) -> void:
