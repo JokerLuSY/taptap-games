@@ -1041,26 +1041,32 @@ func _cancel_action_menu() -> void:
 
 
 func _on_menu_attack() -> void:
-	if selected.weapons.size() > 1:
+	var usable: Array = []
+	for i in selected.weapons.size():
+		if selected.weapon(i)["type"] != "staff":
+			usable.append(i)
+	if usable.size() > 1:
 		state = S.WEAPON_SEL
 		var opts: Array = []
-		for i in selected.weapons.size():
+		for i in usable:
 			var w: Dictionary = selected.weapon(i)
-			var idx := i
+			var idx: int = i
+			var lock := "" if selected.can_use(i) else tr("（等级不足）")
 			opts.append({
-				"label": tr("%s (攻%d 命%d)") % [tr(w["name"]), w["mt"], w["hit"]],
-				"enabled": not find_targets(selected, i).is_empty(),
+				"label": tr("%s %s 攻%d 命%d%s") % [tr(w["name"]), selected.uses_text(i), w["mt"], w["hit"], lock],
+				"enabled": selected.can_use(i) and not find_targets(selected, i).is_empty(),
 				"cb": func() -> void: _on_weapon_chosen(idx),
 			})
 		_fill_menu(opts)
 		hint(tr("选择武器（返回）"))
 	else:
-		sel_weapon = 0
-		_enter_target_select()
+		_on_weapon_chosen(usable[0] if not usable.is_empty() else 0)
 
 
+## 选中的武器装备到最前（GBA 火纹式：用哪把就换上哪把）
 func _on_weapon_chosen(idx: int) -> void:
-	sel_weapon = idx
+	selected.equip(idx)
+	sel_weapon = 0
 	_enter_target_select()
 
 
@@ -1118,19 +1124,55 @@ func _on_menu_item() -> void:
 	for i in selected.items.size():
 		var item: Dictionary = GameData.ITEMS[selected.items[i]]
 		var idx := i
-		opts.append({"label": tr("%s（%s）") % [tr(item["name"]), tr(item["desc"])], "enabled": true, "cb": func() -> void: _on_use_item(idx)})
+		opts.append({"label": tr("%s %d（%s）") % [tr(item["name"]), int(selected.item_uses[idx]), tr(item["desc"])], "enabled": _item_usable(selected, idx), "cb": func() -> void: _on_use_item(idx)})
 	_fill_menu(opts)
 	hint(tr("选择要使用的道具（返回）"))
 
 
+func _item_usable(u: Unit, idx: int) -> bool:
+	var item: Dictionary = GameData.ITEMS[u.items[idx]]
+	if item.has("heal"):
+		return u.hp < u.max_hp
+	if item.get("promote", false):
+		return can_promote_with(u, u.items[idx])
+	return false
+
+
 func _on_use_item(idx: int) -> void:
-	var item: Dictionary = GameData.ITEMS[selected.items[idx]]
-	selected.items.remove_at(idx)
-	selected.heal(item["heal"])
-	Audio.play_sfx("heal")
-	_float_text(selected, "HP +%d" % item["heal"], Color(0.5, 1.0, 0.5))
+	var id: String = selected.items[idx]
+	var item: Dictionary = GameData.ITEMS[id]
+	var u := selected
 	_clear_menu()
-	_finish_action(selected)
+	if item.get("promote", false):
+		state = S.COMBAT
+		u.use_item(idx)
+		await promote_with_item(u, id)
+		_finish_action(u)
+		return
+	u.use_item(idx)
+	u.heal(item["heal"])
+	Audio.play_sfx("heal")
+	_float_text(u, "HP +%d" % item["heal"], Color(0.5, 1.0, 0.5))
+	_finish_action(u)
+
+
+# ==================== 转职道具 ====================
+
+## 道具转职：当前职业满 Lv10，且职业表里要的就是这件转职道具
+func can_promote_with(u: Unit, item_id: String) -> bool:
+	var cls := GameData.class_data(u.class_label)
+	return u.level >= 10 and str(cls.get("item", "")) == item_id and str(cls.get("promote", "")) != ""
+
+
+func promote_with_item(u: Unit, item_id: String) -> void:
+	var cls := GameData.class_data(u.class_label)
+	var to: String = cls["promote"]
+	var before := tr(u.class_label)
+	u.promote(to, cls.get("bonus", {}))
+	Audio.play_sfx("levelup")
+	notify(tr("%s 使用了%s，从%s转职为%s！") % [tr(u.display_name), tr(GameData.ITEMS[item_id]["name"]), before, tr(to)])
+	_float_text(u, tr("转职！"), Color(1.0, 0.85, 0.4))
+	await get_tree().create_timer(1.0).timeout
 
 
 func _on_menu_wait() -> void:
@@ -1196,11 +1238,13 @@ func _heal_click(p: Vector2i) -> void:
 ## 治疗：杖的回复量 + 力（魔力）。我方治疗者每次得 12 经验。
 func do_heal(healer: Unit, target: Unit) -> void:
 	var amount := healer.heal_amount()
+	var si := healer.heal_staff()
 	target.heal(amount)
 	Audio.play_sfx("heal")
 	_float_text(target, "HP +%d" % amount, Color(0.5, 1.0, 0.5))
 	await get_tree().create_timer(0.45).timeout
 	if healer.is_player() and healer.is_alive():
+		_after_weapon_use(healer, si, 1)
 		await _give_xp(healer, 12)
 
 
@@ -1307,7 +1351,19 @@ func do_combat(att: Unit, def: Unit, wi: int) -> void:
 	state = S.COMBAT
 	var fc := Combat.forecast(att, def, wi, board)
 	var events := Combat.resolve(att, def, wi, board)
+	var dwi: int = def.counter_weapon(GameData.dist(att.grid_pos, def.grid_pos))
 	await combat_scene.play(att, def, wi, events, board.tile_at(def.grid_pos), fc)
+	var a_n := 0
+	var d_n := 0
+	for ev in events:
+		if ev["side"] == "a":
+			a_n += 1
+		else:
+			d_n += 1
+	if att.is_player() and att.is_alive():
+		_after_weapon_use(att, wi, a_n)
+	if def.is_player() and def.is_alive() and dwi >= 0:
+		_after_weapon_use(def, dwi, d_n)
 	for u in [att, def]:
 		if not u.is_alive() and u.visible:
 			await _death_anim(u)
@@ -1329,6 +1385,23 @@ func do_combat(att: Unit, def: Unit, wi: int) -> void:
 		state = S.ENEMY
 
 
+## 我方用了 n 次第 idx 把武器：扣耐久（坏了提示）、涨武器经验（升级提示）
+func _after_weapon_use(u: Unit, idx: int, n: int) -> void:
+	if n <= 0 or idx < 0 or idx >= u.weapons.size():
+		return
+	var w: Dictionary = u.weapon(idx)
+	var t: String = w["type"]
+	var up := u.gain_wexp(t, int(w.get("wexp", 1)))
+	if up != "":
+		notify(tr("%s 的%s等级提升到 %s！") % [tr(u.display_name), tr(GameData.TYPE_NAMES.get(t, t)), up])
+	for i in n:
+		var broke := u.use_weapon(idx)
+		if broke != "":
+			Audio.play_sfx("miss", 0.7)
+			notify(tr("%s 的%s坏掉了！") % [tr(u.display_name), tr(broke)])
+			break
+
+
 func _give_xp(u: Unit, n: int) -> void:
 	var res: Dictionary = u.gain_xp(n)
 	_float_text(u, "EXP +%d" % n, Color(0.6, 0.9, 1.0))
@@ -1341,7 +1414,7 @@ func _give_xp(u: Unit, n: int) -> void:
 	if gains.is_empty():
 		lines.append(tr("（能力没有提升……）"))
 	else:
-		var names := {"hp": "HP", "pwr": tr("力量"), "skl": tr("技巧"), "spd": tr("速度"), "dfn": tr("守备")}
+		var names := {"hp": "HP", "pwr": tr("力量"), "skl": tr("技巧"), "spd": tr("速度"), "dfn": tr("守备"), "res": tr("魔防")}
 		for k in gains:
 			lines.append("%s +1" % names[k])
 	levelup_label.text = "\n".join(PackedStringArray(lines))
@@ -1661,15 +1734,23 @@ func _unit_info_text(u: Unit) -> String:
 	lines.append(tr("%s  Lv%d %s（%s）") % [tr(u.display_name), u.level, tr(u.class_label), side])
 	lines.append("HP %d/%d   EXP %d" % [u.hp, u.max_hp, u.xp])
 	lines.append(tr("力 %d   技 %d   速 %d") % [u.pwr, u.skl, u.spd])
-	lines.append(tr("守 %d   移 %d") % [u.dfn, u.mov])
+	lines.append(tr("守 %d   魔防 %d   移 %d") % [u.dfn, u.res, u.mov])
 	var wnames: Array = []
-	for w in u.weapons:
-		wnames.append(tr(GameData.WEAPONS[w]["name"]))
+	for i in u.weapons.size():
+		wnames.append("%s %s" % [tr(GameData.WEAPONS[u.weapons[i]]["name"]), u.uses_text(i)])
 	lines.append(tr("武器：") + tr("、").join(PackedStringArray(wnames)))
+	if u.is_player():
+		var ranks: Array = []
+		for t in GameData.WEAPON_TYPES:
+			var r := u.rank_letter(t)
+			if r != "":
+				ranks.append("%s%s" % [tr(GameData.TYPE_NAMES[t]), r])
+		if not ranks.is_empty():
+			lines.append(tr("武器等级：") + " ".join(PackedStringArray(ranks)))
 	if not u.items.is_empty():
 		var inames: Array = []
-		for it in u.items:
-			inames.append(tr(GameData.ITEMS[it]["name"]))
+		for i in u.items.size():
+			inames.append("%s %d" % [tr(GameData.ITEMS[u.items[i]]["name"]), int(u.item_uses[i])])
 		lines.append(tr("道具：") + tr("、").join(PackedStringArray(inames)))
 	return "\n".join(PackedStringArray(lines))
 

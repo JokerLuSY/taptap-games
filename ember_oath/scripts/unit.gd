@@ -16,10 +16,15 @@ var pwr := 5
 var skl := 5
 var spd := 5
 var dfn := 3
+var res := 1                    # 魔防：挡魔法伤害
 var mov := 5
+var con := 6                    # 体格：救出时被救者体格 ≤ 救出者的救出值
 var weapons: Array = []         # weapon id 列表
+var weapon_uses: Array = []     # 与 weapons 一一对应的剩余耐久（-1 = 不会坏）
 var items: Array = []           # item id 列表
-var growths := {"hp": 50, "pwr": 30, "skl": 30, "spd": 30, "dfn": 20}
+var item_uses: Array = []       # 与 items 一一对应的剩余次数
+var wexp := {}                  # 武器经验 {类型: 点数}，按 GameData.RANK_EXP 换算成 E~S
+var growths := {"hp": 50, "pwr": 30, "skl": 30, "spd": 30, "dfn": 20, "res": 20}
 var stationary := false         # 不移动（守点 BOSS）
 var hold := false               # 守点：我方进入威胁范围前不动
 var is_boss := false
@@ -71,7 +76,7 @@ const SPRITE_BY_ID := {
 	"hawk": "hawk",
 	"barrett": "barrett",
 }
-const SPRITE_BY_PREFIX := [["bandit", "bandit"], ["archer", "archer"], ["church", "church"], ["knight", "knight"], ["merc", "merc"]]
+const SPRITE_BY_PREFIX := [["mage", "mage"], ["bandit", "bandit"], ["archer", "archer"], ["church", "church"], ["knight", "knight"], ["merc", "merc"]]
 const SPRITE_PX := 4.0
 const SPRITE_FOOT := 30.0       # 脚底离格子中心的距离（格子半高 32，留 2px）
 const WALK_FPS := 10.0
@@ -96,11 +101,26 @@ func setup(def: Dictionary) -> void:
 	skl = def.get("skl", 5)
 	spd = def.get("spd", 5)
 	dfn = def.get("dfn", 3)
+	var cls := GameData.class_data(class_label)
+	# 魔防缺省：魔法职业高一些，其他取守备的一半
+	res = int(def.get("res", dfn + 2 if cls.get("magic", false) else int(dfn / 2) + 1))
 	mov = def.get("mov", 5)
+	con = int(def.get("con", cls.get("con", 6)))
 	weapons = def.get("weapons", []).duplicate()
+	weapon_uses = []
+	var wu_in: Array = def.get("weapon_uses", [])
+	for i in weapons.size():
+		weapon_uses.append(int(wu_in[i]) if i < wu_in.size() else max_uses(weapons[i]))
 	items = def.get("items", []).duplicate()
+	item_uses = []
+	var iu_in: Array = def.get("item_uses", [])
+	for i in items.size():
+		item_uses.append(int(iu_in[i]) if i < iu_in.size() else max_uses(items[i]))
+	_init_wexp(def.get("wexp", {}), cls)
 	if def.has("growths"):
-		growths = def["growths"]
+		growths = def["growths"].duplicate()
+		if not growths.has("res"):
+			growths["res"] = 20
 	stationary = def.get("stationary", false)
 	hold = def.get("hold", false)
 	is_boss = def.get("boss", false)
@@ -231,10 +251,142 @@ func is_alive() -> bool:
 
 
 func weapon(idx := 0) -> Dictionary:
+	if weapons.is_empty():
+		return {"name": "--", "type": "none", "mt": 0, "hit": 0, "crit": 0, "rng": []}
 	return GameData.WEAPONS[weapons[idx]]
 
 
+# ==================== 武器等级与耐久 ====================
+
+static func max_uses(id: String) -> int:
+	if GameData.WEAPONS.has(id):
+		return int(GameData.WEAPONS[id].get("uses", -1))
+	if GameData.ITEMS.has(id):
+		return int(GameData.ITEMS[id].get("uses", 1))
+	return 1
+
+
+## 初始武器经验：存档里有就用存档；没有就按职业的初始等级，并保证开场带着的武器都拿得动
+func _init_wexp(saved, cls: Dictionary) -> void:
+	wexp = {}
+	if saved is Dictionary and not (saved as Dictionary).is_empty():
+		for k in saved:
+			wexp[str(k)] = int(saved[k])
+		return
+	var ranks: Dictionary = cls.get("ranks", {})
+	for t in ranks:
+		wexp[t] = int(GameData.RANK_EXP[ranks[t]])
+	for id in weapons:
+		var w: Dictionary = GameData.WEAPONS.get(id, {})
+		var r := str(w.get("rank", "E"))
+		if r == "prf" or w.is_empty():
+			continue
+		wexp[w["type"]] = maxi(int(wexp.get(w["type"], 0)), int(GameData.RANK_EXP[r]))
+
+
+## 某类武器的当前等级字母（"" = 不会用）
+func rank_letter(type: String) -> String:
+	return GameData.rank_of(int(wexp.get(type, 0)))
+
+
+## 能不能用第 idx 把武器：专属看名单，其余看武器等级。敌方不受等级限制。
+func can_use(idx: int) -> bool:
+	if idx < 0 or idx >= weapons.size():
+		return false
+	return can_use_id(weapons[idx])
+
+
+func can_use_id(id: String) -> bool:
+	var w: Dictionary = GameData.WEAPONS.get(id, {})
+	if w.is_empty():
+		return false
+	var r := str(w.get("rank", "E"))
+	if r == "prf":
+		return unit_id in w.get("prf", [])
+	if not is_player():
+		return true
+	return GameData.rank_index(rank_letter(w["type"])) >= GameData.rank_index(r)
+
+
+## 用一次武器 / 杖：耐久 -1，用完就从手里拿掉。返回坏掉的武器名（没坏返回 ""）
+func use_weapon(idx: int) -> String:
+	if idx < 0 or idx >= weapons.size():
+		return ""
+	if int(weapon_uses[idx]) < 0:
+		return ""
+	weapon_uses[idx] = int(weapon_uses[idx]) - 1
+	if int(weapon_uses[idx]) > 0:
+		return ""
+	var name: String = GameData.WEAPONS[weapons[idx]]["name"]
+	weapons.remove_at(idx)
+	weapon_uses.remove_at(idx)
+	return name
+
+
+## 涨武器经验，升级了返回新等级字母（没升返回 ""）
+func gain_wexp(type: String, n: int) -> String:
+	if n <= 0 or type == "" or type == "none":
+		return ""
+	var before := rank_letter(type)
+	if before == "":
+		return ""
+	wexp[type] = mini(int(wexp.get(type, 0)) + n, int(GameData.RANK_EXP["S"]))
+	var after := rank_letter(type)
+	return after if after != before else ""
+
+
+## 把武器提到最前（装备）
+func equip(idx: int) -> void:
+	if idx <= 0 or idx >= weapons.size():
+		return
+	var id = weapons[idx]
+	var u = weapon_uses[idx]
+	weapons.remove_at(idx)
+	weapon_uses.remove_at(idx)
+	weapons.insert(0, id)
+	weapon_uses.insert(0, u)
+
+
+## 拿到一件东西（武器或道具），uses 缺省为满耐久。背包上限 5 件，满了返回 false
+const BAG_LIMIT := 5
+
+
+func inventory_size() -> int:
+	return weapons.size() + items.size()
+
+
+func give(id: String, uses := -2) -> bool:
+	if inventory_size() >= BAG_LIMIT:
+		return false
+	var u := max_uses(id) if uses == -2 else uses
+	if GameData.WEAPONS.has(id):
+		weapons.append(id)
+		weapon_uses.append(u)
+	else:
+		items.append(id)
+		item_uses.append(u)
+	return true
+
+
+## 用掉一次道具，用完从背包拿掉
+func use_item(idx: int) -> void:
+	item_uses[idx] = int(item_uses[idx]) - 1
+	if int(item_uses[idx]) <= 0:
+		items.remove_at(idx)
+		item_uses.remove_at(idx)
+
+
+func uses_text(idx: int) -> String:
+	var u := int(weapon_uses[idx])
+	if u < 0:
+		return "--"
+	return "%d/%d" % [u, max_uses(weapons[idx])]
+
+
 func weapon_kind() -> String:
+	for i in weapons.size():
+		if can_use(i):
+			return GameData.WEAPONS[weapons[i]]["type"]
 	if weapons.is_empty():
 		return "sword"
 	return GameData.WEAPONS[weapons[0]]["type"]
@@ -252,6 +404,8 @@ func weapon_ranges() -> Array:
 
 
 func can_hit(d: int, idx := 0) -> bool:
+	if not can_use(idx):
+		return false
 	var w: Dictionary = GameData.WEAPONS[weapons[idx]]
 	if w["type"] == "staff":
 		return false
@@ -260,8 +414,8 @@ func can_hit(d: int, idx := 0) -> bool:
 
 ## 有没有能拿来攻击的武器（只带杖的治疗者不能攻击）
 func can_attack() -> bool:
-	for w in weapons:
-		if GameData.WEAPONS[w]["type"] != "staff":
+	for i in weapons.size():
+		if GameData.WEAPONS[weapons[i]]["type"] != "staff" and can_use(i):
 			return true
 	return false
 
@@ -269,7 +423,7 @@ func can_attack() -> bool:
 ## 治疗杖的索引，没有为 -1
 func heal_staff() -> int:
 	for i in weapons.size():
-		if GameData.WEAPONS[weapons[i]]["type"] == "staff":
+		if GameData.WEAPONS[weapons[i]]["type"] == "staff" and can_use(i):
 			return i
 	return -1
 
@@ -312,9 +466,21 @@ func promote(to_class: String, bonus: Dictionary, new_weapons: Array = []) -> vo
 	skl += int(bonus.get("skl", 0))
 	spd += int(bonus.get("spd", 0))
 	dfn += int(bonus.get("dfn", 0))
+	res += int(bonus.get("res", 0))
 	mov += int(bonus.get("mov", 0))
 	if not new_weapons.is_empty():
+		var old_ids := weapons.duplicate()
+		var old_uses := weapon_uses.duplicate()
 		weapons = new_weapons.duplicate()
+		weapon_uses = []
+		for id in weapons:
+			var k := old_ids.find(id)
+			weapon_uses.append(int(old_uses[k]) if k >= 0 else max_uses(id))
+	var cls := GameData.class_data(to_class)
+	con = int(cls.get("con", con))
+	var ranks: Dictionary = cls.get("ranks", {})
+	for t in ranks:
+		wexp[t] = maxi(int(wexp.get(t, 0)), int(GameData.RANK_EXP[ranks[t]]))
 	queue_redraw()
 
 
@@ -341,6 +507,8 @@ func gain_xp(n: int) -> Dictionary:
 					spd += 1
 				"dfn":
 					dfn += 1
+				"res":
+					res += 1
 	queue_redraw()
 	return {"level": level, "gains": gains}
 
@@ -363,9 +531,14 @@ func to_save() -> Dictionary:
 		"skl": skl,
 		"spd": spd,
 		"dfn": dfn,
+		"res": res,
 		"mov": mov,
+		"con": con,
 		"weapons": weapons.duplicate(),
+		"weapon_uses": weapon_uses.duplicate(),
 		"items": items.duplicate(),
+		"item_uses": item_uses.duplicate(),
+		"wexp": wexp.duplicate(),
 		"growths": growths.duplicate(),
 		"stationary": stationary,
 		"hold": hold,
@@ -402,7 +575,10 @@ func apply_save(data: Dictionary) -> void:
 		"dfn": int(data.get("dfn", 3)),
 		"mov": int(data.get("mov", 5)),
 		"weapons": data.get("weapons", []),
+		"weapon_uses": data.get("weapon_uses", []),
 		"items": data.get("items", []),
+		"item_uses": data.get("item_uses", []),
+		"wexp": data.get("wexp", {}),
 		"stationary": bool(data.get("stationary", false)),
 		"hold": bool(data.get("hold", false)),
 		"boss": bool(data.get("boss", false)),
@@ -416,6 +592,10 @@ func apply_save(data: Dictionary) -> void:
 	}
 	if growths_in is Dictionary and not (growths_in as Dictionary).is_empty():
 		def["growths"] = growths_in
+	if data.has("res"):
+		def["res"] = int(data["res"])
+	if data.has("con"):
+		def["con"] = int(data["con"])
 	setup(def)
 	hp = clampi(int(data.get("hp", max_hp)), 0, max_hp)
 	xp = int(data.get("xp", 0))

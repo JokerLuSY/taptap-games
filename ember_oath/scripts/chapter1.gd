@@ -194,7 +194,7 @@ func on_visit(u, pos: Vector2i) -> void:
 	visited[pos] = true
 	if pos == Vector2i(9, 1):
 		await battle.play_dialogue(_visit_east())
-		u.items.append("vulnerary")
+		u.give("vulnerary")
 		battle.notify(tr("获得 伤药"))
 	elif pos == Vector2i(3, 1):
 		await battle.play_dialogue(_visit_west())
@@ -227,7 +227,7 @@ func on_talk(_u) -> void:
 	f_talk = true
 	await battle.play_dialogue(_talk_tia_balto())
 	var tia = battle.get_unit("tia")
-	tia.items.append("vulnerary")
+	tia.give("vulnerary")
 	battle.notify(tr("缇娅 获得 伤药"))
 
 

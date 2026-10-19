@@ -142,7 +142,7 @@ func on_visit(u, pos: Vector2i) -> void:
 	visited[pos] = true
 	if pos == Vector2i(1, 3):
 		await battle.play_dialogue(_visit())
-		u.items.append("vulnerary")
+		u.give("vulnerary")
 		battle.notify(tr("获得 伤药"))
 
 
@@ -162,7 +162,7 @@ func talk_lines(_key: String) -> Array:
 func on_talked(_key: String, _u, partner) -> void:
 	var harlo = partner if partner.unit_id == "harlo" else battle.get_unit("harlo")
 	if harlo != null:
-		harlo.items.append("vulnerary")
+		harlo.give("vulnerary")
 		battle.notify(tr("哈洛 获得 伤药"))
 
 

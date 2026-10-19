@@ -64,6 +64,11 @@ const _ARCHER := {"name": "教会弓兵", "class": "弓箭手", "faction": "enem
 	"weapons": ["iron_bow"], "color": Color(0.80, 0.78, 0.70),
 	"hair": "hood", "armor": Color(0.78, 0.74, 0.64)}
 
+const _MAGE := {"name": "教会魔道士", "class": "魔道士", "faction": "enemy", "level": 5,
+	"hp": 19, "pwr": 6, "skl": 5, "spd": 5, "dfn": 2, "res": 6, "mov": 5,
+	"weapons": ["fire"], "color": Color(0.92, 0.88, 0.78),
+	"hair": "hood", "armor": Color(0.90, 0.86, 0.74)}
+
 const UNITS := [
 	{"id": "tia", "name": "缇娅", "class": "剑士", "faction": "player", "level": 5,
 		"hp": 24, "pwr": 7, "skl": 8, "spd": 9, "dfn": 4, "mov": 5,
@@ -95,6 +100,8 @@ const UNITS := [
 	{"id": "knight2", "pos": Vector2i(13, 8), "hold": true},
 	{"id": "archer1", "pos": Vector2i(12, 2)},
 	{"id": "archer2", "pos": Vector2i(8, 7)},
+	# 教会魔道士：火焰打魔防，守备高的骑士也挡不住
+	{"id": "mage1", "pos": Vector2i(10, 1)},
 	# 诺雅：随军的见习修女，给教会兵治疗；缇娅可说得
 	{"id": "noya", "name": "诺雅", "class": "修女", "faction": "enemy", "level": 2,
 		"hp": 16, "pwr": 3, "skl": 4, "spd": 6, "dfn": 1, "mov": 5,
@@ -121,7 +128,7 @@ func chapter_id() -> String:
 
 
 func templates() -> Dictionary:
-	return {"church": _CHURCH, "knight": _KNIGHT, "archer": _ARCHER}
+	return {"church": _CHURCH, "knight": _KNIGHT, "archer": _ARCHER, "mage": _MAGE}
 
 
 func extra_slots() -> Array:
@@ -189,7 +196,7 @@ func on_visit(u, pos: Vector2i) -> void:
 	visited[pos] = true
 	if pos == Vector2i(3, 1):
 		await battle.play_dialogue(_visit_granny())
-		u.items.append("vulnerary")
+		u.give("vulnerary")
 		battle.notify(tr("获得 伤药"))
 
 

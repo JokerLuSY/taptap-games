@@ -197,7 +197,20 @@ def w_staff(cv, pal, hand, angle, length=30, butt=10, **_):
     limb(cv, (tip[0] - gx * 2.5, tip[1] - gy * 2.5), (tip[0] + gx * 2.5, tip[1] + gy * 2.5), 0.8, pal["gold"], pal["gold_d"], pal["K"])
 
 
-WEAPONS = {"sword": w_sword, "axe": w_axe, "lance": w_lance, "bow": w_bow, "staff": w_staff}
+def w_tome(cv, pal, hand, angle=0, **_):
+    """魔导书：摊开的书捧在手上（书皮 + 两页 + 中缝），书页边缘闪一点光"""
+    hx, hy = hand
+    cover = pal.get("tome", (176, 48, 48))
+    cover_d = pal.get("tome_d", (112, 28, 36))
+    page = pal.get("page", (248, 240, 216))
+    poly(cv, [(hx - 6, hy - 4), (hx + 6, hy - 4), (hx + 6, hy + 3), (hx - 6, hy + 3)], cover, cover_d, pal["K"])
+    poly(cv, [(hx - 5, hy - 4), (hx - 0.5, hy - 3), (hx - 0.5, hy + 2), (hx - 5, hy + 1)], page, page, pal["K"])
+    poly(cv, [(hx + 0.5, hy - 3), (hx + 5, hy - 4), (hx + 5, hy + 1), (hx + 0.5, hy + 2)], page, page, pal["K"])
+    cv.put(int(hx + 6), int(hy - 6), (255, 240, 160))
+    cv.put(int(hx + 8), int(hy - 8), (255, 220, 120))
+
+
+WEAPONS = {"sword": w_sword, "axe": w_axe, "lance": w_lance, "bow": w_bow, "staff": w_staff, "tome": w_tome}
 
 
 # ---------------- 拼帧 ----------------

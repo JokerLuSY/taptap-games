@@ -71,6 +71,11 @@ const _ARCHER := {"name": "教会弓兵", "class": "弓箭手", "faction": "enem
 	"weapons": ["iron_bow"], "color": Color(0.80, 0.78, 0.70),
 	"hair": "hood", "armor": Color(0.78, 0.74, 0.64)}
 
+const _MAGE := {"name": "教会魔道士", "class": "魔道士", "faction": "enemy", "level": 5,
+	"hp": 19, "pwr": 6, "skl": 5, "spd": 5, "dfn": 2, "res": 6, "mov": 5,
+	"weapons": ["fire"], "color": Color(0.92, 0.88, 0.78),
+	"hair": "hood", "armor": Color(0.90, 0.86, 0.74)}
+
 const UNITS := [
 	{"id": "tia", "name": "缇娅", "class": "剑士", "faction": "player", "level": 7,
 		"hp": 26, "pwr": 8, "skl": 9, "spd": 10, "dfn": 5, "mov": 5,
@@ -105,7 +110,7 @@ const UNITS := [
 const WAVES := {
 	2: [{"id": "merc_r0", "pos": Vector2i(0, 4)}],
 	3: [{"id": "merc_r1", "pos": Vector2i(10, 0)}, {"id": "church_r1", "pos": Vector2i(14, 2)}],
-	4: [{"id": "archer_r1", "pos": Vector2i(7, 0)}],
+	4: [{"id": "archer_r1", "pos": Vector2i(7, 0)}, {"id": "mage_r1", "pos": Vector2i(5, 0)}],
 	5: [{"id": "merc_r2", "pos": Vector2i(4, 0)}],
 }
 
@@ -115,7 +120,7 @@ func chapter_id() -> String:
 
 
 func templates() -> Dictionary:
-	return {"church": _CHURCH, "knight": _KNIGHT, "merc": _MERC, "archer": _ARCHER}
+	return {"church": _CHURCH, "knight": _KNIGHT, "merc": _MERC, "archer": _ARCHER, "mage": _MAGE}
 
 
 func lose_ids() -> Array:
@@ -188,7 +193,7 @@ func on_visit(u, pos: Vector2i) -> void:
 	visited[pos] = true
 	if pos == Vector2i(2, 1):
 		await battle.play_dialogue(_visit_farm())
-		u.items.append("vulnerary")
+		u.give("vulnerary")
 		battle.notify(tr("获得 伤药"))
 
 

@@ -11,6 +11,7 @@ const PAIRS := [
 	["brock", "balto", false], ["brock", "balto", true],
 	["archer1", "tia", false], ["archer1", "tia", true],
 	["balto", "bandit1", false], ["balto", "bandit1", true],
+	["mage1", "balto", false], ["mage1", "balto", true],
 ]
 ## 第 2–5 章的新角色：章节数据由另一处维护，这里用最小的单位定义直接对打（[攻方, 守方, 必杀]）
 const NEW_DEFS := {
@@ -43,6 +44,8 @@ func _run() -> void:
 	var defs := {}
 	for d in Chapter1.expand(Chapter1.UNITS) + Chapter1.expand(Chapter2.UNITS):
 		defs[d["id"]] = d
+	defs["mage1"] = {"id": "mage1", "name": "教会魔道士", "class": "魔道士", "faction": "enemy", "level": 5,
+		"hp": 19, "pwr": 6, "skl": 5, "spd": 5, "dfn": 2, "res": 6, "mov": 5, "weapons": ["fire"]}
 	for id in NEW_DEFS:
 		var spec: Array = NEW_DEFS[id]
 		defs[id] = {"id": id, "name": id, "class": "", "faction": spec[0], "level": 1,

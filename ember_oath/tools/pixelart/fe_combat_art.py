@@ -629,6 +629,8 @@ ARCHER.update({"anims": ARCHER_ANIMS})
 # ---- 第 2–5 章新角色的数据在 fe_combat_art_ch2.py（要用上面这些骨架，所以放在最后导入）----
 from fe_combat_art_ch2 import UNITS_CH2  # noqa: E402
 
+from fe_combat_art_classes import UNITS_CLASSES  # noqa: E402
+
 UNITS = {
     "tia": TIA,
     "balto": BALTO,
@@ -637,4 +639,5 @@ UNITS = {
     "scout": SCOUT,
     "boss": BOSS,
     **UNITS_CH2,
+    **UNITS_CLASSES,
 }

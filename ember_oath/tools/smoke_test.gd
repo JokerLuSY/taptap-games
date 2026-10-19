@@ -207,6 +207,43 @@ func _run() -> void:
 	_check(not bandit.is_alive(), "山贼应被缇娅击杀")
 	_check(tia.xp > 0, "缇娅应获得经验, 实际 %d" % tia.xp)
 	_check(tia.has_acted, "缇娅应已行动")
+	# ---- 武器耐久与武器等级 ----
+	_check(tia.weapons[0] == "iron_sword" and int(tia.weapon_uses[0]) == 45, "砍一刀后铁剑应剩 45/46, 实际 %s" % str(tia.weapon_uses))
+	_check(tia.rank_letter("sword") == "D" and int(tia.wexp.get("sword", 0)) == 32, "缇娅剑等级 D、经验 31+1, 实际 %s" % str(tia.wexp))
+	_check(balto.can_use(0) and balto.rank_letter("lance") == "A", "巴尔托开场的银枪应拿得动（枪 A）")
+	var rk := Unit.new()
+	rk.setup({"id": "rank_probe", "faction": "player", "class": "盗贼", "weapons": ["iron_sword", "steel_sword"]})
+	_check(rk.rank_letter("sword") == "D", "开场带钢剑的盗贼应自动提到剑 D, 实际 " + rk.rank_letter("sword"))
+	rk.wexp["sword"] = 1
+	_check(rk.can_use(0) and not rk.can_use(1), "剑 E 拿得动铁剑、拿不动钢剑(D)")
+	rk.weapon_uses[0] = 1
+	_check(rk.use_weapon(0) == "铁剑" and rk.weapons == ["steel_sword"], "耐久用完的铁剑应从手里拿掉")
+	_check(not rk.can_attack(), "只剩拿不动的钢剑时不能攻击")
+	_check(rk.gain_wexp("sword", 30) == "D" and rk.can_attack(), "剑经验涨到 31 应升到 D 并能用钢剑")
+	rk.free()
+	# ---- 魔法：打魔防；魔法三角 ----
+	var mg := Unit.new()
+	mg.setup({"id": "mage_probe", "class": "魔道士", "faction": "enemy", "pwr": 6, "res": 6, "weapons": ["fire"], "pos": Vector2i(14, 9)})
+	battle.board.add_child(mg)
+	var mf: Dictionary = Combat.forecast(mg, tia, 0, battle.board, tia.grid_pos + Vector2i(0, 2))
+	var expect_dmg: int = maxi(0, 5 + 6 - tia.res - int(battle.board.terrain(tia.grid_pos)["dfn"]))
+	_check(mf["a_dmg"] == expect_dmg, "火焰应打魔防: 期望 %d 实际 %d (缇娅魔防 %d)" % [expect_dmg, mf["a_dmg"], tia.res])
+	_check(mg.can_hit(2, 0) and mg.can_hit(1, 0), "魔法射程 1~2")
+	_check(GameData.triangle_dir("anima", "light") == 1 and GameData.triangle_dir("dark", "anima") == 1, "魔法三角：理克光、暗克理")
+	_check(CombatScene.fighter_key_for(mg) == "mage" and mg.sprite_sheet == "mage", "魔道士应有地图小人与战斗条带")
+	mg.queue_free()
+	# ---- 转职道具 ----
+	var pr := Unit.new()
+	pr.setup({"id": "promo_probe", "class": "剑士", "faction": "player", "level": 9, "hp": 30, "pwr": 10, "skl": 12, "spd": 12, "dfn": 6, "mov": 5,
+		"weapons": ["iron_sword"], "items": ["hero_crest"]})
+	_check(not battle.can_promote_with(pr, "hero_crest"), "Lv9 不能用勇者之证")
+	pr.level = 10
+	_check(battle.can_promote_with(pr, "hero_crest") and not battle.can_promote_with(pr, "sage_crest"), "剑士 Lv10 能用勇者之证、不能用贤者之证")
+	pr.use_item(0)
+	await battle.promote_with_item(pr, "hero_crest")
+	_check(pr.class_label == "剑圣" and pr.level == 1 and pr.max_hp == 35 and pr.mov == 6, "勇者之证转职剑圣：Lv1、HP+5、移+1, 实际 %s Lv%d HP%d 移%d" % [pr.class_label, pr.level, pr.max_hp, pr.mov])
+	_check(pr.items.is_empty(), "转职道具用掉后应从背包消失")
+	pr.free()
 	_shot("05_after_combat.png")
 
 	# ---- 危险范围开关 ----

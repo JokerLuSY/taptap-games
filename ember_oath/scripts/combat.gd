@@ -8,8 +8,10 @@ static func forecast(att: Unit, def: Unit, wpn_idx: int, board: Board, from_pos 
 	var a_pos: Vector2i = att.grid_pos if from_pos.x < 0 else from_pos
 	var w: Dictionary = att.weapon(wpn_idx)
 	var d: int = GameData.dist(a_pos, def.grid_pos)
-	var tri: int = GameData.triangle_dir(w["type"], def.weapon()["type"])
-	var a_dmg: int = maxi(0, w["mt"] + att.pwr + (1 if tri == 1 else 0) - def.dfn - board.terrain(def.grid_pos)["dfn"])
+	var tri: int = GameData.triangle_dir(w["type"], def.weapon(maxi(0, def.counter_weapon(d)))["type"])
+	# 魔法打魔防，物理打守备；地形守备两种都加
+	var d_def: int = def.res if w.get("magic", false) else def.dfn
+	var a_dmg: int = maxi(0, w["mt"] + att.pwr + (1 if tri == 1 else 0) - d_def - board.terrain(def.grid_pos)["dfn"])
 	var a_hit: int = clampi(w["hit"] + att.skl * 2 + tri * 10 - def.spd * 2 - board.terrain(def.grid_pos)["avo"], 0, 100)
 	# 居高临下: 高度占优方 +10 命中 +1 伤害
 	var lv_a: int = board.level_at(a_pos)
@@ -32,7 +34,8 @@ static func forecast(att: Unit, def: Unit, wpn_idx: int, board: Board, from_pos 
 	if d_wi >= 0:
 		var dw: Dictionary = def.weapon(d_wi)
 		var tri2: int = GameData.triangle_dir(dw["type"], w["type"])
-		d_dmg = maxi(0, dw["mt"] + def.pwr + (1 if tri2 == 1 else 0) - att.dfn - board.terrain(a_pos)["dfn"])
+		var a_def: int = att.res if dw.get("magic", false) else att.dfn
+		d_dmg = maxi(0, dw["mt"] + def.pwr + (1 if tri2 == 1 else 0) - a_def - board.terrain(a_pos)["dfn"])
 		d_hit = clampi(dw["hit"] + def.skl * 2 + tri2 * 10 - att.spd * 2 - board.terrain(a_pos)["avo"], 0, 100)
 		if lv_d > lv_a:
 			d_hit = clampi(d_hit + 10, 0, 100)

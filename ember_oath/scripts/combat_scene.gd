@@ -73,8 +73,16 @@ const FIGHTER_BY_ID := {
 	"hawk": "hawk",
 	"barrett": "barrett",
 }
-const FIGHTER_BY_PREFIX := [["bandit", "bandit"], ["archer", "archer"], ["church", "church"], ["knight", "knight"], ["merc", "merc"]]
-const FIGHTER_BY_WEAPON := {"sword": "scout", "lance": "balto", "axe": "bandit", "bow": "archer", "staff": "noya"}
+const FIGHTER_BY_PREFIX := [["mage", "mage"], ["bandit", "bandit"], ["archer", "archer"], ["church", "church"], ["knight", "knight"], ["merc", "merc"]]
+const FIGHTER_BY_WEAPON := {"sword": "scout", "lance": "balto", "axe": "bandit", "bow": "archer", "staff": "noya", "anima": "mage", "light": "mage", "dark": "mage"}
+const MAGIC_TYPES := ["anima", "light", "dark"]
+## 魔法打到身上的特效：[特效名, 放大倍数, 染色]；必杀再叠 crit 那组
+const SPELL_FX := {
+	"anima": {"normal": [["flame", 5.0, Color(1, 1, 1)]], "crit": [["flame", 7.5, Color(1, 1, 1)], ["explosion", 4.5, Color(1, 1, 1)]]},
+	"light": {"normal": [["spark_burst", 4.0, Color(1.0, 0.98, 0.8)]], "crit": [["spark_burst", 6.0, Color(1.0, 0.95, 0.7)], ["ring", 8.0, Color(1.0, 0.95, 0.7)]]},
+	"dark": {"normal": [["dark_spirit", 4.5, Color(0.75, 0.5, 1.0)]], "crit": [["dark_spirit", 6.5, Color(0.7, 0.4, 1.0)], ["ring", 8.0, Color(0.6, 0.3, 0.9)]]},
+}
+const SFX_BY_WEAPON := {"anima": "fire", "light": "heal", "dark": "crit"}
 ## 打击特效帧（Ninja Adventure FX，CC0）：[文件, 帧宽, 帧高, 帧数, 帧率]
 const FX_DIR := "res://art/cc0/ninja_adventure/fx/"
 const FX := {
@@ -90,6 +98,8 @@ const FX := {
 	"ring": ["RingWhite.png", 32, 32, 4, 14],
 	"ring_orange": ["RingOrange.png", 32, 32, 4, 14],
 	"spark_burst": ["SparkBurst.png", 32, 32, 5, 14],
+	"flame": ["Flame.png", 20, 30, 10, 16],
+	"dark_spirit": ["DarkSpirit.png", 32, 32, 5, 12],
 }
 ## 每套角色普攻 / 必杀命中时放的特效：[特效名, 放大倍数, 染色, 位置（hit = 命中点, ground = 对手脚下）]
 ## 普攻一层小刀光；必杀叠两三层大特效。主角缇娅的必杀是火色大弧斩 + 十字斩 + 光环，和探子的二连斩不同。
@@ -114,6 +124,7 @@ const HIT_FX := {
 		"normal": [["ring", 2.5, Color(1, 1, 1), "hit"]],
 		"crit": [["spark_burst", 5.0, Color(1.0, 0.85, 0.4), "hit"], ["ring", 6.0, Color(1.0, 0.85, 0.4), "hit"]],
 	},
+	"mage": {"normal": [], "crit": []},
 	"balto": {
 		"normal": [["cut", 5.0, Color(1, 1, 1), "hit"]],
 		"crit": [["big_slash", 3.6, Color(0.7, 0.85, 1.0), "hit"], ["spark_burst", 5.0, Color(1, 1, 1), "hit"]],
@@ -205,11 +216,13 @@ func _ready() -> void:
 	_ambient = Node2D.new()
 	_root.add_child(_ambient)
 	_ui = Node2D.new()
+	_ui.z_index = 100          # 面板压在必杀压暗、特效之上
 	_root.add_child(_ui)
 	_flash_rect = ColorRect.new()
 	_flash_rect.color = Color(1, 1, 1, 0)
 	_flash_rect.size = Vector2(1280, 720)
 	_flash_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_flash_rect.z_index = 110
 	_root.add_child(_flash_rect)
 
 
@@ -644,6 +657,8 @@ func _strike(ev: Dictionary) -> void:
 		return
 	if striker.weapon_kind == "bow":
 		await _strike_bow(striker, victim, ev, dir, crit)
+	elif striker.weapon_kind in MAGIC_TYPES:
+		await _strike_magic(striker, victim, ev, dir, crit)
 	else:
 		await _strike_melee(striker, victim, ev, dir, crit)
 
@@ -721,6 +736,29 @@ func _strike_melee(striker: CombatFighter, victim: CombatFighter, ev: Dictionary
 	await back.finished
 
 
+## 魔法：原地吟唱，出手帧在对手身上炸开法术（理 = 火焰、光 = 星光、暗 = 暗灵），再结算
+func _strike_magic(striker: CombatFighter, victim: CombatFighter, ev: Dictionary, dir: float, crit: bool) -> void:
+	var anim := striker.attack_anim(crit)
+	striker.play_once(anim)
+	_play_fx("ring", striker.position + Vector2(dir * 30, -90), 3.0 * dir, Color(1.0, 0.85, 0.5), 3.0)
+	await striker.impact
+	if _skip:
+		_apply_damage(ev)
+		return
+	var table: Dictionary = SPELL_FX.get(striker.weapon_kind, SPELL_FX["anima"])
+	for spec in table["crit" if crit else "normal"]:
+		_play_fx(spec[0], victim.position + Vector2(-dir * 6, -70), float(spec[1]) * dir, spec[2], float(spec[1]))
+	await get_tree().create_timer(0.18).timeout
+	_impact(striker, victim, ev, dir, crit)
+	if striker.is_playing(anim):
+		await striker.sprite.animation_finished
+	striker.play_loop("idle")
+	if crit:
+		_dim_bg(0.0, 0.3)
+		_zoom(1.0, Vector2(640, FEET_Y - 90), 0.3)
+	await get_tree().create_timer(0.2).timeout
+
+
 ## 弓手：原地拉弓，放箭帧射出箭矢，箭到才结算
 func _strike_bow(striker: CombatFighter, victim: CombatFighter, ev: Dictionary, dir: float, crit: bool) -> void:
 	Audio.play_sfx("bow", randf_range(0.95, 1.05))
@@ -784,7 +822,7 @@ func _impact(striker: CombatFighter, victim: CombatFighter, ev: Dictionary, dir:
 		return
 	_apply_damage(ev)
 	_update_bars(0.25)
-	Audio.play_sfx("crit" if crit else striker.weapon_kind, randf_range(0.95, 1.05))
+	Audio.play_sfx("crit" if crit else str(SFX_BY_WEAPON.get(striker.weapon_kind, striker.weapon_kind)), randf_range(0.95, 1.05))
 	var real_victim: Unit = _def_real if ev["side"] == "a" else _att_real
 	var dying := not real_victim.is_alive()
 	victim.flash(1.0, 0.25)

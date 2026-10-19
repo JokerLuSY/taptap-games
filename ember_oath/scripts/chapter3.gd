@@ -202,7 +202,7 @@ func on_visit(u, pos: Vector2i) -> void:
 		await battle.play_dialogue(_visit_nina())
 		battle.join_unit(NINA, pos)
 	else:
-		u.items.append("vulnerary")
+		u.give("vulnerary")
 		battle.notify(tr("获得 伤药"))
 
 
@@ -230,7 +230,7 @@ func on_talked(key: String, _u, _partner) -> void:
 	if key == "tia_edric":
 		var tia = battle.get_unit("tia")
 		if tia != null:
-			tia.items.append("vulnerary")
+			tia.give("vulnerary")
 			battle.notify(tr("缇娅 获得 伤药"))
 
 
