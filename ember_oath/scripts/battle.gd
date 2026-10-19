@@ -3,7 +3,7 @@ extends Node2D
 
 const TILE := 64
 
-enum S { STORY, IDLE, MOVE_SEL, ACTION_MENU, WEAPON_SEL, TARGET_SEL, ITEM_MENU, COMBAT, ENEMY, OVER, HEAL_SEL }
+enum S { STORY, IDLE, MOVE_SEL, ACTION_MENU, WEAPON_SEL, TARGET_SEL, ITEM_MENU, COMBAT, ENEMY, OVER, HEAL_SEL, PICK }
 
 var state: int = S.STORY
 var board: Board
@@ -22,6 +22,8 @@ var move_dict: Dictionary = {}
 var pre_move_pos := Vector2i.ZERO
 var _last_path: Array = []    # 最近一次我方移动的路径（撤销时原路走回）
 var targets: Array = []
+var _pick_tiles := {}             # 救出 / 放下 / 接手 / 交给：可点的格子
+var _pick_cb: Callable
 var danger_on := false
 
 # ---- UI ----
@@ -589,7 +591,7 @@ func enemy_phase() -> void:
 			return
 		if e.is_player() or not e.is_alive():
 			continue
-		var players: Array = units.filter(func(x) -> bool: return x.is_player() and x.is_alive())
+		var players: Array = units.filter(func(x) -> bool: return x.is_player() and x.on_map())
 		if players.is_empty():
 			return
 		var act: Dictionary = EnemyAI.choose(e, board, players)
@@ -687,6 +689,9 @@ func click_tile(p: Vector2i) -> void:
 			_target_click(p)
 		S.HEAL_SEL:
 			_heal_click(p)
+		S.PICK:
+			if _pick_tiles.has(p):
+				_pick_cb.call(p)
 
 
 func cancel() -> void:
@@ -704,6 +709,9 @@ func cancel() -> void:
 		S.ITEM_MENU:
 			_open_action_menu(selected)
 		S.HEAL_SEL:
+			_open_action_menu(selected)
+		S.PICK:
+			board.clear_highlights()
 			_open_action_menu(selected)
 		S.IDLE:
 			board.clear_highlights()
@@ -728,7 +736,7 @@ func _handle_system_back() -> void:
 
 
 func _has_cancel_layer() -> bool:
-	if state in [S.MOVE_SEL, S.ACTION_MENU, S.WEAPON_SEL, S.TARGET_SEL, S.ITEM_MENU, S.HEAL_SEL]:
+	if state in [S.MOVE_SEL, S.ACTION_MENU, S.WEAPON_SEL, S.TARGET_SEL, S.ITEM_MENU, S.HEAL_SEL, S.PICK]:
 		return true
 	if state == S.IDLE and (not board.move_tiles.is_empty() or not board.atk_tiles.is_empty()):
 		return true
@@ -801,6 +809,13 @@ func _apply_checkpoint(data: Dictionary) -> bool:
 			u.position = u.tile_center()
 		board.add_child(u)
 		units.append(u)
+	# 救出状态：被背着的人重新挂回背他的人身上
+	for raw in list:
+		if typeof(raw) == TYPE_DICTIONARY and str(raw.get("carried_by", "")) != "":
+			var t := get_unit(str(raw.get("id", "")))
+			var by := get_unit(str(raw["carried_by"]))
+			if t != null and by != null and t.is_alive() and by.is_alive():
+				by.pick_up(t)
 	return not units.is_empty()
 
 
@@ -977,6 +992,14 @@ func _open_action_menu(u: Unit) -> void:
 		opts.append({"label": tr("支援"), "enabled": true, "cb": _on_menu_support})
 	if chapter.get_recruit_target(u) != null:
 		opts.append({"label": tr("说得"), "enabled": true, "cb": _on_menu_recruit})
+	if not rescue_targets(u).is_empty():
+		opts.append({"label": tr("救出"), "enabled": true, "cb": _on_menu_rescue})
+	if u.carrying != null:
+		opts.append({"label": tr("放下"), "enabled": not drop_tiles(u).is_empty(), "cb": _on_menu_drop})
+	if not take_sources(u).is_empty():
+		opts.append({"label": tr("接手"), "enabled": true, "cb": _on_menu_take})
+	if not give_targets(u).is_empty():
+		opts.append({"label": tr("交给"), "enabled": true, "cb": _on_menu_give})
 	if not u.items.is_empty():
 		opts.append({"label": tr("道具"), "enabled": true, "cb": _on_menu_item})
 	opts.append({"label": tr("待机"), "enabled": true, "cb": _on_menu_wait})
@@ -1196,6 +1219,143 @@ func _finish_action(u: Unit) -> void:
 	after_player_action()
 
 
+# ==================== 救出 / 放下 / 接手 / 交给 ====================
+
+func _adjacent_allies(u: Unit) -> Array:
+	var out: Array = []
+	for v in units:
+		if v != u and v.on_map() and v.is_player() == u.is_player() and GameData.dist(u.grid_pos, v.grid_pos) == 1:
+			out.append(v)
+	return out
+
+
+## 身边能背起来的同伴（体格 ≤ 自己的救出值）
+func rescue_targets(u: Unit) -> Array:
+	if u.carrying != null:
+		return []
+	return _adjacent_allies(u).filter(func(v) -> bool: return u.can_carry(v))
+
+
+## 背着的人能放下的空格
+func drop_tiles(u: Unit) -> Array:
+	var out: Array = []
+	if u.carrying == null:
+		return out
+	for d in Board.DIRS4:
+		var p: Vector2i = u.grid_pos + d
+		if board.in_bounds(p) and board.unit_at(p) == null and board.terrain(p)["pass"]:
+			out.append(p)
+	return out
+
+
+## 身边背着人、能把人交过来的同伴
+func take_sources(u: Unit) -> Array:
+	if u.carrying != null:
+		return []
+	return _adjacent_allies(u).filter(func(v) -> bool: return v.carrying != null and v.carrying.con <= u.aid())
+
+
+## 身边能接过自己背着的人的同伴
+func give_targets(u: Unit) -> Array:
+	if u.carrying == null:
+		return []
+	return _adjacent_allies(u).filter(func(v) -> bool: return v.can_carry(u.carrying))
+
+
+func _start_pick(tiles: Array, cb: Callable, text: String, as_move := true) -> void:
+	_pick_tiles = {}
+	for p in tiles:
+		_pick_tiles[p] = true
+	_pick_cb = cb
+	state = S.PICK
+	_clear_menu()
+	if as_move:
+		board.show_move(_pick_tiles, {})
+	else:
+		board.show_move({}, _pick_tiles)
+	hint(text)
+
+
+func _units_at(list: Array) -> Array:
+	return list.map(func(v) -> Vector2i: return v.grid_pos)
+
+
+func _on_menu_rescue() -> void:
+	_start_pick(_units_at(rescue_targets(selected)), _do_rescue_at, tr("选择要救出的同伴（返回）"))
+
+
+func _do_rescue_at(p: Vector2i) -> void:
+	var t := board.unit_at(p)
+	var u := selected
+	board.clear_highlights()
+	do_rescue(u, t)
+	_finish_action(u)
+
+
+func do_rescue(u: Unit, t: Unit) -> void:
+	u.pick_up(t)
+	Audio.play_sfx("select")
+	notify(tr("%s 救出了 %s（技巧、速度减半）") % [tr(u.display_name), tr(t.display_name)])
+
+
+func _on_menu_drop() -> void:
+	_start_pick(drop_tiles(selected), _do_drop_at, tr("选择放下的位置（返回）"))
+
+
+func _do_drop_at(p: Vector2i) -> void:
+	var u := selected
+	board.clear_highlights()
+	var t := u.put_down(p)
+	if t != null:
+		Audio.play_sfx("move")
+	_finish_action(u)
+
+
+func _on_menu_take() -> void:
+	_start_pick(_units_at(take_sources(selected)), _do_take_at, tr("从谁手里接过同伴（返回）"))
+
+
+func _do_take_at(p: Vector2i) -> void:
+	var u := selected
+	var from := board.unit_at(p)
+	board.clear_highlights()
+	var t := from.carrying
+	from.carrying = null
+	from.queue_redraw()
+	u.pick_up(t)
+	_finish_action(u)
+
+
+func _on_menu_give() -> void:
+	_start_pick(_units_at(give_targets(selected)), _do_give_at, tr("交给谁（返回）"))
+
+
+func _do_give_at(p: Vector2i) -> void:
+	var u := selected
+	var to := board.unit_at(p)
+	board.clear_highlights()
+	var t := u.carrying
+	u.carrying = null
+	u.queue_redraw()
+	to.pick_up(t)
+	_finish_action(u)
+
+
+## 背人的单位倒下：背着的人放到最近的空格
+func _drop_from_fallen(u: Unit) -> void:
+	if u.carrying == null:
+		return
+	var t := u.carrying
+	u.carrying = null
+	var p := _nearest_free(u.grid_pos)
+	t.carried_by = null
+	t.grid_pos = p
+	t.position = t.tile_center()
+	t.visible = true
+	t.modulate.a = 1.0
+	notify(tr("%s 被放了下来") % tr(t.display_name))
+
+
 # ==================== 治疗 ====================
 
 ## u 身边能治疗的友方（相邻、受伤、存活）
@@ -1251,7 +1411,7 @@ func do_heal(healer: Unit, target: Unit) -> void:
 func after_player_action() -> void:
 	update_topbar()
 	for u in units:
-		if u.is_player() and u.is_alive() and not u.has_acted:
+		if u.is_player() and u.on_map() and not u.has_acted:
 			hint(tr("点击我方单位行动"))
 			return
 	hint(tr("全军行动完毕……"))
@@ -1367,6 +1527,7 @@ func do_combat(att: Unit, def: Unit, wi: int) -> void:
 	for u in [att, def]:
 		if not u.is_alive() and u.visible:
 			await _death_anim(u)
+			_drop_from_fallen(u)
 	if att.is_alive() and att.is_player():
 		var xp: int = Combat.xp_gain(att, def, not def.is_alive())
 		await _give_xp(att, xp)
@@ -1735,6 +1896,8 @@ func _unit_info_text(u: Unit) -> String:
 	lines.append("HP %d/%d   EXP %d" % [u.hp, u.max_hp, u.xp])
 	lines.append(tr("力 %d   技 %d   速 %d") % [u.pwr, u.skl, u.spd])
 	lines.append(tr("守 %d   魔防 %d   移 %d") % [u.dfn, u.res, u.mov])
+	if u.carrying != null:
+		lines.append(tr("背着：%s（技、速减半）") % tr(u.carrying.display_name))
 	var wnames: Array = []
 	for i in u.weapons.size():
 		wnames.append("%s %s" % [tr(GameData.WEAPONS[u.weapons[i]]["name"]), u.uses_text(i)])

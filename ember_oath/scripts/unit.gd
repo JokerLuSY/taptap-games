@@ -32,6 +32,9 @@ var grid_pos := Vector2i.ZERO
 var has_acted := false
 var body_color := Color(0.5, 0.5, 0.6)
 var support_with := {}            # 已解锁的支援: {伙伴 unit_id: 等级}
+var carrying: Unit = null         # 救出：背着的同伴
+var carried_by: Unit = null       # 被谁背着（被背期间不在地图上）
+const OFF_MAP := Vector2i(-1000, -1000)
 
 # 外观
 var hair_style := "short"       # ponytail / short / spiky / hood
@@ -248,6 +251,60 @@ func is_player() -> bool:
 
 func is_alive() -> bool:
 	return hp > 0
+
+
+## 在地图上（活着且没被人背着）
+func on_map() -> bool:
+	return is_alive() and carried_by == null
+
+
+## 救出值：步行 = 体格 - 1，骑马 = 25 - 体格，飞行 = 20 - 体格
+func aid() -> int:
+	var cls := GameData.class_data(class_label)
+	if cls.get("flying", false):
+		return 20 - con
+	if cls.get("mounted", false):
+		return 25 - con
+	return con - 1
+
+
+func can_carry(t: Unit) -> bool:
+	return t != null and t != self and carrying == null and t.carrying == null and t.con <= aid()
+
+
+## 背着人时技巧、速度减半
+func eff_skl() -> int:
+	return skl / 2 if carrying != null else skl
+
+
+func eff_spd() -> int:
+	return spd / 2 if carrying != null else spd
+
+
+## 把 t 背起来：t 离开地图（隐藏、移到图外），不能被打、不能行动
+func pick_up(t: Unit) -> void:
+	carrying = t
+	t.carried_by = self
+	t.grid_pos = OFF_MAP
+	t.visible = false
+	t.has_acted = true
+	queue_redraw()
+
+
+## 把背着的人放到 p
+func put_down(p: Vector2i) -> Unit:
+	var t := carrying
+	if t == null:
+		return null
+	carrying = null
+	t.carried_by = null
+	t.grid_pos = p
+	t.position = t.tile_center()
+	t.visible = true
+	t.modulate.a = 1.0
+	t.has_acted = true
+	queue_redraw()
+	return t
 
 
 func weapon(idx := 0) -> Dictionary:
@@ -546,6 +603,7 @@ func to_save() -> Dictionary:
 		"pos": [grid_pos.x, grid_pos.y],
 		"has_acted": has_acted,
 		"support_with": support_with.duplicate(),
+		"carried_by": carried_by.unit_id if carried_by != null else "",
 		"color": body_color.to_html(false),
 		"armor": armor_color.to_html(false),
 		"hair": hair_style,
@@ -703,6 +761,12 @@ func _draw() -> void:
 
 
 func _draw_hp() -> void:
+	if carrying != null and draw_hp_bar:
+		var c := team_color()
+		var base := Vector2(16, -44)
+		draw_line(base, base + Vector2(0, 14), Color(0.15, 0.12, 0.1), 2.0)
+		draw_colored_polygon(PackedVector2Array([base, base + Vector2(10, 4), base + Vector2(0, 8)]), c)
+		draw_polyline(PackedVector2Array([base, base + Vector2(10, 4), base + Vector2(0, 8)]), Color(0.1, 0.08, 0.1), 1.0)
 	if draw_hp_bar:
 		var w := 44.0
 		var ratio := float(hp) / float(maxi(1, max_hp))

@@ -12,7 +12,7 @@ static func forecast(att: Unit, def: Unit, wpn_idx: int, board: Board, from_pos 
 	# 魔法打魔防，物理打守备；地形守备两种都加
 	var d_def: int = def.res if w.get("magic", false) else def.dfn
 	var a_dmg: int = maxi(0, w["mt"] + att.pwr + (1 if tri == 1 else 0) - d_def - board.terrain(def.grid_pos)["dfn"])
-	var a_hit: int = clampi(w["hit"] + att.skl * 2 + tri * 10 - def.spd * 2 - board.terrain(def.grid_pos)["avo"], 0, 100)
+	var a_hit: int = clampi(w["hit"] + att.eff_skl() * 2 + tri * 10 - def.eff_spd() * 2 - board.terrain(def.grid_pos)["avo"], 0, 100)
 	# 居高临下: 高度占优方 +10 命中 +1 伤害
 	var lv_a: int = board.level_at(a_pos)
 	var lv_d: int = board.level_at(def.grid_pos)
@@ -23,8 +23,8 @@ static func forecast(att: Unit, def: Unit, wpn_idx: int, board: Board, from_pos 
 	var sup_a := 5 if _support_adjacent(att, board) else 0
 	var sup_d := 5 if _support_adjacent(def, board) else 0
 	a_hit = clampi(a_hit + sup_a - sup_d, 0, 100)
-	var a_times: int = 2 if att.spd - def.spd >= 4 else 1
-	var a_crit: int = clampi(att.skl / 2 + w.get("crit", 0), 0, 100)
+	var a_times: int = 2 if att.eff_spd() - def.eff_spd() >= 4 else 1
+	var a_crit: int = clampi(att.eff_skl() / 2 + w.get("crit", 0), 0, 100)
 	# 防守方反击（自动选用能打到的武器）
 	var d_wi: int = def.counter_weapon(d)
 	var d_dmg := 0
@@ -36,13 +36,13 @@ static func forecast(att: Unit, def: Unit, wpn_idx: int, board: Board, from_pos 
 		var tri2: int = GameData.triangle_dir(dw["type"], w["type"])
 		var a_def: int = att.res if dw.get("magic", false) else att.dfn
 		d_dmg = maxi(0, dw["mt"] + def.pwr + (1 if tri2 == 1 else 0) - a_def - board.terrain(a_pos)["dfn"])
-		d_hit = clampi(dw["hit"] + def.skl * 2 + tri2 * 10 - att.spd * 2 - board.terrain(a_pos)["avo"], 0, 100)
+		d_hit = clampi(dw["hit"] + def.eff_skl() * 2 + tri2 * 10 - att.eff_spd() * 2 - board.terrain(a_pos)["avo"], 0, 100)
 		if lv_d > lv_a:
 			d_hit = clampi(d_hit + 10, 0, 100)
 			d_dmg += 1
 		d_hit = clampi(d_hit + sup_d - sup_a, 0, 100)
-		d_times = 2 if def.spd - att.spd >= 4 else 1
-		d_crit = clampi(def.skl / 2 + dw.get("crit", 0), 0, 100)
+		d_times = 2 if def.eff_spd() - att.eff_spd() >= 4 else 1
+		d_crit = clampi(def.eff_skl() / 2 + dw.get("crit", 0), 0, 100)
 	return {
 		"a_dmg": a_dmg, "a_hit": a_hit, "a_times": a_times, "a_crit": a_crit,
 		"d_can": d_wi >= 0, "d_dmg": d_dmg, "d_hit": d_hit, "d_times": d_times, "d_crit": d_crit,
@@ -55,7 +55,7 @@ static func _support_adjacent(u: Unit, board: Board) -> bool:
 		return false
 	for partner_id in u.support_with:
 		for v in board.units:
-			if v.unit_id == partner_id and v.is_alive() and GameData.dist(u.grid_pos, v.grid_pos) == 1:
+			if v.unit_id == partner_id and v.on_map() and GameData.dist(u.grid_pos, v.grid_pos) == 1:
 				return true
 	return false
 

@@ -3,7 +3,7 @@ class_name EnemyAI
 
 ## 返回 {"move_to": Vector2i, "target": Unit 或 null, "weapon": int, "heal": Unit 或 null}
 static func choose(u: Unit, board: Board, players: Array) -> Dictionary:
-	var alive: Array = players.filter(func(p) -> bool: return p.is_alive())
+	var alive: Array = players.filter(func(p) -> bool: return p.on_map())
 	if alive.is_empty():
 		return {"move_to": u.grid_pos, "target": null, "weapon": 0}
 	if not u.can_attack():

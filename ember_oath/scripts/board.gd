@@ -160,7 +160,7 @@ func terrain(p: Vector2i) -> Dictionary:
 
 func unit_at(p: Vector2i) -> Unit:
 	for u in units:
-		if u.is_alive() and u.grid_pos == p:
+		if u.on_map() and u.grid_pos == p:
 			return u
 	return null
 

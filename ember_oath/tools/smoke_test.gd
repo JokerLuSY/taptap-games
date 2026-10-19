@@ -244,6 +244,26 @@ func _run() -> void:
 	_check(pr.class_label == "剑圣" and pr.level == 1 and pr.max_hp == 35 and pr.mov == 6, "勇者之证转职剑圣：Lv1、HP+5、移+1, 实际 %s Lv%d HP%d 移%d" % [pr.class_label, pr.level, pr.max_hp, pr.mov])
 	_check(pr.items.is_empty(), "转职道具用掉后应从背包消失")
 	pr.free()
+	# ---- 救出 / 放下 / 接手 / 交给 ----
+	var tia_home: Vector2i = tia.grid_pos
+	var balto_home: Vector2i = balto.grid_pos
+	balto.grid_pos = tia.grid_pos + Vector2i(1, 0)
+	balto.position = balto.tile_center()
+	_check(balto.aid() == 25 - balto.con, "骑马的救出值 = 25 - 体格, 实际 %d" % balto.aid())
+	_check(tia.con <= balto.aid() and battle.rescue_targets(balto).has(tia), "巴尔托应能救出身旁的缇娅")
+	var spd_before: int = balto.eff_spd()
+	battle.do_rescue(balto, tia)
+	_check(tia.carried_by == balto and not tia.visible and battle.board.unit_at(tia_home) == null, "被救出的缇娅应离开地图")
+	_check(balto.eff_spd() == spd_before / 2, "背着人速度减半")
+	_check(not battle.find_targets(balto, 0).has(tia), "被背着的人不是目标")
+	var drops: Array = battle.drop_tiles(balto)
+	_check(not drops.is_empty(), "身旁应有能放下的空格")
+	balto.put_down(tia_home)
+	_check(tia.on_map() and tia.grid_pos == tia_home and balto.carrying == null, "放下后缇娅回到地图上")
+	balto.grid_pos = balto_home
+	balto.position = balto.tile_center()
+	tia.has_acted = false
+	balto.has_acted = false
 	_shot("05_after_combat.png")
 
 	# ---- 危险范围开关 ----
