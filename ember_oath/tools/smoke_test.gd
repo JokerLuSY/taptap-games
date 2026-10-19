@@ -264,6 +264,29 @@ func _run() -> void:
 	balto.position = balto.tile_center()
 	tia.has_acted = false
 	balto.has_acted = false
+	# ---- 大地图卷动 ----
+	_check(not battle.board.can_scroll() and battle.board.scroll == Vector2.ZERO, "15×10 的章节不应卷动")
+	_check(battle.map_clip != null and battle.map_clip.clip_contents, "棋盘应放在裁剪框里")
+	var clip := Control.new()
+	clip.position = Vector2(0, 48)
+	clip.size = Vector2(960, 640)
+	clip.clip_contents = true
+	add_child(clip)
+	var big := Board.new()
+	clip.add_child(big)
+	var big_rows: Array = []
+	for _y in 16:
+		big_rows.append(".".repeat(24))
+	big.load_map(big_rows, [])
+	_check(big.can_scroll() and big.max_scroll() == Vector2(24 * 64 - 960, 16 * 64 - 640), "24×16 地图应能卷动, 最大 %s" % big.max_scroll())
+	big.ensure_visible(Vector2i(23, 15), 2, false)
+	_check(big.scroll == big.max_scroll(), "光标到右下角时视口应卷到底, 实际 %s" % big.scroll)
+	var corner_vp: Vector2 = big.get_global_transform_with_canvas() * (Vector2(23, 15) * 64 + Vector2(32, 32))
+	_check(big.tile_at_viewport(corner_vp) == Vector2i(23, 15), "卷动后点击换算应落在 (23,15), 实际 %s" % big.tile_at_viewport(corner_vp))
+	_check(corner_vp.x < 960 and corner_vp.y < 688, "右下角格子卷动后应在视口内, 实际 %s" % corner_vp)
+	big.ensure_visible(Vector2i(0, 0), 2, false)
+	_check(big.scroll == Vector2.ZERO, "回到左上角视口应归零")
+	clip.queue_free()
 	_shot("05_after_combat.png")
 
 	# ---- 危险范围开关 ----

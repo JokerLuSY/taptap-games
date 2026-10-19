@@ -106,11 +106,25 @@ func _exit_tree() -> void:
 
 # ==================== 构建 ====================
 
+var map_clip: Control              # 地图裁剪框：棋盘比视口大时只露出这一块
+var _drag_from := Vector2.ZERO
+var _drag_scroll := Vector2.ZERO
+var _dragging := false
+var _pressing := false
+const DRAG_START := 16.0
+
+
 func _build_board() -> void:
+	map_clip = Control.new()
+	map_clip.name = "MapClip"
+	map_clip.position = Vector2(0, 48)
+	map_clip.size = Vector2(960, 640)
+	map_clip.clip_contents = true
+	map_clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(map_clip)
 	board = Board.new()
-	board.position = Vector2(0, 48)
 	board.units = units
-	add_child(board)
+	map_clip.add_child(board)
 	board.load_map(chapter.MAP, chapter.LEVELS, chapter.BG)
 	cursor = MapCursor.new()
 	cursor.set_grid(Vector2i(4, 3))
@@ -598,6 +612,7 @@ func enemy_phase() -> void:
 		var mv: Vector2i = act["move_to"]
 		# 先把光标滑到行动的敌人身上，亮一下它的移动范围，让玩家看清是谁在动
 		cursor.set_grid(e.grid_pos)
+		board.ensure_visible(e.grid_pos)
 		var erange := board.move_range(e)
 		if mv != e.grid_pos or act.get("target") != null or act.get("heal") != null:
 			board.show_move(erange, {})
@@ -606,6 +621,7 @@ func enemy_phase() -> void:
 			if state == S.OVER:
 				return
 		if mv != e.grid_pos:
+			board.ensure_visible(mv, 1)
 			var path := board.find_path(e, mv, erange)
 			await _animate_move(e, path)
 			e.grid_pos = mv
@@ -636,6 +652,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if state == S.STORY or state == S.COMBAT or state == S.ENEMY or state == S.OVER:
 		return
+	if _scroll_input(event):
+		return
 	if PointerInput.is_pointer_move(event):
 		var p := board.tile_at_viewport(PointerInput.viewport_position(event))
 		if board.in_bounds(p) and p != cursor.grid_pos:
@@ -659,6 +677,45 @@ func _unhandled_input(event: InputEvent) -> void:
 		toggle_danger()
 
 
+## 大地图卷动：滚轮（Shift = 横向）、按住拖动平移。点击照常在按下时生效，拖过阈值后才开始平移。
+## 返回 true 表示事件已被卷动吃掉
+func _scroll_input(event: InputEvent) -> bool:
+	if board == null or not board.can_scroll():
+		return false
+	if event is InputEventMouseButton and event.pressed:
+		var step := Vector2.ZERO
+		match event.button_index:
+			MOUSE_BUTTON_WHEEL_UP:
+				step = Vector2(-TILE, 0) if event.shift_pressed else Vector2(0, -TILE)
+			MOUSE_BUTTON_WHEEL_DOWN:
+				step = Vector2(TILE, 0) if event.shift_pressed else Vector2(0, TILE)
+			MOUSE_BUTTON_WHEEL_LEFT:
+				step = Vector2(-TILE, 0)
+			MOUSE_BUTTON_WHEEL_RIGHT:
+				step = Vector2(TILE, 0)
+		if step != Vector2.ZERO:
+			board.set_scroll(board.scroll + step, true)
+			return true
+	if PointerInput.is_primary_press(event):
+		_pressing = true
+		_dragging = false
+		_drag_from = PointerInput.viewport_position(event)
+		_drag_scroll = board.scroll
+		return false
+	if (event is InputEventMouseButton and not event.pressed) or (event is InputEventScreenTouch and not event.pressed):
+		var was := _dragging
+		_pressing = false
+		_dragging = false
+		return was
+	if _pressing and PointerInput.is_pointer_move(event):
+		var d := PointerInput.viewport_position(event) - _drag_from
+		if _dragging or d.length() > DRAG_START:
+			_dragging = true
+			board.set_scroll(_drag_scroll - d)
+			return true
+	return false
+
+
 func _move_cursor(d: Vector2i) -> void:
 	var np := cursor.grid_pos + d
 	if board.in_bounds(np):
@@ -667,6 +724,7 @@ func _move_cursor(d: Vector2i) -> void:
 
 
 func _on_cursor_moved() -> void:
+	board.ensure_visible(cursor.grid_pos)
 	_update_hover_info()
 	Audio.play_sfx("cursor")
 	if state == S.MOVE_SEL and selected != null:

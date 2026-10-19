@@ -39,6 +39,12 @@ var goal_tiles: Array = []:         # 撤离点等目标格（Vector2i 列表）
 		_redraw_overlay()
 
 var overlay: BoardOverlay
+
+## 地图视口：棋盘放在一个裁剪框里，框内一次显示 view_size 大小（15×10 格）。
+## 地图比视口大时，scroll 是视口左上角在地图上的像素位置；棋盘自身 position = -scroll。
+var view_size := Vector2(960, 640)
+var scroll := Vector2.ZERO
+var _scroll_tween: Tween
 var tiles: MapTiles = null          # 静态地面（只画一次）
 var fx: MapFx = null                # 水面涟漪 / 火焰 / 烟
 var atmosphere: ColorRect = null    # 云影 + 调色 + 暗角
@@ -130,6 +136,51 @@ func _build_tile_layers() -> void:
 		ramp.set_color(1, Color(1.0, 0.3, 0.1, 0.0))
 		embers.color_ramp = ramp
 		add_child(embers)
+
+
+# ---------- 卷动 ----------
+
+func max_scroll() -> Vector2:
+	return Vector2(maxf(0.0, width * TILE - view_size.x), maxf(0.0, height * TILE - view_size.y))
+
+
+func can_scroll() -> bool:
+	return max_scroll() != Vector2.ZERO
+
+
+func set_scroll(v: Vector2, animate := false) -> void:
+	var m := max_scroll()
+	var target := Vector2(clampf(v.x, 0.0, m.x), clampf(v.y, 0.0, m.y))
+	if _scroll_tween != null and _scroll_tween.is_valid():
+		_scroll_tween.kill()
+	if not animate or not is_inside_tree():
+		scroll = target
+		position = -scroll
+		return
+	_scroll_tween = create_tween()
+	_scroll_tween.tween_method(func(s: Vector2) -> void:
+		scroll = s
+		position = -s, scroll, target, 0.16).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	scroll = target
+
+
+## 让格子 p 落在视口里，离边至少 margin 格（地图不够大时不动）
+func ensure_visible(p: Vector2i, margin := 2, animate := true) -> void:
+	if not can_scroll():
+		return
+	var mx := float(margin * TILE)
+	var cell := Rect2(Vector2(p) * TILE, Vector2(TILE, TILE))
+	var s := scroll
+	if cell.position.x - mx < s.x:
+		s.x = cell.position.x - mx
+	elif cell.end.x + mx > s.x + view_size.x:
+		s.x = cell.end.x + mx - view_size.x
+	if cell.position.y - mx < s.y:
+		s.y = cell.position.y - mx
+	elif cell.end.y + mx > s.y + view_size.y:
+		s.y = cell.end.y + mx - view_size.y
+	if s != scroll:
+		set_scroll(s, animate)
 
 
 func level_at(p: Vector2i) -> int:
