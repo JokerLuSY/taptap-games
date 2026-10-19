@@ -112,6 +112,19 @@ const TERRAIN := {
 	"C": {"name": "焦土", "pass": true, "cost": 1, "dfn": 0, "avo": 0},
 	"E": {"name": "火焰", "pass": false, "cost": 99, "dfn": 0, "avo": 0},
 	"Z": {"name": "废墟", "pass": true, "cost": 2, "dfn": 1, "avo": 5},
+	# 大地图用：堡垒每回合开始回复 heal% HP
+	"T": {"name": "堡垒", "pass": true, "cost": 2, "dfn": 2, "avo": 20, "heal": 20},
+	"h": {"name": "丘陵", "pass": true, "cost": 2, "dfn": 1, "avo": 15},
+	"w": {"name": "浅滩", "pass": true, "cost": 3, "dfn": 0, "avo": 0},
+	"P": {"name": "栅栏", "pass": false, "cost": 99, "dfn": 0, "avo": 0},
+	"A": {"name": "营帐", "pass": false, "cost": 99, "dfn": 0, "avo": 0},
+	"D": {"name": "民宅", "pass": false, "cost": 99, "dfn": 0, "avo": 0},
+	# 城堡：城墙、石地、城门、王座、石柱
+	"#": {"name": "城墙", "pass": false, "cost": 99, "dfn": 0, "avo": 0},
+	"S": {"name": "石地", "pass": true, "cost": 1, "dfn": 0, "avo": 0},
+	"G": {"name": "城门", "pass": true, "cost": 1, "dfn": 2, "avo": 20, "heal": 10},
+	"K": {"name": "王座", "pass": true, "cost": 1, "dfn": 3, "avo": 30, "heal": 20},
+	"I": {"name": "石柱", "pass": true, "cost": 2, "dfn": 1, "avo": 20},
 }
 
 ## 道具：heal 回复量 / promote 转职道具（对应职业表里的 item）/ uses 使用次数 / price 商店价格

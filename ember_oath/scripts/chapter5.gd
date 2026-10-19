@@ -1,7 +1,7 @@
 class_name Chapter5
 extends ChapterBase
 ## 第五章「离别」：缇娅告别重伤的养父，带妮娜、凯因、诺雅南下。哈洛、托比留在村里照顾巴尔托。
-## 守渡口：坚守到第 7 回合渡船到来（或击败追捕队长巴雷特）即通关。
+## 守渡口（旧关卡）：坚守到第 7 回合渡船到来（或击败追捕队长巴雷特）即通关。
 ## 第 3 回合是缇娅炎刃使觉醒的剧情点：满 Lv10 当场转职，不满就只演剧情、顺延到满级后的下一章开场。
 ## 章末与回程的艾德里克在渡口约定「王都再见」。
 
@@ -11,33 +11,52 @@ const VICTORY_SUB := "渡口一别。下一次见面，是在王都。"
 const DEFEAT_SUB := "渡船靠岸时，岸上已经没有人了……"
 const BG := ""
 
+const VISIT_FARM := Vector2i(3, 3)
+const VISIT_CABIN := Vector2i(20, 4)
 const HOLD_TURNS := 6             # 撑过 6 个回合，第 7 回合开始时渡船到
 
-## 渡口在河湾里的一块半岛上，北面只有 (6,5)(7,5) 两格能过来：守住这道口子等船
+## 24×18。渡口是河南岸半岛上的旧关卡：北面一道石墙，大桥正对关门；西段墙塌了，正对着浅滩。
+## 墙内石板场院、仓房，栈桥在半岛南端。北面山道口的堡垒上坐镇着追捕队长巴雷特，西边农庄、东边林中小屋可访问。
 const MAP := [
-	"FFFF...FFF.MMMM",
-	"F.H...R.......M",
-	"..F...R...F....",
-	"......R...FF...",
-	".F....RRRR.....",
-	"~~~~~~..~~~~~~~",
-	"~~~~~~F.FR..~~~",
-	"~~~~~~..RR...~~",
-	"~~~~~~~~~~BB~~~",
-	"~~~~~~~~~~~~~~~",
+	"MMM..MMMMM...MMMMMM..MMM",
+	"MMF..FMMMF.T..FMMMF..FMM",
+	"........h..R..h.........",
+	"F..H.D.F.h.R.F..F.MM..F.",
+	"..ffff..F..R..F.....H..F",
+	"..ffff.....R...hh.......",
+	".F....RRRRRR.....FF.....",
+	"F...h......Rh........FF.",
+	".F....F..F.R...F...hh...",
+	"...........R............",
+	"~~~~~ww~~~~B~~~~~~~~~~~~",
+	"~~~~#ZZ####G########~~~~",
+	"~~~.F....ISSSI...DDF.~~~",
+	"~~~..DD..SSSSS.F.....~~~",
+	"~~~~~....ssssss....~~~~~",
+	"~~~~~~~~~~~BB~~~~~~~~~~~",
+	"~~~~~~~~~~~BB~~~~~~~~~~~",
+	"~~~~~~~~~~~~~~~~~~~~~~~~",
 ]
 
 const LEVELS := [
-	"111111111111111",
-	"111111111111111",
-	"111111111111111",
-	"111111111111111",
-	"111111111111111",
-	"000000110000000",
-	"000000111111000",
-	"000000111111100",
-	"000000000011000",
-	"000000000000000",
+	"111111111111111111111111",
+	"111111111111111111111111",
+	"111111111111111111111111",
+	"111111111111111111111111",
+	"111111111111111111111111",
+	"111111111111111111111111",
+	"111111111111111111111111",
+	"111111111111111111111111",
+	"111111111111111111111111",
+	"111111111111111111111111",
+	"000001100001000000000000",
+	"000011111111111111110000",
+	"000111111111111111111000",
+	"000111111111111111111000",
+	"000001111111111111100000",
+	"000000000001100000000000",
+	"000000000001100000000000",
+	"000000000000000000000000",
 ]
 
 const C_TIA := Color(1.0, 0.62, 0.45)
@@ -81,37 +100,40 @@ const UNITS := [
 		"hp": 26, "pwr": 8, "skl": 9, "spd": 10, "dfn": 5, "mov": 5,
 		"weapons": ["iron_sword"], "items": ["vulnerary"],
 		"growths": {"hp": 75, "pwr": 45, "skl": 55, "spd": 60, "dfn": 35},
-		"pos": Vector2i(7, 6), "color": Color(0.85, 0.45, 0.35),
+		"pos": Vector2i(11, 13), "color": Color(0.85, 0.45, 0.35),
 		"hair": "ponytail", "hair_color": Color(0.80, 0.22, 0.18), "armor": Color(0.62, 0.45, 0.32)},
-	{"id": "nina", "pos": Vector2i(9, 7), "name": "妮娜", "class": "弓箭手", "faction": "player", "level": 4,
+	{"id": "nina", "pos": Vector2i(12, 13), "name": "妮娜", "class": "弓箭手", "faction": "player", "level": 4,
 		"hp": 20, "pwr": 6, "skl": 9, "spd": 8, "dfn": 3, "mov": 5, "weapons": ["iron_bow"],
 		"growths": {"hp": 55, "pwr": 45, "skl": 55, "spd": 50, "dfn": 15}},
-	{"id": "kain", "pos": Vector2i(6, 6), "name": "凯因", "class": "佣兵", "faction": "player", "level": 5,
+	{"id": "kain", "pos": Vector2i(10, 12), "name": "凯因", "class": "佣兵", "faction": "player", "level": 5,
 		"hp": 24, "pwr": 7, "skl": 10, "spd": 11, "dfn": 4, "mov": 5, "weapons": ["iron_sword"],
 		"growths": {"hp": 70, "pwr": 40, "skl": 60, "spd": 65, "dfn": 25}},
-	{"id": "noya", "pos": Vector2i(8, 7), "name": "诺雅", "class": "修女", "faction": "player", "level": 3,
+	{"id": "noya", "pos": Vector2i(12, 12), "name": "诺雅", "class": "修女", "faction": "player", "level": 3,
 		"hp": 17, "pwr": 4, "skl": 5, "spd": 7, "dfn": 1, "mov": 5, "weapons": ["heal_staff"],
 		"growths": {"hp": 45, "pwr": 40, "skl": 40, "spd": 50, "dfn": 15}},
 	# 敌方先头部队
-	{"id": "church1", "pos": Vector2i(6, 1)},
-	{"id": "merc3", "pos": Vector2i(3, 3)},
-	{"id": "merc1", "pos": Vector2i(8, 2)},
-	{"id": "merc2", "pos": Vector2i(12, 2)},
-	{"id": "archer1", "pos": Vector2i(13, 3)},
+	{"id": "church1", "pos": Vector2i(10, 4)},
+	{"id": "church2", "pos": Vector2i(12, 5)},
+	{"id": "merc3", "pos": Vector2i(4, 6)},
+	{"id": "merc1", "pos": Vector2i(7, 5)},
+	{"id": "merc2", "pos": Vector2i(15, 6)},
+	{"id": "archer1", "pos": Vector2i(14, 2)},
+	{"id": "knight1", "pos": Vector2i(19, 6)},
+	{"id": "mage1", "pos": Vector2i(9, 3)},
 	# 追捕队长巴雷特：重甲，坐镇北面山道口不动
 	{"id": "barrett", "name": "巴雷特", "class": "追捕队长", "faction": "enemy", "level": 8,
 		"hp": 34, "pwr": 10, "skl": 6, "spd": 3, "dfn": 11, "mov": 4,
 		"weapons": ["steel_lance"], "boss": true, "stationary": true,
-		"pos": Vector2i(6, 0), "color": Color(0.70, 0.66, 0.60),
+		"pos": Vector2i(11, 1), "color": Color(0.70, 0.66, 0.60),
 		"hair": "short", "hair_color": Color(0.30, 0.25, 0.20), "armor": Color(0.62, 0.60, 0.58), "scar": true},
 ]
 
 ## 按回合涌来的追兵
 const WAVES := {
-	2: [{"id": "merc_r0", "pos": Vector2i(0, 4)}],
-	3: [{"id": "merc_r1", "pos": Vector2i(10, 0)}, {"id": "church_r1", "pos": Vector2i(14, 2)}],
-	4: [{"id": "archer_r1", "pos": Vector2i(7, 0)}, {"id": "mage_r1", "pos": Vector2i(5, 0)}],
-	5: [{"id": "merc_r2", "pos": Vector2i(4, 0)}],
+	2: [{"id": "merc_r0", "pos": Vector2i(0, 5)}, {"id": "church_r0", "pos": Vector2i(23, 5)}],
+	3: [{"id": "merc_r1", "pos": Vector2i(10, 0)}, {"id": "church_r1", "pos": Vector2i(12, 0)}],
+	4: [{"id": "archer_r1", "pos": Vector2i(3, 0)}, {"id": "mage_r1", "pos": Vector2i(20, 0)}],
+	5: [{"id": "merc_r2", "pos": Vector2i(0, 9)}, {"id": "knight_r1", "pos": Vector2i(23, 9)}],
 }
 
 
@@ -129,7 +151,7 @@ func deploy_limit() -> int:
 
 
 func extra_deploy_slots() -> Array:
-	return []
+	return [Vector2i(11, 12), Vector2i(9, 13), Vector2i(13, 13)]
 
 
 func templates() -> Dictionary:
@@ -141,7 +163,7 @@ func lose_ids() -> Array:
 
 
 func extra_slots() -> Array:
-	return [Vector2i(10, 7), Vector2i(11, 7), Vector2i(10, 6), Vector2i(11, 6)]
+	return [Vector2i(13, 13), Vector2i(9, 13), Vector2i(14, 12), Vector2i(10, 13)]
 
 
 ## 哈洛、托比留在村里照顾巴尔托（第 23 章回归）
@@ -204,10 +226,14 @@ func on_after_combat(_att, def, def_died: bool) -> void:
 
 func on_visit(u, pos: Vector2i) -> void:
 	visited[pos] = true
-	if pos == Vector2i(2, 1):
+	if pos == VISIT_FARM:
 		await battle.play_dialogue(_visit_farm())
 		u.receive("vulnerary")
 		battle.notify(tr("获得 伤药"))
+	elif pos == VISIT_CABIN:
+		await battle.play_dialogue(_visit_cabin())
+		u.receive("steel_sword")
+		battle.notify(tr("获得 钢剑"))
 
 
 func talks() -> Array:
@@ -275,8 +301,10 @@ func _farewell() -> Array:
 func _pre_battle() -> Array:
 	return [
 		_l("", C_NARR, "渡船还要半天才到。北面的山道上，追兵的火把亮了起来。"),
+		_l("", C_NARR, "渡口是座旧关卡：北面一道石墙、一扇关门正对着大桥。西段的墙早就塌了。"),
 		_l("巴雷特", C_BOSS, "教会追捕队长巴雷特。审判官大人有令：异端缇娅，死活不论。"),
 		_l("凯因", C_KAIN, "教会兵、骑士……还有黑烬的人。他们是一伙的。"),
+		_l("凯因", C_KAIN, "关门好守。可西边塌了的那段墙正对着浅滩，那头也得有人。"),
 		_l("妮娜", C_NINA, "背后是河，退不了了。"),
 		_l("缇娅", C_TIA, "那就不退。守住渡口，等船来！"),
 	]
@@ -321,6 +349,13 @@ func _visit_farm() -> Array:
 	return [
 		_l("村民", C_NPC, "你就是灰岩村那个红头发的姑娘？……教会的人问过我。我什么都没说。"),
 		_l("村民", C_NPC, "拿着这个，路上用。王都那边，可比这儿乱多了。"),
+	]
+
+
+func _visit_cabin() -> Array:
+	return [
+		_l("樵夫", C_NPC, "外面打成这样……你们是要坐渡船南下？"),
+		_l("樵夫", C_NPC, "这把剑是我年轻时当兵留下的，一直挂在墙上。拿去吧，别让那些人追上。"),
 	]
 
 

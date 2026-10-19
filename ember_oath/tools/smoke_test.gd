@@ -663,7 +663,7 @@ func _check_campaign_chapters() -> void:
 	_check(battle.gold == 500, "金钱应继承，实际 %d" % battle.gold)
 	var toby = battle.get_unit("bandit6")
 	_check(toby != null and toby.is_player() and toby.display_name == "托比", "托比应随队进入第二章")
-	_check(battle.board.width == 15 and battle.board.height == 10, "第二章地图应为 15×10")
+	_check(battle.board.width == 22 and battle.board.height == 14 and battle.board.can_scroll(), "第二章地图应为 22×14 且能卷动")
 	_check(battle.board.tiles != null and battle.board.is_burning(), "第二章应走图块地图并开启火场氛围")
 	_check(Audio._current_loop == "fire", "进图应叠火焰 loop")
 	await _skip_story()
@@ -671,9 +671,9 @@ func _check_campaign_chapters() -> void:
 	_check(harlo != null and harlo.is_player() and not harlo.has_acted, "哈洛应在开场剧情入队且本回合可行动")
 	_check(battle.chapter.flags.get("first_flame", false), "第二章应演完火焰初醒")
 	_check(tia.class_label == "剑士" and tia.weapons == ["iron_sword"], "第二章不转职（转职须满 Lv10），实际 " + tia.class_label)
-	_check(battle.units.size() == 11, "第二章应有我方 4 人 + 敌方 7 人，实际 %d" % battle.units.size())
+	_check(battle.units.size() == 15, "第二章应有我方 4 人 + 敌方 11 人，实际 %d" % battle.units.size())
 	_check(battle.state == battle.S.IDLE, "剧情后应进入我方回合，state=%d" % battle.state)
-	_check(not battle.board.terrain(Vector2i(4, 0))["pass"], "火焰格应不可通行")
+	_check(not battle.board.terrain(Vector2i(5, 2))["pass"], "火焰格应不可通行")
 	await _frames(10)
 	_shot("11_chapter2_map.png")
 	harlo.grid_pos = tia.grid_pos + Vector2i(1, 0)
@@ -828,6 +828,9 @@ func _check_campaign_chapters() -> void:
 	_shot("13_chapter4_map.png")
 	# 敌方治疗 AI：骑士受伤，诺雅应走过去治疗
 	var knight1 = battle.get_unit("knight1")
+	# 大地图上骑士守在撤离点前、离诺雅很远：挪到她附近再测
+	knight1.grid_pos = noya.grid_pos + Vector2i(3, 0)
+	knight1.position = knight1.tile_center()
 	knight1.hp -= 10
 	var players: Array = battle.units.filter(func(x) -> bool: return x.is_player() and x.is_alive())
 	var act: Dictionary = EnemyAI.choose(noya, battle.board, players)

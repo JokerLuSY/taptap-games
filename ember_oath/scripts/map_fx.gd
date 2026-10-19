@@ -28,7 +28,7 @@ func setup(b: Board, is_burning: bool) -> void:
 			var h := absi(x * 73 + y * 149 + x * y * 31)
 			if t == "~" and h % 2 == 0:
 				_ripples.append([p, h % 4])
-			elif t == "E":
+			elif t == "E" or (t == "D" and burning):
 				_add_flame(p, h)
 
 

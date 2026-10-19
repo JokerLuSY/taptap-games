@@ -10,34 +10,50 @@ const VICTORY_SUB := "巴尔托留在了桥头。"
 const DEFEAT_SUB := "异端的火，被押往圣都……"
 const BG := ""
 
-## 北面是灰岩村废墟，河上一座桥（东边浅滩也能过），东南角大路是撤离点
+## 28×16。西北是灰岩村废墟（老奶奶的地窖屋可访问），中间一条河：
+## 西边一座桥接南岸大路（路上教会兵、路南堡垒），东边浅滩走北岸丘陵小道（北堡上有魔道士、猎人小屋可访问）。
+## 撤离点在东南角大路尽头。
 const MAP := [
-	"FFZCC..FFFFFFFF",
-	"F.ZH.R..F..M..F",
-	"..CC.R....FF...",
-	".....R.....F...",
-	"~~~~~B~~~~~~~..",
-	".....R....F....",
-	"..F..RRRRRR....",
-	"..F.......R.MF.",
-	".FF.......RRRRR",
-	"FFF...F......RR",
+	"FFFFF..FFFFF.FFFFFFFFFMMMMMM",
+	"FFCCCZ.RCC.FF...FF.FF...MMMM",
+	"F.CHC.WRZCZ..hh............M",
+	"F.CC...RCC....h...T.........",
+	".FZ....RRRRRRRRRRRRRRRRRH.FF",
+	".Z.....R.Z..h...F..........F",
+	"FF.CC.ZRC.ZF.....F..hh...FFF",
+	".......R....................",
+	"~~~~~~~B~~~~~~~~~~~~~~~ww~~~",
+	"FF..ff.R..h.F...hh.FF....F..",
+	"..F.ff.R............F.h.F...",
+	".......RRRRRRRRRRRRRRRRRRRR.",
+	"..MM.h.........T..........R.",
+	"F.....h...F..F.....h.F....R.",
+	".F..F......F.MM..F....F...RR",
+	"F..F........F.MM..F....F.RRR",
 ]
 
 const LEVELS := [
-	"111111111111111",
-	"111111111111111",
-	"111111111111111",
-	"111111111111111",
-	"000001000000011",
-	"111111111111111",
-	"111111111111111",
-	"111111111111111",
-	"111111111111111",
-	"111111111111111",
+	"1111111111111111111111111111",
+	"1111111111111111111111111111",
+	"1111111111111111111111111111",
+	"1111111111111111111111111111",
+	"1111111111111111111111111111",
+	"1111111111111111111111111111",
+	"1111111111111111111111111111",
+	"1111111111111111111111111111",
+	"0000000100000000000000011000",
+	"1111111111111111111111111111",
+	"1111111111111111111111111111",
+	"1111111111111111111111111111",
+	"1111111111111111111111111111",
+	"1111111111111111111111111111",
+	"1111111111111111111111111111",
+	"1111111111111111111111111111",
 ]
 
-const GOAL := [Vector2i(14, 8), Vector2i(14, 9), Vector2i(13, 9)]
+const GOAL := [Vector2i(26, 14), Vector2i(27, 14), Vector2i(27, 15)]
+const VISIT_GRANNY := Vector2i(3, 2)
+const VISIT_HUNTER := Vector2i(24, 4)
 
 const C_TIA := Color(1.0, 0.62, 0.45)
 const C_BALTO := Color(0.62, 0.78, 1.0)
@@ -74,40 +90,47 @@ const UNITS := [
 		"hp": 24, "pwr": 7, "skl": 8, "spd": 9, "dfn": 4, "mov": 5,
 		"weapons": ["iron_sword"], "items": ["vulnerary"],
 		"growths": {"hp": 75, "pwr": 45, "skl": 55, "spd": 60, "dfn": 35},
-		"pos": Vector2i(5, 2), "color": Color(0.85, 0.45, 0.35),
+		"pos": Vector2i(5, 4), "color": Color(0.85, 0.45, 0.35),
 		"hair": "ponytail", "hair_color": Color(0.80, 0.22, 0.18), "armor": Color(0.62, 0.45, 0.32)},
 	{"id": "balto", "name": "巴尔托", "class": "圣骑士", "faction": "player", "level": 8,
 		"hp": 26, "pwr": 8, "skl": 9, "spd": 8, "dfn": 7, "mov": 7,
 		"weapons": ["silver_lance", "javelin"], "items": ["vulnerary"],
 		"growths": {"hp": 40, "pwr": 20, "skl": 25, "spd": 25, "dfn": 20},
-		"pos": Vector2i(6, 2), "color": Color(0.45, 0.55, 0.75),
+		"pos": Vector2i(6, 5), "color": Color(0.45, 0.55, 0.75),
 		"hair": "short", "hair_color": Color(0.75, 0.75, 0.78), "armor": Color(0.70, 0.73, 0.82)},
-	{"id": "harlo", "pos": Vector2i(4, 3), "name": "哈洛", "class": "战士", "faction": "player", "level": 3,
+	{"id": "harlo", "pos": Vector2i(4, 5), "name": "哈洛", "class": "战士", "faction": "player", "level": 3,
 		"hp": 25, "pwr": 8, "skl": 4, "spd": 5, "dfn": 4, "mov": 5, "weapons": ["iron_axe"],
 		"growths": {"hp": 85, "pwr": 55, "skl": 35, "spd": 40, "dfn": 30}},
-	{"id": "nina", "pos": Vector2i(4, 2), "name": "妮娜", "class": "弓箭手", "faction": "player", "level": 3,
+	{"id": "nina", "pos": Vector2i(4, 4), "name": "妮娜", "class": "弓箭手", "faction": "player", "level": 3,
 		"hp": 19, "pwr": 5, "skl": 8, "spd": 7, "dfn": 2, "mov": 5, "weapons": ["iron_bow"],
 		"growths": {"hp": 55, "pwr": 45, "skl": 55, "spd": 50, "dfn": 15}},
-	{"id": "kain", "pos": Vector2i(6, 1), "name": "凯因", "class": "佣兵", "faction": "player", "level": 4,
+	{"id": "kain", "pos": Vector2i(6, 3), "name": "凯因", "class": "佣兵", "faction": "player", "level": 4,
 		"hp": 23, "pwr": 6, "skl": 9, "spd": 10, "dfn": 3, "mov": 5, "weapons": ["iron_sword"],
 		"growths": {"hp": 70, "pwr": 40, "skl": 60, "spd": 65, "dfn": 25}},
 	# 敌方
-	{"id": "church2", "pos": Vector2i(8, 2)},
-	{"id": "church3", "pos": Vector2i(9, 5)},
-	{"id": "church4", "pos": Vector2i(3, 6)},
-	{"id": "church5", "pos": Vector2i(11, 7)},
-	{"id": "knight1", "pos": Vector2i(12, 6), "hold": true},
-	{"id": "knight2", "pos": Vector2i(13, 8), "hold": true},
-	{"id": "archer1", "pos": Vector2i(12, 2)},
-	{"id": "archer2", "pos": Vector2i(8, 7)},
+	# 村口追进来的
+	{"id": "church2", "pos": Vector2i(11, 3)},
+	{"id": "church4", "pos": Vector2i(3, 10)},
+	# 南岸大路
+	{"id": "church3", "pos": Vector2i(9, 10)},
+	{"id": "archer2", "pos": Vector2i(13, 10)},
+	{"id": "church5", "pos": Vector2i(18, 11)},
+	{"id": "mage2", "pos": Vector2i(15, 12)},
+	# 北岸小道
+	{"id": "archer1", "pos": Vector2i(14, 2)},
+	{"id": "church6", "pos": Vector2i(21, 5)},
+	{"id": "archer3", "pos": Vector2i(22, 10)},
+	# 撤离点前守着的骑士
+	{"id": "knight1", "pos": Vector2i(24, 12), "hold": true},
+	{"id": "knight2", "pos": Vector2i(25, 13), "hold": true},
 	# 教会魔道士：火焰打魔防，守备高的骑士也挡不住
-	{"id": "mage1", "pos": Vector2i(10, 1)},
+	{"id": "mage1", "pos": Vector2i(18, 3)},
 	# 诺雅：随军的见习修女，给教会兵治疗；缇娅可说得
 	{"id": "noya", "name": "诺雅", "class": "修女", "faction": "enemy", "level": 2,
 		"hp": 16, "pwr": 3, "skl": 4, "spd": 6, "dfn": 1, "mov": 5,
 		"weapons": ["heal_staff"], "items": ["vulnerary"],
 		"growths": {"hp": 45, "pwr": 40, "skl": 40, "spd": 50, "dfn": 15},
-		"pos": Vector2i(11, 5), "color": Color(0.92, 0.90, 0.84),
+		"pos": Vector2i(12, 6), "color": Color(0.92, 0.90, 0.84),
 		"hair": "hood", "hair_color": Color(0.78, 0.66, 0.40), "armor": Color(0.90, 0.88, 0.82)},
 ]
 
@@ -137,7 +160,7 @@ func deploy_limit() -> int:
 
 
 func extra_deploy_slots() -> Array:
-	return [Vector2i(5, 3), Vector2i(6, 2)]
+	return [Vector2i(5, 5), Vector2i(7, 4), Vector2i(5, 3)]
 
 
 func templates() -> Dictionary:
@@ -145,7 +168,7 @@ func templates() -> Dictionary:
 
 
 func extra_slots() -> Array:
-	return [Vector2i(6, 3), Vector2i(7, 1), Vector2i(4, 1), Vector2i(7, 3)]
+	return [Vector2i(7, 5), Vector2i(3, 4), Vector2i(7, 3), Vector2i(5, 6)]
 
 
 func goal_tiles() -> Array:
@@ -207,10 +230,14 @@ func on_after_combat(att, def, _def_died: bool) -> void:
 
 func on_visit(u, pos: Vector2i) -> void:
 	visited[pos] = true
-	if pos == Vector2i(3, 1):
+	if pos == VISIT_GRANNY:
 		await battle.play_dialogue(_visit_granny())
 		u.receive("vulnerary")
 		battle.notify(tr("获得 伤药"))
+	elif pos == VISIT_HUNTER:
+		await battle.play_dialogue(_visit_hunter())
+		u.receive("steel_bow")
+		battle.notify(tr("获得 钢弓"))
 
 
 func talks() -> Array:
@@ -319,6 +346,13 @@ func _visit_granny() -> Array:
 	return [
 		_l("老奶奶", C_NPC, "缇娅……你还活着。老婆子我躲在地窖里，捡回一条命。"),
 		_l("老奶奶", C_NPC, "这是最后一瓶伤药了。快走，那些白袍子比山贼还狠。"),
+	]
+
+
+func _visit_hunter() -> Array:
+	return [
+		_l("猎人", C_NPC, "嘘——白袍子刚从这儿过去。……你是巴尔托家的丫头？"),
+		_l("猎人", C_NPC, "这张钢弓我用不上了，拿去。过了浅滩往南，就是去王都的大路。"),
 	]
 
 

@@ -1,6 +1,6 @@
 class_name Chapter3
 extends ChapterBase
-## 第三章「佣兵团的影子」：追着放火的人进了北面山道，撞见黑烬佣兵团的营地。
+## 第三章「佣兵团的影子」：追着放火的人进了北面山道，撞见黑烬佣兵团扎营的废弃边境要塞。
 ## 菲恩领主之子艾德里克在追查失踪的巡逻队，被佣兵围住（客串：他倒下即败北，章末离队）。
 ## 猎户女儿妮娜（访问山脚小屋）、动摇的佣兵凯因（缇娅说得）入队。击败佣兵队长霍克即通关。
 
@@ -10,32 +10,44 @@ const VICTORY_SUB := "佣兵的密信上，盖着圣焰教会的火漆。"
 const DEFEAT_SUB := "山道上的营火，烧到了天明……"
 const BG := ""
 
-## 西北山脚是妮娜的小屋，东北高台是佣兵营地；河上两座桥
+## 26×16。西北山脚是妮娜的小屋；东北是被黑烬佣兵团占据的废弃边境要塞：南面城门进前院（帐篷、石柱），
+## 再过内堡门，霍克坐在王座上。中间一条河（两座桥、东边浅滩），南岸艾德里克被围在废哨塔上。
 const MAP := [
-	"FFFFFMMMFFFFFFF",
-	"F.H..FMM..f.ffF",
-	"F....F..RRRRR.F",
-	"..F..F..R.F....",
-	"....FF..R..F...",
-	"~~~B~~~~B~~~~~~",
-	"........R...F..",
-	"..F..F..R......",
-	"....F...R...F..",
-	"........R......",
+	"MMMMFFFMMMMMMFF###########",
+	"MF..FF.hhMMM..F#ASS#IKI#S#",
+	"F..H..F.hh.FF..#SSS#SSS#A#",
+	"F....RF......F.#ASS##G##S#",
+	"..F..R.....hh.F#SSISSSSSI#",
+	"...FFR......h..#SASSSSSAS#",
+	".F...R.........####G######",
+	".....RRRRRRRRRRRRRRR...FFF",
+	"~~~~~B~~~~~~~~B~~~~~~ww~~~",
+	"F....R..F.....R..F......F.",
+	".F.h.R...Fhh..R...FF.....F",
+	".f...R........R.h....FT...",
+	".ff..R...RRRRRR...........",
+	"..RRRR.......T......h...F.",
+	".......F.........F...h...F",
+	"FF......F..F......F.......",
 ]
 
-## 东北营地在高台上（高度 2）
 const LEVELS := [
-	"222222222222222",
-	"111111111122221",
-	"111111111122221",
-	"111111111111111",
-	"111111111111111",
-	"000100001000000",
-	"111111111111111",
-	"111111111111111",
-	"111111111111111",
-	"111111111111111",
+	"11111111111111111111111111",
+	"11111111111111111111111111",
+	"11111111111111111111111111",
+	"11111111111111111111111111",
+	"11111111111111111111111111",
+	"11111111111111111111111111",
+	"11111111111111111111111111",
+	"11111111111111111111111111",
+	"00000100000000100000011000",
+	"11111111111111111111111111",
+	"11111111111111111111111111",
+	"11111111111111111111111111",
+	"11111111111111111111111111",
+	"11111111111111111111111111",
+	"11111111111111111111111111",
+	"11111111111111111111111111",
 ]
 
 const C_TIA := Color(1.0, 0.62, 0.45)
@@ -68,55 +80,61 @@ const UNITS := [
 		"hp": 22, "pwr": 6, "skl": 7, "spd": 8, "dfn": 4, "mov": 5,
 		"weapons": ["iron_sword"], "items": ["vulnerary"],
 		"growths": {"hp": 75, "pwr": 45, "skl": 55, "spd": 60, "dfn": 35},
-		"pos": Vector2i(2, 8), "color": Color(0.85, 0.45, 0.35),
+		"pos": Vector2i(3, 13), "color": Color(0.85, 0.45, 0.35),
 		"hair": "ponytail", "hair_color": Color(0.80, 0.22, 0.18), "armor": Color(0.62, 0.45, 0.32)},
 	{"id": "balto", "name": "巴尔托", "class": "圣骑士", "faction": "player", "level": 8,
 		"hp": 26, "pwr": 8, "skl": 9, "spd": 8, "dfn": 7, "mov": 7,
 		"weapons": ["silver_lance", "javelin"], "items": ["vulnerary"],
 		"growths": {"hp": 40, "pwr": 20, "skl": 25, "spd": 25, "dfn": 20},
-		"pos": Vector2i(3, 9), "color": Color(0.45, 0.55, 0.75),
+		"pos": Vector2i(3, 14), "color": Color(0.45, 0.55, 0.75),
 		"hair": "short", "hair_color": Color(0.75, 0.75, 0.78), "armor": Color(0.70, 0.73, 0.82)},
 	{"id": "harlo", "name": "哈洛", "class": "战士", "faction": "player", "level": 2,
 		"hp": 23, "pwr": 7, "skl": 3, "spd": 4, "dfn": 3, "mov": 5,
 		"weapons": ["iron_axe"], "items": [],
 		"growths": {"hp": 85, "pwr": 55, "skl": 35, "spd": 40, "dfn": 30},
-		"pos": Vector2i(1, 9), "color": Color(0.70, 0.60, 0.40), "hair": "short",
+		"pos": Vector2i(2, 14), "color": Color(0.70, 0.60, 0.40), "hair": "short",
 		"hair_color": Color(0.50, 0.32, 0.18), "armor": Color(0.55, 0.48, 0.35)},
 	# 客串：艾德里克在东南被佣兵追赶
 	{"id": "edric", "name": "艾德里克", "class": "领主骑士", "faction": "player", "level": 3, "join": true,
 		"hp": 24, "pwr": 6, "skl": 8, "spd": 8, "dfn": 6, "mov": 5,
 		"weapons": ["rapier"], "items": ["vulnerary"],
 		"growths": {"hp": 70, "pwr": 45, "skl": 55, "spd": 55, "dfn": 35},
-		"pos": Vector2i(10, 9), "color": Color(0.35, 0.50, 0.85),
+		"pos": Vector2i(13, 13), "color": Color(0.35, 0.50, 0.85),
 		"hair": "short", "hair_color": Color(0.30, 0.42, 0.75), "armor": Color(0.40, 0.48, 0.70)},
 	# 敌方
-	{"id": "merc1", "pos": Vector2i(11, 1)},
-	{"id": "merc2", "pos": Vector2i(9, 3)},
-	{"id": "merc3", "pos": Vector2i(12, 4), "hold": true},
-	{"id": "merc4", "pos": Vector2i(6, 6)},
+	# 南岸：围着艾德里克的追兵
+	{"id": "merc4", "pos": Vector2i(15, 13)},
+	{"id": "bandit2", "pos": Vector2i(11, 12)},
+	{"id": "bandit3", "pos": Vector2i(9, 14)},
+	{"id": "archer3", "pos": Vector2i(20, 12)},
+	# 北岸山道与小屋一带
+	{"id": "merc2", "pos": Vector2i(8, 4)},
 	{"id": "bandit1", "pos": Vector2i(4, 3)},
-	{"id": "bandit2", "pos": Vector2i(7, 8)},
-	{"id": "bandit3", "pos": Vector2i(12, 7)},
-	{"id": "archer1", "pos": Vector2i(10, 2)},
-	{"id": "archer2", "pos": Vector2i(1, 3)},
+	{"id": "bandit4", "pos": Vector2i(13, 7)},
+	{"id": "archer2", "pos": Vector2i(1, 4)},
+	# 营门与营里
+	{"id": "merc1", "pos": Vector2i(19, 5)},
+	{"id": "merc3", "pos": Vector2i(21, 4), "hold": true},
+	{"id": "archer1", "pos": Vector2i(17, 2)},
+	{"id": "archer4", "pos": Vector2i(22, 2)},
 	# 凯因：动摇的佣兵新人，守着不动，等缇娅来说得
 	{"id": "kain", "name": "凯因", "class": "佣兵", "faction": "enemy", "level": 3,
 		"hp": 22, "pwr": 5, "skl": 8, "spd": 9, "dfn": 3, "mov": 5,
 		"weapons": ["iron_sword"], "items": [], "hold": true,
 		"growths": {"hp": 70, "pwr": 40, "skl": 60, "spd": 65, "dfn": 25},
-		"pos": Vector2i(6, 3), "color": Color(0.45, 0.40, 0.55),
+		"pos": Vector2i(11, 5), "color": Color(0.45, 0.40, 0.55),
 		"hair": "short", "hair_color": Color(0.20, 0.18, 0.24), "armor": Color(0.38, 0.34, 0.42)},
-	# 佣兵队长霍克：守在营地高台
+	# 佣兵队长霍克：坐在要塞内堡的王座上
 	{"id": "hawk", "name": "霍克", "class": "佣兵队长", "faction": "enemy", "level": 7,
 		"hp": 34, "pwr": 9, "skl": 10, "spd": 9, "dfn": 6, "mov": 5,
 		"weapons": ["steel_sword"], "stationary": true, "boss": true,
-		"pos": Vector2i(12, 2), "color": Color(0.30, 0.20, 0.22),
+		"pos": Vector2i(21, 1), "color": Color(0.30, 0.20, 0.22),
 		"hair": "spiky", "hair_color": Color(0.10, 0.08, 0.08), "armor": Color(0.32, 0.18, 0.20), "scar": true},
 ]
 
 const REINFORCEMENTS := [
-	{"id": "merc_r1", "pos": Vector2i(13, 3)},
-	{"id": "merc_r2", "pos": Vector2i(14, 4)},
+	{"id": "merc_r1", "pos": Vector2i(24, 3)},
+	{"id": "merc_r2", "pos": Vector2i(24, 5)},
 ]
 
 ## 妮娜：访问山脚小屋后入队
@@ -127,7 +145,7 @@ const NINA := {"id": "nina", "name": "妮娜", "class": "弓箭手", "level": 2,
 	"color": Color(0.45, 0.60, 0.35), "hair": "ponytail", "hair_color": Color(0.55, 0.36, 0.20),
 	"armor": Color(0.42, 0.55, 0.32)}
 
-const NINA_CABIN := Vector2i(2, 1)
+const NINA_CABIN := Vector2i(3, 2)
 
 
 func chapter_id() -> String:
@@ -144,7 +162,7 @@ func deploy_limit() -> int:
 
 
 func extra_deploy_slots() -> Array:
-	return []
+	return [Vector2i(4, 14), Vector2i(2, 12), Vector2i(4, 12)]
 
 
 func templates() -> Dictionary:
@@ -156,7 +174,7 @@ func lose_ids() -> Array:
 
 
 func extra_slots() -> Array:
-	return [Vector2i(4, 9), Vector2i(0, 8), Vector2i(1, 7), Vector2i(5, 9)]
+	return [Vector2i(4, 14), Vector2i(2, 13), Vector2i(4, 12), Vector2i(1, 13)]
 
 
 ## 艾德里克章末离队，第 8 章起正式在队
@@ -284,7 +302,9 @@ func _pre_battle() -> Array:
 	var lines: Array = [
 		_l("", C_NARR, "灰岩村焚毁后的第二天。北面山道。"),
 		_l("巴尔托", C_BALTO, "脚印、马蹄印……还有拖车的车辙。他们没打算藏。"),
-		_l("缇娅", C_TIA, "前面有营火的烟。就是他们吧？"),
+		_l("", C_NARR, "山口上蹲着一座石砌的要塞。城墙塌了几处，城头却插着新旗。"),
+		_l("巴尔托", C_BALTO, "王国守边的旧要塞，荒了快二十年了。……现在成了别人的窝。"),
+		_l("缇娅", C_TIA, "营火的烟是从城墙里冒出来的。就是他们吧？"),
 		_l("哈洛", C_HARLO, "旗子上画着黑色的火……和爹说的一样，黑烬佣兵团！"),
 	]
 	if battle.get_unit("bandit6") != null:
@@ -311,7 +331,7 @@ func _turn2_hint() -> Array:
 
 func _turn4_reinforce() -> Array:
 	return [
-		_l("黑烬佣兵", C_ENEMY, "营地被袭！队长有令，红头发的丫头要活的！"),
+		_l("黑烬佣兵", C_ENEMY, "有人攻要塞！营房里的都出来！队长有令，红头发的丫头要活的！"),
 		_l("艾德里克", C_EDRIC, "他们要抓的……是你？"),
 		_l("缇娅", C_TIA, "先打完再说！"),
 	]
@@ -342,7 +362,7 @@ func _boss_death() -> Array:
 
 func _post_battle() -> Array:
 	return [
-		_l("", C_NARR, "佣兵退走了。营地的帐篷里留下一只上锁的铁匣。"),
+		_l("", C_NARR, "佣兵退走了。内堡王座后面，留下一只上锁的铁匣。"),
 		_l("艾德里克", C_EDRIC, "一封密信……火漆上是圣焰的纹章。这是教会的印。"),
 		_l("巴尔托", C_BALTO, "…………"),
 		_l("缇娅", C_TIA, "教会？教会为什么要找我？"),

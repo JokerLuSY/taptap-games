@@ -118,7 +118,7 @@ func _build_tile_layers() -> void:
 		var embers := CPUParticles2D.new()
 		embers.name = "Embers"
 		embers.z_index = 7
-		embers.amount = 40
+		embers.amount = clampi(width * height / 4, 40, 120)
 		embers.lifetime = 5.0
 		embers.preprocess = 5.0
 		embers.position = Vector2(width * TILE / 2.0, height * TILE * 0.35)
@@ -162,6 +162,13 @@ func set_scroll(v: Vector2, animate := false) -> void:
 		scroll = s
 		position = -s, scroll, target, 0.16).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 	scroll = target
+
+
+## 把格子 p 放到视口正中（地图不够大时不动）
+func center_on(p: Vector2i, animate := false) -> void:
+	if not can_scroll():
+		return
+	set_scroll(Vector2(p) * TILE + Vector2(TILE, TILE) / 2.0 - view_size / 2.0, animate)
 
 
 ## 让格子 p 落在视口里，离边至少 margin 格（地图不够大时不动）

@@ -4,7 +4,7 @@
 - 作者：Pixel-boy、AAA
 - 页面：https://pixel-boy.itch.io/ninja-adventure-asset-pack
 - 许可：CC0 1.0 Universal（原文见 `art/cc0/ninja_adventure/LICENSE.txt`）
-- 使用：地图图块 `art/cc0/ninja_adventure/tiles/`（原包 `Backgrounds/Tilesets/Tileset{Floor,Water,Nature,House,VillageAbandoned,Element,Relief}.png`、
+- 使用：地图图块 `art/cc0/ninja_adventure/tiles/`（原包 `Backgrounds/Tilesets/Tileset{Floor,Water,Nature,House,VillageAbandoned,Element,Relief,Dungeon}.png`、`tileset_camp.png`（改名 TilesetCamp.png）、`Interior/TilesetInteriorFloor.png`、
   `Backgrounds/Animated/Water Ripples`、`FX/Particle/Fire.png`、`FX/Smoke/Smoke`，未改动，仅改名）
 
 ## 地图小人（原创）

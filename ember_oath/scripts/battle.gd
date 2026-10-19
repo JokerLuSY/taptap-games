@@ -527,6 +527,9 @@ func _start_chapter() -> void:
 	state = S.STORY
 	update_topbar()
 	board.goal_tiles = chapter.goal_tiles()
+	var lead := get_unit("tia")
+	if lead != null:
+		board.center_on(lead.grid_pos)
 	await chapter.on_battle_start()
 	if chapter.prep_mode() != "":
 		await _run_prep()
@@ -579,6 +582,8 @@ func start_player_phase(first := false) -> void:
 	update_topbar()
 	Audio.play_sfx("phase")
 	show_banner(tr("第 %d 回合 · 我方回合") % turn, Color(0.45, 0.7, 1.0))
+	if not first:
+		_terrain_heal(true)
 	_gain_support_points()
 	if not first and await check_end_conditions():
 		return
@@ -605,6 +610,7 @@ func enemy_phase() -> void:
 	update_topbar()
 	Audio.play_sfx("phase", 0.85)
 	show_banner(tr("敌方回合"), Color(1.0, 0.45, 0.4))
+	_terrain_heal(false)
 	await get_tree().create_timer(0.9).timeout
 	for e in units.duplicate():
 		if state == S.OVER:
@@ -2100,6 +2106,20 @@ func _unit_info_text(u: Unit) -> String:
 			inames.append("%s %d" % [tr(GameData.ITEMS[u.items[i]]["name"]), int(u.item_uses[i])])
 		lines.append(tr("道具：") + tr("、").join(PackedStringArray(inames)))
 	return "\n".join(PackedStringArray(lines))
+
+
+## 回合开始：站在堡垒等回复地形上的一方回复最大 HP 的 heal%
+func _terrain_heal(player_side: bool) -> void:
+	for u in units:
+		if not u.is_alive() or not u.on_map() or u.is_player() != player_side or u.hp >= u.max_hp:
+			continue
+		var pct := int(board.terrain(u.grid_pos).get("heal", 0))
+		if pct <= 0:
+			continue
+		var n := maxi(1, int(ceil(u.max_hp * pct / 100.0)))
+		n = mini(n, u.max_hp - u.hp)
+		u.heal(n)
+		_float_text(u, "+%d" % n, Color(0.5, 1.0, 0.6))
 
 
 func _float_text(u: Unit, text: String, color: Color) -> void:
