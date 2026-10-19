@@ -121,11 +121,12 @@ def _dir(angle_deg):
 
 # ---------------- 武器 ----------------
 
-def w_sword(cv, pal, hand, angle, length=26, **_):
+def w_sword(cv, pal, hand, angle, length=26, blade_r=1.4, **_):
+    """blade_r：刃宽（细剑 0.9、阔刃剑 1.9）"""
     dx, dy = _dir(angle)
     hx, hy = hand
     limb(cv, (hx - dx * 4, hy - dy * 4), (hx, hy), 1.0, pal["grip"], pal["grip_d"], pal["K"])
-    limb(cv, (hx + dx * 2, hy + dy * 2), (hx + dx * length, hy + dy * length), 1.4, pal["blade"], pal["blade_d"], pal["K"], r_end=0.4)
+    limb(cv, (hx + dx * 2, hy + dy * 2), (hx + dx * length, hy + dy * length), blade_r, pal["blade"], pal["blade_d"], pal["K"], r_end=min(0.4, blade_r))
     gx, gy = -dy, dx
     limb(cv, (hx + dx * 1.5 - gx * 3, hy + dy * 1.5 - gy * 3), (hx + dx * 1.5 + gx * 3, hy + dy * 1.5 + gy * 3), 0.9, pal["gold"], pal["gold_d"], pal["K"])
 
@@ -181,7 +182,22 @@ def w_bow(cv, pal, hand, angle=0, draw=0.0, string_hand=None, arrow=False, **_):
         poly(cv, [(hx + 10, hy - 2), (hx + 15, hy), (hx + 10, hy + 2)], pal["blade"], pal["blade_d"], pal["K"])
 
 
-WEAPONS = {"sword": w_sword, "axe": w_axe, "lance": w_lance, "bow": w_bow}
+def w_staff(cv, pal, hand, angle, length=30, butt=10, **_):
+    """治疗杖：木杆，杖头是金环套一颗宝珠"""
+    dx, dy = _dir(angle)
+    hx, hy = hand
+    tip = (hx + dx * length, hy + dy * length)
+    limb(cv, (hx - dx * butt, hy - dy * butt), tip, 1.1, pal["grip"], pal["grip_d"], pal["K"])
+    cx, cy = hx + dx * (length + 4), hy + dy * (length + 4)
+    ring = [(cx + 4.5 * math.cos(math.radians(a)), cy + 4.5 * math.sin(math.radians(a))) for a in range(0, 360, 45)]
+    for i in range(len(ring)):
+        limb(cv, ring[i], ring[(i + 1) % len(ring)], 0.9, pal["gold"], pal["gold_d"], pal["K"])
+    limb(cv, (cx, cy), (cx, cy), 1.6, pal.get("gem", (136, 216, 248)), pal.get("gem_d", (72, 144, 216)), pal["K"])
+    gx, gy = -dy, dx
+    limb(cv, (tip[0] - gx * 2.5, tip[1] - gy * 2.5), (tip[0] + gx * 2.5, tip[1] + gy * 2.5), 0.8, pal["gold"], pal["gold_d"], pal["K"])
+
+
+WEAPONS = {"sword": w_sword, "axe": w_axe, "lance": w_lance, "bow": w_bow, "staff": w_staff}
 
 
 # ---------------- 拼帧 ----------------
@@ -207,6 +223,9 @@ def build_frame(u, pose):
         c1, c2, r = L[key]
         limb(cv, a, b, r, pal[c1], pal[c2], K, r_end=end)
 
+    # 披风挂在肩后，最先画（在后腿、后臂之下）
+    if u.get("cape"):
+        stamp(cv, u["cape"], pal, t0[0] + body["cape"][0], t0[1] + body["cape"][1])
     wpn = u["weapon"]
     behind = wpn.get("behind", False)
     if behind and "wpn" in pose:
@@ -228,6 +247,10 @@ def build_frame(u, pose):
     if u.get("skirt"):
         stamp(cv, u["skirt"], pal, t0[0] + body["skirt"][0], t0[1] + body["skirt"][1])
     stamp(cv, u["head"], pal, t0[0] + body["head"][0] + pose.get("head_dx", 0), t0[1] + body["head"][1] + pose.get("head_dy", 0))
+    # 盾：挂在后手上，挡在身前
+    if u.get("shield"):
+        sw, sh = len(u["shield"][0]), len(u["shield"])
+        stamp(cv, u["shield"], pal, int(pose["hand_b"][0] - sw // 2), int(pose["hand_b"][1] - sh // 2))
     # 骑手的腿（马上）
     if "rider_knee" in pose:
         seg("thigh_f", hip_f, pose["rider_knee"])

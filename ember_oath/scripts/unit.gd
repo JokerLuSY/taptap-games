@@ -61,8 +61,16 @@ const SPRITE_BY_ID := {
 	"brock": "boss",
 	"marco": "boss",
 	"scout1": "scout",
+	"harlo": "harlo",
+	"nina": "nina",
+	"kain": "kain",
+	"edric": "edric",
+	"noya": "noya",
+	"silas": "silas",
+	"hawk": "hawk",
+	"barrett": "barrett",
 }
-const SPRITE_BY_PREFIX := [["bandit", "bandit"], ["archer", "archer"]]
+const SPRITE_BY_PREFIX := [["bandit", "bandit"], ["archer", "archer"], ["church", "church"], ["knight", "knight"], ["merc", "merc"]]
 const SPRITE_PX := 4.0
 const SPRITE_FOOT := 30.0       # 脚底离格子中心的距离（格子半高 32，留 2px）
 const WALK_FPS := 10.0

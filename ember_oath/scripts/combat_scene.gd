@@ -64,9 +64,17 @@ const FIGHTER_BY_ID := {
 	"brock": "boss",
 	"marco": "boss",
 	"scout1": "scout",
+	"harlo": "harlo",
+	"nina": "nina",
+	"kain": "kain",
+	"edric": "edric",
+	"noya": "noya",
+	"silas": "silas",
+	"hawk": "hawk",
+	"barrett": "barrett",
 }
-const FIGHTER_BY_PREFIX := [["bandit", "bandit"], ["archer", "archer"]]
-const FIGHTER_BY_WEAPON := {"sword": "scout", "lance": "balto", "axe": "bandit", "bow": "archer"}
+const FIGHTER_BY_PREFIX := [["bandit", "bandit"], ["archer", "archer"], ["church", "church"], ["knight", "knight"], ["merc", "merc"]]
+const FIGHTER_BY_WEAPON := {"sword": "scout", "lance": "balto", "axe": "bandit", "bow": "archer", "staff": "noya"}
 ## 打击特效帧（Ninja Adventure FX，CC0）：[文件, 帧宽, 帧高, 帧数, 帧率]
 const FX_DIR := "res://art/cc0/ninja_adventure/fx/"
 const FX := {
@@ -109,6 +117,51 @@ const HIT_FX := {
 	"balto": {
 		"normal": [["cut", 5.0, Color(1, 1, 1), "hit"]],
 		"crit": [["big_slash", 3.6, Color(0.7, 0.85, 1.0), "hit"], ["spark_burst", 5.0, Color(1, 1, 1), "hit"]],
+	},
+	# ---- 第 2–5 章 ----
+	"harlo": {
+		"normal": [["slash_double", 4.0, Color(1, 1, 1), "hit"]],
+		"crit": [["slash_double", 5.5, Color(1.0, 0.9, 0.6), "hit"], ["cut_x", 5.0, Color(1, 1, 1), "hit"]],
+	},
+	"nina": {
+		"normal": [["ring", 2.5, Color(1, 1, 1), "hit"]],
+		"crit": [["spark_burst", 5.0, Color(0.75, 1.0, 0.6), "hit"], ["ring", 6.0, Color(0.8, 1.0, 0.6), "hit"]],
+	},
+	"kain": {
+		"normal": [["slash", 4.5, Color(1, 1, 1), "hit"]],
+		"crit": [["cut_double", 5.5, Color(1.0, 0.7, 0.4), "hit"], ["slash_double", 5.0, Color(1.0, 0.6, 0.3), "hit"]],
+	},
+	"edric": {
+		"normal": [["cut", 4.0, Color(1, 1, 1), "hit"]],
+		"crit": [["cut_x", 5.5, Color(0.75, 0.88, 1.0), "hit"], ["spark_burst", 5.0, Color(0.8, 0.9, 1.0), "hit"], ["ring", 6.5, Color(0.6, 0.8, 1.0), "hit"]],
+	},
+	"noya": {
+		"normal": [["ring", 3.0, Color(0.7, 0.95, 1.0), "hit"]],
+		"crit": [["ring", 6.0, Color(0.7, 0.95, 1.0), "hit"], ["spark_burst", 4.0, Color(0.8, 1.0, 1.0), "hit"]],
+	},
+	"church": {
+		"normal": [["cut", 4.5, Color(1, 1, 1), "hit"]],
+		"crit": [["cut_x", 5.0, Color(1.0, 0.85, 0.7), "hit"], ["spark_burst", 4.5, Color(1, 1, 1), "hit"]],
+	},
+	"barrett": {
+		"normal": [["cut", 5.0, Color(1, 1, 1), "hit"]],
+		"crit": [["explosion", 4.0, Color(1, 1, 1), "ground"], ["cut_x", 5.5, Color(1.0, 0.8, 0.7), "hit"]],
+	},
+	"merc": {
+		"normal": [["slash", 4.0, Color(1, 1, 1), "hit"]],
+		"crit": [["cut_double", 5.0, Color(1, 1, 1), "hit"], ["cut_x", 4.0, Color(1, 1, 1), "hit"]],
+	},
+	"hawk": {
+		"normal": [["slash", 5.5, Color(1, 1, 1), "hit"]],
+		"crit": [["big_slash", 3.6, Color(1.0, 0.45, 0.4), "hit"], ["cut_x", 6.0, Color(1.0, 0.8, 0.7), "hit"]],
+	},
+	"knight": {
+		"normal": [["cut", 5.0, Color(1, 1, 1), "hit"]],
+		"crit": [["cut_x", 5.0, Color(1, 1, 1), "hit"], ["spark_burst", 5.0, Color(1.0, 0.9, 0.8), "hit"]],
+	},
+	"silas": {
+		"normal": [["cut", 5.5, Color(1, 1, 1), "hit"]],
+		"crit": [["big_slash", 3.8, Color(1.0, 0.92, 0.6), "hit"], ["spark_burst", 5.5, Color(1.0, 0.95, 0.75), "hit"], ["ring", 7.5, Color(1.0, 0.9, 0.55), "hit"]],
 	},
 }
 ## 必杀时拖残影的角色（主角专属）
@@ -601,7 +654,7 @@ func _crit_charge(striker: CombatFighter) -> void:
 	striker.set_glow(Color(1.0, 0.82, 0.3, 1.0))
 	_big_text(tr("必 杀 !"), Color(1.0, 0.85, 0.25))
 	_zoom(1.1, Vector2(striker.position.x, FEET_Y - 90), 0.25)
-	if striker.set_key == "archer":
+	if striker.weapon_kind == "bow":
 		_play_fx("spark_burst", striker.position + Vector2(0, -60), 4.0, Color(1.0, 0.85, 0.4), 4.0)
 	await get_tree().create_timer(0.38).timeout
 	striker.set_glow(Color(1.0, 0.82, 0.3, 0.0))

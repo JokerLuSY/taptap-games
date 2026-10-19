@@ -451,6 +451,9 @@ BALTO = {
     },
 }
 
+# ---- 第 2–5 章新角色的数据在 fe_art_ch2.py ----
+from fe_art_ch2 import UNITS_CH2  # noqa: E402
+
 UNITS = {
     "tia": TIA,
     "balto": BALTO,
@@ -458,4 +461,5 @@ UNITS = {
     "archer": ARCHER,
     "scout": SCOUT,
     "boss": BOSS,
+    **UNITS_CH2,
 }

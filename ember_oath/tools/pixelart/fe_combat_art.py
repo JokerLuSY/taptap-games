@@ -626,6 +626,9 @@ BANDIT.update({"frame": (80, 88), "foot": (40, 84), "poses": shift_all(BANDIT_PO
 BOSS.update({"frame": (80, 100), "foot": (40, 96), "poses": BOSS_POSES, "anims": BOSS_ANIMS})
 ARCHER.update({"anims": ARCHER_ANIMS})
 
+# ---- 第 2–5 章新角色的数据在 fe_combat_art_ch2.py（要用上面这些骨架，所以放在最后导入）----
+from fe_combat_art_ch2 import UNITS_CH2  # noqa: E402
+
 UNITS = {
     "tia": TIA,
     "balto": BALTO,
@@ -633,4 +636,5 @@ UNITS = {
     "archer": ARCHER,
     "scout": SCOUT,
     "boss": BOSS,
+    **UNITS_CH2,
 }
