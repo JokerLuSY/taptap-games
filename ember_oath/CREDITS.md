@@ -5,6 +5,8 @@
 - 页面：https://pixel-boy.itch.io/ninja-adventure-asset-pack
 - 许可：CC0 1.0 Universal（原文见 `art/cc0/ninja_adventure/LICENSE.txt`）
 - 使用：地图单位走路帧 `art/cc0/ninja_adventure/characters/*.png`（原包 `Actor/Character/<名字>/SpriteSheet.png`，未改动）
+- 使用：地图图块 `art/cc0/ninja_adventure/tiles/`（原包 `Backgrounds/Tilesets/Tileset{Floor,Water,Nature,House,VillageAbandoned,Element,Relief}.png`、
+  `Backgrounds/Animated/Water Ripples`、`FX/Particle/Fire.png`、`FX/Smoke/Smoke`，未改动，仅改名）
 
 | 本作单位 | 原包角色 |
 |---|---|

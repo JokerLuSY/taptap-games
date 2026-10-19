@@ -7,8 +7,8 @@ const VICTORY_TITLE := "第一章 · 完"
 const VICTORY_SUB := "缇娅的身世之谜，才刚刚开始……"
 const DEFEAT_SUB := "灰岩村的命运，到此为止……"
 
-## AI 手绘地图背景（tools/render_map_reference.py + compose_map.py 生成）
-const BG := "res://art/maps/ch1_bg.png"
+## 不用手绘底图：和第二章一样走 CC0 图块（MapTiles）。'X' 画成岩壁。
+const BG := ""
 
 ## 逻辑网格与 AI 手绘背景对齐: 道路/桥在第 5 列(手绘如此), 水井在 (8,2), 高台麦田在 11-13 列 x 1-2 行
 ## 'X' = 手绘崖壁/石梯田墙 (不可通行, 只存在于背景中)

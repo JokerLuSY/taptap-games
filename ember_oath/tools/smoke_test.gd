@@ -62,6 +62,15 @@ func _run() -> void:
 	_check(battle.turn == 1, "应为第 1 回合, 实际 %d" % battle.turn)
 	_check(battle.units.size() == 11, "初始应有 11 个单位, 实际 %d" % battle.units.size())
 	_check_objectives(true)
+	# 地图：第一章也走 CC0 图块静态层，不再用手绘整图
+	var bd: Board = battle.board
+	_check(bd.bg_texture == null and bd.tiles != null, "第一章应走图块地图（MapTiles）")
+	_check(bd.fx != null and bd.atmosphere != null, "图块地图应有动态层与氛围层")
+	_check(bd.atmosphere.mouse_filter == Control.MOUSE_FILTER_IGNORE, "氛围层不应吃掉点击")
+	_check(not bd.is_burning(), "第一章不应是火场氛围")
+	_check(bd.tiles.z_index < 0 and bd.fx.z_index < 0, "地面与动态层应画在高亮与单位下面")
+	_check(not bd.is_processing() or bd.tiles != null, "图块模式棋盘不应每帧重画")
+	await _frames(20)
 	_shot("01_map.png")
 	await _check_save_pause_back()
 
@@ -503,6 +512,9 @@ func _check_chapter2() -> void:
 	_check(battle.board.width == 15 and battle.board.height == 10, "第二章地图应为 15×10，实际 %d×%d" % [battle.board.width, battle.board.height])
 	_check(Board.TILE == 64 and battle.TILE == 64, "格子应为 64")
 	_check(battle.board.bg_texture == null, "第二章不应依赖新地图底图")
+	_check(battle.board.tiles != null and battle.board.is_burning(), "第二章应走图块地图并开启火场氛围")
+	await _frames(20)
+	_shot("11_chapter2_map.png")
 	_check(not battle.board.terrain(Vector2i(4, 0))["pass"], "火焰格应不可通行")
 	_check(battle.board.terrain(Vector2i(1, 0))["pass"], "焦土应可通行")
 	_check(battle.board.terrain(Vector2i(3, 0))["name"] == "废墟", "废墟地形名应为废墟")

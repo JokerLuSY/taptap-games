@@ -67,8 +67,16 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
+	# 图块模式下地面是静态层、动画在 MapFx，棋盘本身不再每帧重画
+	if tiles != null:
+		return
 	_t += delta
 	queue_redraw()
+
+
+var tiles: MapTiles = null          # 图块模式的静态地面（只画一次）
+var fx: MapFx = null                # 水面涟漪 / 火焰 / 烟
+var atmosphere: ColorRect = null    # 云影 + 调色 + 暗角
 
 
 func load_map(map_rows: Array, map_levels: Array = [], bg_path := "") -> void:
@@ -78,7 +86,78 @@ func load_map(map_rows: Array, map_levels: Array = [], bg_path := "") -> void:
 	width = rows[0].length()
 	if bg_path != "" and ResourceLoader.exists(bg_path):
 		bg_texture = load(bg_path)
+	elif MapTiles.available():
+		_build_tile_layers()
 	queue_redraw()
+
+
+func is_burning() -> bool:
+	for r in rows:
+		if str(r).contains("E"):
+			return true
+	return false
+
+
+## 图块模式：静态地面 → 动态层 → （高亮、单位）→ 氛围层。z 小于 0 的画在高亮与单位下面。
+func _build_tile_layers() -> void:
+	var burn := is_burning()
+	tiles = MapTiles.new()
+	tiles.name = "MapTiles"
+	tiles.board = self
+	tiles.burning = burn
+	tiles.z_index = -2
+	add_child(tiles)
+	fx = MapFx.new()
+	fx.name = "MapFx"
+	fx.z_index = -1
+	add_child(fx)
+	fx.setup(self, burn)
+	atmosphere = ColorRect.new()
+	atmosphere.name = "Atmosphere"
+	atmosphere.size = Vector2(width * TILE, height * TILE)
+	atmosphere.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	atmosphere.z_index = 6
+	var mat := ShaderMaterial.new()
+	mat.shader = preload("res://shaders/map_atmosphere.gdshader")
+	var nt := NoiseTexture2D.new()
+	nt.width = 256
+	nt.height = 256
+	nt.seamless = true
+	var n := FastNoiseLite.new()
+	n.frequency = 0.012
+	n.fractal_octaves = 3
+	nt.noise = n
+	mat.set_shader_parameter("noise", nt)
+	if burn:
+		mat.set_shader_parameter("cloud_strength", 0.22)
+		mat.set_shader_parameter("cloud_speed", Vector2(0.02, -0.006))
+		# 夜里的火场：整体压暗偏橙，暗角更重；火光在 MapFx 里画在这层之上
+		mat.set_shader_parameter("grade", Color(0.22, 0.07, 0.03, 0.30))
+		mat.set_shader_parameter("vignette", 0.45)
+	atmosphere.material = mat
+	add_child(atmosphere)
+	if burn:
+		var embers := CPUParticles2D.new()
+		embers.name = "Embers"
+		embers.z_index = 7
+		embers.amount = 40
+		embers.lifetime = 5.0
+		embers.preprocess = 5.0
+		embers.position = Vector2(width * TILE / 2.0, height * TILE * 0.35)
+		embers.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
+		embers.emission_rect_extents = Vector2(width * TILE / 2.0, TILE * 1.5)
+		embers.direction = Vector2(0.3, -1)
+		embers.spread = 30.0
+		embers.gravity = Vector2(6, -14)
+		embers.initial_velocity_min = 12.0
+		embers.initial_velocity_max = 30.0
+		embers.scale_amount_min = 2.0
+		embers.scale_amount_max = 3.5
+		var ramp := Gradient.new()
+		ramp.set_color(0, Color(1.0, 0.75, 0.3, 0.9))
+		ramp.set_color(1, Color(1.0, 0.3, 0.1, 0.0))
+		embers.color_ramp = ramp
+		add_child(embers)
 
 
 func level_at(p: Vector2i) -> int:
@@ -356,6 +435,8 @@ func _hash(p: Vector2i) -> int:
 
 
 func _draw() -> void:
+	if tiles != null:
+		return  # 地面在 MapTiles，高亮与箭头在 BoardOverlay
 	if bg_texture != null:
 		draw_texture(bg_texture, Vector2.ZERO)
 		_draw_painted_landmarks()
