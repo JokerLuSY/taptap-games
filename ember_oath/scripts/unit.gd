@@ -38,12 +38,39 @@ var scar := false
 var _t := 0.0
 var _phase := 0.0
 
+# 地图移动表现：朝向（下/上/左/右）、走路中、已行动灰度过渡
+var facing := Vector2i.DOWN
+var walking := false
+var _walk_t := 0.0
+var _dim := 0.0
+
 # 绘制开关（战斗特写的克隆体会关掉光环和 HP 条；有像素帧时整段程序绘制关掉）
 var draw_ring := true
 var draw_hp_bar := true
 var suppress_draw := false
 
 const OUTLINE := Color(0.13, 0.11, 0.15)
+
+# ---- 像素地图小人（CC0 Ninja Adventure，见 CREDITS.md） ----
+# 原包 SpriteSheet：4 列 = 下/上/左/右，前 4 行 = 走路循环，每帧 16px，×4 放大到一格
+const SPRITE_DIR := "res://art/cc0/ninja_adventure/characters/"
+const SPRITE_BY_ID := {
+	"tia": "SorcererBlack",
+	"balto": "Master",
+	"brock": "RedGladiator",
+	"marco": "Hunter",
+	"scout1": "NinjaDark",
+}
+const SPRITE_BY_PREFIX := [["bandit", "FighterWhite"], ["archer", "ManGreen"]]
+const SPRITE_PX := 4.0
+const SPRITE_Y := -8.0          # 让脚落在格子下沿、阵营环之上
+const WALK_FPS := 8.0
+const IDLE_FPS := 2.5           # GBA 式原地踏步
+const _FACING_COL := {Vector2i.DOWN: 0, Vector2i.UP: 1, Vector2i.LEFT: 2, Vector2i.RIGHT: 3}
+const WAITED_SHADER := preload("res://shaders/unit_waited.gdshader")
+
+var sprite_sheet := ""
+var _sprite: Sprite2D
 
 
 func setup(def: Dictionary) -> void:
@@ -74,6 +101,72 @@ func setup(def: Dictionary) -> void:
 	scar = def.get("scar", false)
 	position = tile_center()
 	_phase = float((grid_pos.x * 7 + grid_pos.y * 13) % 10) / 10.0 * TAU
+	_setup_sprite(str(def.get("sprite", _sprite_for_id(unit_id))))
+
+
+static func _sprite_for_id(id: String) -> String:
+	if SPRITE_BY_ID.has(id):
+		return SPRITE_BY_ID[id]
+	for rule in SPRITE_BY_PREFIX:
+		if id.begins_with(rule[0]):
+			return rule[1]
+	return ""
+
+
+## 有像素帧就挂一个 Sprite2D 子节点；缺图时保留程序 Q 版
+func _setup_sprite(sheet: String) -> void:
+	sprite_sheet = ""
+	if _sprite != null:
+		_sprite.queue_free()
+		_sprite = null
+	if sheet.is_empty():
+		return
+	var path := SPRITE_DIR + sheet + ".png"
+	if not ResourceLoader.exists(path):
+		return
+	sprite_sheet = sheet
+	_sprite = Sprite2D.new()
+	_sprite.name = "MapSprite"
+	_sprite.texture = load(path)
+	_sprite.hframes = 4
+	_sprite.vframes = _sprite.texture.get_height() / 16
+	_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_sprite.scale = Vector2(SPRITE_PX, SPRITE_PX)
+	_sprite.position = Vector2(0, SPRITE_Y)
+	var mat := ShaderMaterial.new()
+	mat.shader = WAITED_SHADER
+	_sprite.material = mat
+	add_child(_sprite)
+	_update_sprite_frame()
+
+
+func has_sprite() -> bool:
+	return _sprite != null
+
+
+func _update_sprite_frame() -> void:
+	if _sprite == null:
+		return
+	var row := 0
+	if walking:
+		row = int(_walk_t * WALK_FPS) % 4
+	elif not has_acted:
+		row = int(_t * IDLE_FPS + _phase) % 4
+	var col := int(_FACING_COL.get(facing, 0))
+	_sprite.frame = row * 4 + col
+	var mat := _sprite.material as ShaderMaterial
+	mat.set_shader_parameter("amount", _dim)
+	var fw := 1.0 / _sprite.hframes
+	var fh := 1.0 / _sprite.vframes
+	mat.set_shader_parameter("frame_uv", Vector4(col * fw, row * fh, (col + 1) * fw, (row + 1) * fh))
+	mat.set_shader_parameter("outline_color", team_color())
+
+
+## 阵营色：蓝 = 我方，红 = 敌方，金 = 头目
+func team_color() -> Color:
+	if is_boss:
+		return Color(1.0, 0.78, 0.22)
+	return Color(0.35, 0.62, 1.0) if is_player() else Color(1.0, 0.32, 0.28)
 
 
 func is_player() -> bool:
@@ -264,13 +357,52 @@ func _process(delta: float) -> void:
 	if suppress_draw:
 		return
 	_t += delta
+	if walking:
+		_walk_t += delta
+	# 已行动：平滑过渡到灰暗（GBA 火纹式），复位时再亮回来
+	var target := 1.0 if has_acted and is_alive() else 0.0
+	_dim = move_toward(_dim, target, delta * 5.0)
+	if _sprite != null:
+		_update_sprite_frame()
+	else:
+		var g := lerpf(1.0, 0.52, _dim)
+		self_modulate = Color(g, g, g * 1.06, 1.0)
 	queue_redraw()
+
+
+## 按移动方向转身；d 为一格的位移（零向量不变）
+func face(d: Vector2i) -> void:
+	if d == Vector2i.ZERO:
+		return
+	if absi(d.x) >= absi(d.y):
+		facing = Vector2i(signi(d.x), 0)
+	else:
+		facing = Vector2i(0, signi(d.y))
+	queue_redraw()
+
+
+func set_walking(on: bool) -> void:
+	walking = on
+	if not on:
+		_walk_t = 0.0
+	queue_redraw()
+
+
+## 选中时的小弹跳
+func hop() -> void:
+	var t := create_tween()
+	t.tween_property(self, "scale", Vector2(1.08, 0.88), 0.06)
+	t.tween_property(self, "scale", Vector2(0.96, 1.08), 0.08)
+	t.tween_property(self, "scale", Vector2.ONE, 0.10).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 
 func _draw() -> void:
 	if suppress_draw:
 		return
 	var bob := sin(_t * 2.6 + _phase) * 1.3
+	if walking:
+		# 走路：每步一次上下颠
+		bob = -absf(sin(_walk_t * 14.0)) * 3.0
 	# ---- 地面阴影 + 阵营光环（不浮动） ----
 	if draw_ring:
 		var ring_col: Color = Color(0.3, 0.55, 1.0) if is_player() else Color(1.0, 0.35, 0.3)
@@ -281,32 +413,49 @@ func _draw() -> void:
 		draw_arc(Vector2.ZERO, 20, 0, TAU, 28, ring_col, 3.0)
 		draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
 
-	# ---- 人物（整体随 bob 浮动） ----
-	draw_set_transform(Vector2(0, bob), 0, Vector2.ONE)
-	_draw_boots()
-	_draw_torso()
-	_draw_head()
-	_draw_weapon()
+	# ---- 人物：有像素帧时由 MapSprite 子节点画，这里只画环和 HP 条 ----
+	if _sprite != null:
+		_draw_hp()
+		return
+	# ---- 程序 Q 版（整体随 bob 浮动；朝左时镜像） ----
+	var sx := -1.0 if facing == Vector2i.LEFT else 1.0
+	draw_set_transform(Vector2(0, bob), 0, Vector2(sx, 1.0))
+	if facing == Vector2i.UP:
+		# 背身：武器在身后先画，头部只露后脑
+		_draw_weapon()
+		_draw_boots()
+		_draw_torso()
+		_draw_head_back()
+	else:
+		_draw_boots()
+		_draw_torso()
+		_draw_head()
+		_draw_weapon()
 	draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
+	_draw_hp()
 
-	# ---- HP 条（不浮动） ----
+
+func _draw_hp() -> void:
 	if draw_hp_bar:
 		var w := 44.0
 		var ratio := float(hp) / float(maxi(1, max_hp))
 		var bar_col: Color = Color(0.3, 0.9, 0.3) if ratio > 0.5 else (Color(0.95, 0.8, 0.2) if ratio > 0.25 else Color(0.9, 0.25, 0.2))
 		draw_rect(Rect2(-w / 2, 26, w, 6), Color(0, 0, 0, 0.6))
 		draw_rect(Rect2(-w / 2 + 1, 27, (w - 2) * ratio, 4), bar_col)
-	# 已行动变暗
-	if has_acted:
-		draw_circle(Vector2(0, -2), 27, Color(0.15, 0.15, 0.20, 0.45))
 
 
 func _draw_boots() -> void:
 	var boot := armor_color.darkened(0.5)
-	draw_rect(Rect2(-8.5, 11, 7, 7), OUTLINE)
-	draw_rect(Rect2(1.5, 11, 7, 7), OUTLINE)
-	draw_rect(Rect2(-7.5, 11.8, 5, 5.6), boot)
-	draw_rect(Rect2(2.5, 11.8, 5, 5.6), boot)
+	# 走路时左右脚交替抬起
+	var lift := 0.0
+	if walking:
+		lift = sin(_walk_t * 14.0) * 2.5
+	var ly := 11.0 - maxf(0.0, lift)
+	var ry := 11.0 - maxf(0.0, -lift)
+	draw_rect(Rect2(-8.5, ly, 7, 7), OUTLINE)
+	draw_rect(Rect2(1.5, ry, 7, 7), OUTLINE)
+	draw_rect(Rect2(-7.5, ly + 0.8, 5, 5.6), boot)
+	draw_rect(Rect2(2.5, ry + 0.8, 5, 5.6), boot)
 
 
 func _draw_torso() -> void:
@@ -374,6 +523,29 @@ func _draw_head() -> void:
 	draw_circle(Vector2(3.5, -10), 1.4, OUTLINE)
 	if scar:
 		draw_line(Vector2(-7, -16), Vector2(-2, -8), Color(0.60, 0.20, 0.15), 1.6)
+	if is_boss:
+		var crown := PackedVector2Array([
+			Vector2(-6, -22), Vector2(-3, -28), Vector2(0, -22), Vector2(3, -28), Vector2(6, -22)])
+		draw_polyline(crown, OUTLINE, 4.5)
+		draw_polyline(crown, Color(1.0, 0.8, 0.2), 2.5)
+
+
+## 背身头部：整颗头被头发 / 兜帽盖住，不画五官
+func _draw_head_back() -> void:
+	draw_circle(Vector2(0, -13), 11.8, OUTLINE)
+	var cap := armor_color.darkened(0.10) if hair_style == "hood" else hair_color
+	draw_circle(Vector2(0, -13), 10.8, cap)
+	draw_arc(Vector2(-2.5, -17), 5.0, PI * 0.85, PI * 1.55, 8, cap.lightened(0.30), 2.0)
+	match hair_style:
+		"ponytail":
+			draw_line(Vector2(0, -8), Vector2(0, 4), OUTLINE, 6.5)
+			draw_line(Vector2(0, -8), Vector2(0, 4), hair_color, 4.0)
+		"spiky":
+			var spikes := PackedVector2Array([
+				Vector2(-11, -15), Vector2(-8, -27), Vector2(-4, -18), Vector2(1, -29),
+				Vector2(5, -19), Vector2(9, -26), Vector2(11, -15)])
+			draw_polyline(spikes, OUTLINE, 3.0)
+			draw_colored_polygon(spikes, hair_color)
 	if is_boss:
 		var crown := PackedVector2Array([
 			Vector2(-6, -22), Vector2(-3, -28), Vector2(0, -22), Vector2(3, -28), Vector2(6, -22)])
