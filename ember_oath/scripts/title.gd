@@ -3,6 +3,7 @@ extends Control
 ## 新游戏 / 继续 / 章节选择 / 语言 / 菜单是 Button，鼠标点击与触摸共用 pressed。
 ## 已有存档时，新游戏先确认才会覆盖 user://save.cfg。
 ## 打到过第二章以后出现「章节选择」：回到某一章开场时的队伍重新打（之后的进度作废）。
+## 右下角【授权声明】：本作的原创声明、Godot 引擎及其第三方库的版权与许可、CC0 素材来源。
 
 var _embers: Array = []
 var _title: Label
@@ -13,7 +14,7 @@ var _continue: Button
 var _select: Button
 var _select_overlay: ColorRect
 var _select_label: Label
-var _select_box: VBoxContainer
+var _select_box: GridContainer
 var _select_cancel: Button
 var _lang: Button
 var _menu: Button
@@ -22,6 +23,11 @@ var _confirm: ColorRect
 var _confirm_label: Label
 var _confirm_yes: Button
 var _confirm_no: Button
+var _license: Button
+var _license_overlay: ColorRect
+var _license_title: Label
+var _license_text: Label
+var _license_close: Button
 
 
 func _ready() -> void:
@@ -37,8 +43,7 @@ func _ready() -> void:
 	_title = _label(84, Color(1.0, 0.62, 0.3), text_pos, text_size)
 	_sub = _label(26, Color(0.8, 0.75, 0.7), Vector2(SafeArea.MARGIN_X, 305), Vector2(text_size.x, 40))
 
-	# 缇娅立绘：源图 1024²。先定 280×360 的裁切框（右缘 1240≤1260），
-	# 再让贴图按框适配，避免 IGNORE_SIZE 之前按原图尺寸从 (920,180) 铺出窗口。
+	# 主视觉：原创像素画（tools/pixelart/title_art.py，282×360，最近邻）。280×360 的裁切框（右缘 1240≤1260）。
 	var portrait_box := Control.new()
 	portrait_box.position = Vector2(960, 160)
 	portrait_box.size = Vector2(280, 360)
@@ -50,10 +55,10 @@ func _ready() -> void:
 	portrait.expand_mode = TextureRect.EXPAND_FIT_HEIGHT_PROPORTIONAL
 	portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	portrait.mouse_filter = MOUSE_FILTER_IGNORE
-	portrait.modulate = Color(1, 1, 1, 0.92)
+	portrait.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	portrait.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	portrait_box.add_child(portrait)
-	portrait.texture = load("res://art/portraits/portrait_tia.jpg")
+	portrait.texture = load("res://art/title/key_art.png")
 	portrait.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 
 	var frame := Panel.new()
@@ -131,8 +136,20 @@ func _ready() -> void:
 	_menu.pressed.connect(_on_menu)
 	add_child(_menu)
 
+	var lic_size := Vector2(160, SafeArea.MIN_HIT)
+	_license = Button.new()
+	_license.name = "LicenseButton"
+	_license.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	_license.custom_minimum_size = lic_size
+	_license.size = lic_size
+	_license.position = Vector2(1280.0 - SafeArea.EDGE_ACTION - lic_size.x, 720.0 - SafeArea.MARGIN_Y - lic_size.y)
+	_license.add_theme_font_size_override("font_size", 20)
+	_license.pressed.connect(_on_license)
+	add_child(_license)
+
 	_build_confirm()
 	_build_select()
+	_build_license()
 	_system = load("res://scripts/system_menu.gd").new()
 	_system.show_title_button = false
 	add_child(_system)
@@ -159,8 +176,8 @@ func _label(size: int, color: Color, pos: Vector2, box: Vector2) -> Label:
 
 func _apply_locale(_code: String) -> void:
 	_title.text = tr("炎烬之誓")
-	_sub.text = tr("Emberflame Oath · 战棋原型")
-	_note.text = tr("第一篇 · 灰烬之芽（第 1–7 章，原型 v0.3）")
+	_sub.text = tr("巫女与灰烬")
+	_note.text = tr("战棋原型 v0.4 · 第一篇「灰烬之芽」、第二篇「寻父之旅」（第 1–22 章）")
 	_start.text = tr("新游戏")
 	_continue.text = tr("继续游戏")
 	_select.text = tr("选择章节")
@@ -172,6 +189,10 @@ func _apply_locale(_code: String) -> void:
 	_confirm_label.text = tr("开始新游戏会覆盖当前存档，确定吗？")
 	_confirm_yes.text = tr("确定")
 	_confirm_no.text = tr("取消")
+	_license.text = tr("授权声明")
+	_license_title.text = tr("授权声明")
+	_license_close.text = tr("关闭")
+	_license_text.text = license_text()
 	_place_main_buttons()
 
 
@@ -262,6 +283,9 @@ func _handle_back() -> void:
 	if _select_overlay.visible:
 		_select_overlay.visible = false
 		return
+	if _license_overlay.visible:
+		_license_overlay.visible = false
+		return
 	_system.open()
 
 
@@ -338,11 +362,18 @@ func _build_select() -> void:
 	_select_label.add_theme_font_size_override("font_size", 22)
 	_select_label.add_theme_color_override("font_color", Color(0.85, 0.8, 0.72))
 	_select_overlay.add_child(_select_label)
-	_select_box = VBoxContainer.new()
-	_select_box.position = Vector2(400, 150)
-	_select_box.size = Vector2(480, 400)
-	_select_box.add_theme_constant_override("separation", 10)
-	_select_overlay.add_child(_select_box)
+	# 章节多了一屏放不下：两列，超出部分上下卷动
+	var scroll := ScrollContainer.new()
+	scroll.name = "SelectScroll"
+	scroll.position = Vector2(150, 140)
+	scroll.size = Vector2(980, 720 - 140 - SafeArea.MARGIN_Y - SafeArea.MIN_HIT - 28)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_select_overlay.add_child(scroll)
+	_select_box = GridContainer.new()
+	_select_box.columns = 2
+	_select_box.add_theme_constant_override("h_separation", 20)
+	_select_box.add_theme_constant_override("v_separation", 10)
+	scroll.add_child(_select_box)
 	_select_cancel = Button.new()
 	_select_cancel.name = "SelectCancelButton"
 	_select_cancel.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
@@ -383,3 +414,81 @@ func _start_from_chapter(idx: int) -> void:
 	CampaignSave.write_chapter_start()
 	load("res://scripts/battle.gd").queue_chapter(null)
 	get_tree().change_scene_to_file("res://scenes/battle.tscn")
+
+
+# ==================== 授权声明 ====================
+
+func _build_license() -> void:
+	_license_overlay = ColorRect.new()
+	_license_overlay.name = "LicenseOverlay"
+	_license_overlay.color = Color(0.03, 0.02, 0.04, 0.94)
+	_license_overlay.set_anchors_preset(PRESET_FULL_RECT)
+	_license_overlay.visible = false
+	_license_overlay.mouse_filter = MOUSE_FILTER_STOP
+	add_child(_license_overlay)
+	_license_title = Label.new()
+	_license_title.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	_license_title.position = Vector2(SafeArea.MARGIN_X, SafeArea.MARGIN_Y)
+	_license_title.size = Vector2(1280 - SafeArea.MARGIN_X * 2, 44)
+	_license_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_license_title.add_theme_font_size_override("font_size", 30)
+	_license_title.add_theme_color_override("font_color", Color(1.0, 0.75, 0.4))
+	_license_overlay.add_child(_license_title)
+	var scroll := ScrollContainer.new()
+	scroll.name = "LicenseScroll"
+	scroll.position = Vector2(SafeArea.MARGIN_X + 40, SafeArea.MARGIN_Y + 56)
+	scroll.size = Vector2(1280 - (SafeArea.MARGIN_X + 40) * 2, 720 - SafeArea.MARGIN_Y * 2 - 56 - SafeArea.MIN_HIT - 20)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_license_overlay.add_child(scroll)
+	_license_text = Label.new()
+	_license_text.name = "LicenseText"
+	_license_text.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	_license_text.custom_minimum_size = Vector2(scroll.size.x - 24, 0)
+	_license_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_license_text.add_theme_font_size_override("font_size", 16)
+	_license_text.add_theme_color_override("font_color", Color(0.85, 0.82, 0.78))
+	scroll.add_child(_license_text)
+	_license_close = Button.new()
+	_license_close.name = "LicenseCloseButton"
+	_license_close.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	_license_close.custom_minimum_size = Vector2(200, SafeArea.MIN_HIT)
+	_license_close.size = _license_close.custom_minimum_size
+	_license_close.position = Vector2(540, 720 - SafeArea.MARGIN_Y - SafeArea.MIN_HIT)
+	_license_close.add_theme_font_size_override("font_size", 24)
+	_license_close.pressed.connect(func() -> void: _license_overlay.visible = false)
+	_license_overlay.add_child(_license_close)
+
+
+func _on_license() -> void:
+	_license_overlay.visible = true
+
+
+## 授权声明全文：本作原创声明 + 素材来源 + Godot 引擎许可 + 引擎内第三方组件的版权与许可全文
+static func license_text() -> String:
+	var lines: PackedStringArray = []
+	lines.append(TranslationServer.translate("《炎烬之誓：巫女与灰烬》"))
+	lines.append(TranslationServer.translate("本作的程序、像素美术（地图小人、战斗特写、对话立绘、图标、标题画、战斗背景）、音效与音乐均为原创。"))
+	lines.append("")
+	lines.append(TranslationServer.translate("【素材】"))
+	lines.append("Ninja Adventure — Pixel-boy & AAA, CC0 1.0 (https://pixel-boy.itch.io/ninja-adventure-asset-pack)")
+	lines.append(TranslationServer.translate("地图图块、打击特效取自该素材包（CC0，可自由使用，此处致谢）。"))
+	lines.append("")
+	lines.append(TranslationServer.translate("【引擎】"))
+	lines.append("This game uses Godot Engine, available under the following license:")
+	lines.append("")
+	lines.append(Engine.get_license_text())
+	lines.append("")
+	lines.append(TranslationServer.translate("【引擎使用的第三方组件】"))
+	for info in Engine.get_copyright_info():
+		lines.append("")
+		lines.append("- " + str(info.get("name", "")))
+		for part in info.get("parts", []):
+			for c in part.get("copyright", []):
+				lines.append("  © " + str(c))
+			lines.append("  License: " + str(part.get("license", "")))
+	var texts: Dictionary = Engine.get_license_info()
+	for name in texts:
+		lines.append("")
+		lines.append("==== " + str(name) + " ====")
+		lines.append(str(texts[name]))
+	return "\n".join(lines)

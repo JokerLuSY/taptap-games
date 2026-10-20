@@ -11,7 +11,10 @@ config_version=5
 [application]
 
 config/name="炎烬之誓"
-config/description="火焰之纹章风格 SRPG 原型 - 第一章「边境的少女」"
+config/name_localized={
+"en": "Oath of Embers"
+}
+config/description="炎烬之誓：巫女与灰烬 - 回合制战棋 RPG"
 run/main_scene="res://scenes/title.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 config/icon="res://icon.png"

@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dwfe47d8gsab8"
-path="res://.godot/imported/portrait_brock.jpg-34b08d4c3ac419b0b229e61e27913059.ctex"
+uid="uid://0vharjml1vcp"
+path="res://.godot/imported/key_art.png-870186d42832cb65f3efa4ce3b34c80c.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://art/portraits/portrait_brock.jpg"
-dest_files=["res://.godot/imported/portrait_brock.jpg-34b08d4c3ac419b0b229e61e27913059.ctex"]
+source_file="res://art/title/key_art.png"
+dest_files=["res://.godot/imported/key_art.png-870186d42832cb65f3efa4ce3b34c80c.ctex"]
 
 [params]
 

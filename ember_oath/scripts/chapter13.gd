@@ -384,7 +384,7 @@ func on_door(u, pos: Vector2i) -> void:
 			flags["prisoner"] = true
 			await battle.play_dialogue(_prisoner())
 			u.receive("elfire")
-			battle.notify(tr("获得 炎枪"))
+			battle.notify(tr("获得 炎蛇"))
 	elif pos == Vector2i(13, 18) and not flags.get("grate", false):
 		flags["grate"] = true
 		await battle.play_dialogue(_grate_open())

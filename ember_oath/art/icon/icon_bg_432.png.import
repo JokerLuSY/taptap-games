@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dxpb0acuupqll"
-path="res://.godot/imported/portrait_tia.jpg-0fd6d3e36cd708aa2cbbcfdef57041d4.ctex"
+uid="uid://crvtinchdhtqv"
+path="res://.godot/imported/icon_bg_432.png-6fa659110c78a5c1180313afbfc7a038.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://art/portraits/portrait_tia.jpg"
-dest_files=["res://.godot/imported/portrait_tia.jpg-0fd6d3e36cd708aa2cbbcfdef57041d4.ctex"]
+source_file="res://art/icon/icon_bg_432.png"
+dest_files=["res://.godot/imported/icon_bg_432.png-6fa659110c78a5c1180313afbfc7a038.ctex"]
 
 [params]
 

@@ -315,7 +315,7 @@ func on_visit(u, pos: Vector2i) -> void:
 	elif pos == VISIT_VETERAN:
 		await battle.play_dialogue(_visit_veteran())
 		u.receive("killer_lance")
-		battle.notify(tr("获得 必杀枪"))
+		battle.notify(tr("获得 锐锋枪"))
 
 
 func recruits() -> Dictionary:

@@ -176,7 +176,7 @@ func ask() -> bool:
 	var yes := _button(row, tr("需要教程"), func() -> void: choose(true))
 	yes.name = "TutorialYes"
 	yes.custom_minimum_size = Vector2(200, 56)
-	var no := _button(row, tr("跳过（玩过火纹）"), func() -> void: choose(false))
+	var no := _button(row, tr("跳过（玩过战棋）"), func() -> void: choose(false))
 	no.name = "TutorialNo"
 	no.custom_minimum_size = Vector2(200, 56)
 	_ask.add_child(p)

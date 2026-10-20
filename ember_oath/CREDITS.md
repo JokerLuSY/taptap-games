@@ -29,3 +29,12 @@
 ## 原创像素对话立绘
 
 - `art/portraits/px/*.png` 由 `tools/pixelart/fe_portraits.py`（脸模板 `fe_faces.py`）逐人手绘坐标生成（原创，随项目授权）。
+
+## APP 图标（原创）
+- `icon.png` 与 `art/icon/*.png`（安卓传统 / 自适应前景、背景、单色启动图标）由 `python -P -E tools/pixelart/app_icon.py --final .` 生成：64×64 逐像素绘制的「炎刃纹章」（火焰、盾形纹章、剑），最近邻放大。
+
+## 标题主视觉（原创）
+- `art/title/key_art.png` 由 `python -P -E tools/pixelart/title_art.py .` 生成：140×180 逐像素绘制的夜空、圣都剪影、燃烧的灰岩村，前景是缇娅的战斗特写待机帧，取中间 94×120 ×3 放大。替换了早期 AI 生成的标题插画（已删除）。
+
+## 游戏内授权声明
+- 标题画面右下角【授权声明】：本作原创声明、Ninja Adventure（CC0）、Godot 引擎 MIT 许可与引擎内第三方组件的版权和许可全文（运行时从 `Engine.get_license_text()` / `get_copyright_info()` / `get_license_info()` 读取）。

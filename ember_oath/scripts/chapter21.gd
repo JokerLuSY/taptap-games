@@ -332,7 +332,7 @@ func on_visit(u, pos: Vector2i) -> void:
 	if pos == VISIT_SMITH:
 		await battle.play_dialogue(_visit_smith())
 		u.receive("killer_axe")
-		battle.notify(tr("获得 必杀斧"))
+		battle.notify(tr("获得 锐锋斧"))
 	elif pos == VISIT_WIDOW:
 		await battle.play_dialogue(_visit_widow())
 		battle.add_gold(3000)

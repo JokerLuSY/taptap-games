@@ -319,7 +319,7 @@ func on_visit(u, pos: Vector2i) -> void:
 	if pos == VISIT_HUNTER:
 		await battle.play_dialogue(_visit_hunter())
 		u.receive("killer_bow")
-		battle.notify(tr("获得 必杀弓"))
+		battle.notify(tr("获得 锐锋弓"))
 	elif pos == VISIT_HERDER:
 		await battle.play_dialogue(_visit_herder())
 		u.receive("elixir")
@@ -347,7 +347,7 @@ func recruit_lines(_target_id: String, _by_id: String) -> Array:
 func on_recruited(t, _by) -> void:
 	t.stationary = false
 	t.hold = false
-	battle.hint(tr("朔是剑士：速度很快，暗杀剑容易打出必杀"))
+	battle.hint(tr("朔是剑士：速度很快，暗刃容易打出必杀"))
 
 
 func talks() -> Array:

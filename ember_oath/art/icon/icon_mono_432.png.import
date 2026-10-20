@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cg3fjnidia7ve"
-path="res://.godot/imported/portrait_villager.jpg-1a8b9c96f3e3932671156fe2c63669e3.ctex"
+uid="uid://cysc11r3wykts"
+path="res://.godot/imported/icon_mono_432.png-4b1f83c19db097fa47d6fe4aed1c9ea1.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://art/portraits/portrait_villager.jpg"
-dest_files=["res://.godot/imported/portrait_villager.jpg-1a8b9c96f3e3932671156fe2c63669e3.ctex"]
+source_file="res://art/icon/icon_mono_432.png"
+dest_files=["res://.godot/imported/icon_mono_432.png-4b1f83c19db097fa47d6fe4aed1c9ea1.ctex"]
 
 [params]
 

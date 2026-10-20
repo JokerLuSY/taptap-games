@@ -352,11 +352,11 @@ func on_visit(u, pos: Vector2i) -> void:
 	elif pos == VISIT_VETERAN:
 		await battle.play_dialogue(_visit_veteran())
 		u.receive("armorslayer")
-		battle.notify(tr("获得 斩甲剑"))
+		battle.notify(tr("获得 破甲剑"))
 	elif pos == VISIT_NW:
 		await battle.play_dialogue(_visit_nw())
 		u.receive("killer_axe")
-		battle.notify(tr("获得 必杀斧"))
+		battle.notify(tr("获得 锐锋斧"))
 	elif pos == VISIT_NE:
 		await battle.play_dialogue(_visit_ne())
 		u.receive("sage_crest")
@@ -446,7 +446,7 @@ func _pre_battle() -> Array:
 	if _here("gerard"):
 		lines.append(_l("杰拉德", C_GERARD, "王国军的阵线我看得懂。西边营地是老派的打法，骑兵多，正面硬。"))
 	if _here("ivy"):
-		lines.append(_l("艾薇", C_IVY, "北岸那个将军穿着全身重甲。剑和枪砍上去只会卷刃——用魔法，或者斩甲剑。"))
+		lines.append(_l("艾薇", C_IVY, "北岸那个将军穿着全身重甲。剑和枪砍上去只会卷刃——用魔法，或者破甲剑。"))
 	lines.append(_l("加雷斯", C_GARETH, "东营里有我认识的人。……让我去跟他们说。"))
 	lines.append(_l("艾德里克", C_EDRIC, "渡河，打倒北岸的将军。……尽量别让这片平原烧起来。"))
 	return lines
@@ -535,7 +535,7 @@ func _visit_child() -> Array:
 func _visit_veteran() -> Array:
 	return [
 		_l("退役骑士", C_NPC, "你们要去打北岸那个穿重甲的将军？光靠铁剑可砍不动他。"),
-		_l("退役骑士", C_NPC, "拿着这把斩甲剑。对付重甲，它比银剑还好使。"),
+		_l("退役骑士", C_NPC, "拿着这把破甲剑。对付重甲，它比银剑还好使。"),
 	]
 
 

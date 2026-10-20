@@ -1882,6 +1882,18 @@ func _check_title_and_narration() -> void:
 	_check(tr("新游戏") == "New Game", "切换后 tr(新游戏) 应为 New Game")
 	GameLocale.toggle()
 	_check(start.text == "新游戏", "切回中文后新游戏按钮应恢复")
+	# 授权声明：右下角按钮 → 卷动的全文（本作原创声明、CC0 素材、Godot 引擎与第三方许可）
+	var lic := title.get_node_or_null("LicenseButton") as Button
+	_check(lic != null and lic.visible and lic.text == "授权声明", "标题应有授权声明按钮")
+	if lic != null:
+		_check(lic.position.x + lic.size.x <= 1280.0 - SafeArea.EDGE_ACTION + 0.01 and lic.size.y >= SafeArea.MIN_HIT, "授权声明按钮应在安全区内、热区 ≥ 48")
+		lic.pressed.emit()
+		var ov := title.get_node("LicenseOverlay") as Control
+		var txt: String = (title.find_child("LicenseText", true, false) as Label).text
+		_check(ov.visible, "点授权声明应打开声明页")
+		_check("Godot Engine" in txt and "MIT" in txt and "Ninja Adventure" in txt and "FreeType" in txt, "声明页应含 Godot 许可、第三方组件与 CC0 素材来源")
+		title._handle_back()
+		_check(not ov.visible, "返回键应关闭声明页")
 	title.queue_free()
 	await _frames(2)
 	var narration = load("res://scenes/narration.tscn").instantiate()

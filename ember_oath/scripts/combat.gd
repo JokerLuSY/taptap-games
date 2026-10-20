@@ -3,7 +3,7 @@ class_name Combat
 
 static var force_crit := false   # 测试用: 强制全部暴击
 
-## 特效（威力 ×3）：弓打飞行、斩甲剑打重甲、斩马枪打骑马（GBA 火纹）
+## 特效（威力 ×3）：弓打飞行、破甲剑打重甲、拒马枪打骑马（GBA 火纹）
 static func effective_mt(w: Dictionary, target: Unit) -> int:
 	if w["type"] == "bow" and target.is_flying():
 		return int(w["mt"]) * 3

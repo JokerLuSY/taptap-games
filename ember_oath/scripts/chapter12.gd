@@ -321,7 +321,7 @@ func on_visit(u, pos: Vector2i) -> void:
 	if pos == VISIT_SAILOR:
 		await battle.play_dialogue(_visit_sailor())
 		u.receive("armorslayer")
-		battle.notify(tr("获得 斩甲剑"))
+		battle.notify(tr("获得 破甲剑"))
 	elif pos == VISIT_INN:
 		await battle.play_dialogue(_visit_inn())
 		battle.add_gold(1500)
@@ -508,7 +508,7 @@ func _bruno_fight() -> Array:
 func _visit_sailor() -> Array:
 	return [
 		_l("老水手", C_NPC, "港务官那身铁皮，刀枪都不怎么进得去。"),
-		_l("老水手", C_NPC, "这把斩甲剑，是我年轻时跑船从南方带回来的。专砍铁罐头。拿去！"),
+		_l("老水手", C_NPC, "这把破甲剑，是我年轻时跑船从南方带回来的。专砍铁罐头。拿去！"),
 	]
 
 

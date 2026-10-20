@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://c8l3auumtctxs"
-path="res://.godot/imported/portrait_bandit.jpg-9a18a9857c2e85aa07dfd7bdc8a9c431.ctex"
+uid="uid://b1f6ovx1uw4ni"
+path="res://.godot/imported/icon_fg_432.png-5e1f37f435ae6c4166c74b6e11d79a0c.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://art/portraits/portrait_bandit.jpg"
-dest_files=["res://.godot/imported/portrait_bandit.jpg-9a18a9857c2e85aa07dfd7bdc8a9c431.ctex"]
+source_file="res://art/icon/icon_fg_432.png"
+dest_files=["res://.godot/imported/icon_fg_432.png-5e1f37f435ae6c4166c74b6e11d79a0c.ctex"]
 
 [params]
 
