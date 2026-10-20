@@ -127,6 +127,9 @@ const TERRAIN := {
 	"I": {"name": "石柱", "pass": true, "cost": 2, "dfn": 1, "avo": 20},
 	# 宝箱：盗贼站上去能开（章节 chests() 给内容）
 	"Q": {"name": "宝箱", "pass": true, "cost": 1, "dfn": 0, "avo": 0},
+	# 商店：站上去买卖（章节 shops() 给货架）
+	"V": {"name": "道具店", "pass": true, "cost": 1, "dfn": 0, "avo": 10},
+	"Y": {"name": "武器店", "pass": true, "cost": 1, "dfn": 0, "avo": 10},
 }
 
 ## 道具：heal 回复量 / promote 转职道具（对应职业表里的 item）/ uses 使用次数 / price 商店价格

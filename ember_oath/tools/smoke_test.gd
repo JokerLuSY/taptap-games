@@ -1262,7 +1262,39 @@ func _check_tutorial() -> void:
 	battle.tutorial.close_browser()
 	await _frames(2)
 	_check(not battle.tutorial.browser_open(), "教程手册应能关闭")
+	# 地图商店：站到道具店上 → 菜单有【道具店】→ 买、卖 → 做过买卖关店算行动结束
+	_mark("地图商店")
+	battle.state = battle.S.IDLE
+	tia.has_acted = false
+	tia.grid_pos = Chapter1.SHOP_VENDOR
+	tia.position = tia.tile_center()
+	battle.selected = tia
+	battle.pre_move_pos = tia.grid_pos
+	battle._open_action_menu(tia)
+	await _frames(2)
+	var slabels: Array = []
+	for b in battle.menu_box.get_children():
+		if b is Button and not b.is_queued_for_deletion():
+			slabels.append(b.text)
+	_check("道具店" in slabels, "站在道具店上菜单应有【道具店】，实际 %s" % str(slabels))
+	battle.gold = 1000
+	var vul_before: int = tia.items.count("vulnerary")
+	battle._on_menu_shop()
+	await _frames(3)
+	_check(battle.shop_window != null and battle.ui.find_child("ShopWindow", true, false) != null, "应打开商店窗口")
+	_shot("01f_shop.png")
+	battle.shop_window.buy("vulnerary")
+	_check(battle.gold == 700 and tia.items.count("vulnerary") == vul_before + 1, "道具店买伤药 300G，金钱应剩 700，实际 %d" % battle.gold)
+	var gold_mid: int = battle.gold
+	battle.shop_window.sell(0)
+	_check(battle.gold > gold_mid, "卖出东西应拿回金钱")
+	battle.shop_window.close_shop()
+	ok = await _wait_cond(func() -> bool: return tia.has_acted and battle.state == battle.S.IDLE, 5.0)
+	_check(ok, "做过买卖关店后应算行动结束")
+	_check(battle.board.terrain(Chapter1.SHOP_ARMORY)["name"] == "武器店", "第一章应有武器店")
 	# 不要教程：不问第二遍、不弹提示
+	_check(Tutorial.seen("shop"), "第一次碰到商店应弹商店提示")
+	battle.tutorial._on_ok()
 	Campaign.flags["tutorial"] = false
 	Campaign.flags["tips_seen"] = []
 	battle.tutorial.on_event("prep")

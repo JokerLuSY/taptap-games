@@ -153,7 +153,10 @@ func show_menu() -> void:
 	_button(tr("选择出击"), show_pick, battle.prep_mode() == "full" or battle.prep_mode() == "pick")
 	_button(tr("布阵"), show_deploy, battle.prep_mode() == "full")
 	_button(tr("物品"), show_items, battle.prep_mode() == "full")
-	_button(tr("商店"), show_shop, battle.prep_mode() == "full" and not battle.shop_items().is_empty())
+	if battle.chapter.shops().is_empty():
+		_button(tr("商店"), show_shop, battle.prep_mode() == "full" and not battle.shop_items().is_empty())
+	else:
+		_text(tr("本章地图上有武器店 / 道具店：开战后让人站上去买卖。"), 15, Color(0.8, 0.85, 0.7))
 	_button(tr("开始战斗"), _on_start, not battle.deployed.is_empty(), 52.0)
 
 
@@ -311,6 +314,10 @@ func _from_convoy(i: int) -> void:
 
 
 # ==================== 商店 ====================
+
+func has_shop() -> bool:
+	return battle.chapter.shops().is_empty() and not battle.shop_items().is_empty()
+
 
 func show_shop() -> void:
 	_mode = "shop"

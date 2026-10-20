@@ -1057,6 +1057,8 @@ func _open_action_menu(u: Unit) -> void:
 		opts.append({"label": tr("对话") if rt.is_npc() else tr("说得"), "enabled": true, "cb": _on_menu_recruit})
 	if _can_open_chest(u):
 		opts.append({"label": tr("开宝箱"), "enabled": true, "cb": _on_menu_chest})
+	if chapter.shops().has(u.grid_pos):
+		opts.append({"label": tr("武器店") if board.tile_at(u.grid_pos) == "Y" else tr("道具店"), "enabled": true, "cb": _on_menu_shop})
 	if not rescue_targets(u).is_empty():
 		opts.append({"label": tr("救出"), "enabled": true, "cb": _on_menu_rescue})
 	if u.carrying != null:
@@ -1260,6 +1262,29 @@ func _on_menu_support() -> void:
 	state = S.COMBAT
 	await chapter.on_support(selected)
 	_finish_action(selected)
+
+
+var shop_window: ShopWindow = null
+
+
+func _on_menu_shop() -> void:
+	_clear_menu()
+	var u := selected
+	open_shop(u)
+	var traded: bool = await shop_window.closed
+	shop_window = null
+	if traded:
+		_finish_action(u)
+	else:
+		_open_action_menu(u)
+
+
+## 打开站着的那家店（武器店 / 道具店）。关店时 closed(做过买卖) 信号发出
+func open_shop(u: Unit) -> void:
+	state = S.COMBAT
+	shop_window = ShopWindow.new()
+	ui.add_child(shop_window)
+	shop_window.open(self, u, "weapon" if board.tile_at(u.grid_pos) == "Y" else "item", chapter.shops().get(u.grid_pos, []))
 
 
 func _can_open_chest(u: Unit) -> bool:

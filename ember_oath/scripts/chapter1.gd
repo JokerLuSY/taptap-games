@@ -16,9 +16,9 @@ const BG := ""
 ## 河南岸的山贼先冲过来；营地里的山贼守着不动，等我方打过去（教学关：一波一波来）。
 const MAP := [
 	"FFFFFFFFFFFFFFFFFMMM",
-	"F..H.R...H.gggFF.hhM",
+	"F..H.R.V.H.gggFF.hhM",
 	".ff..R..W.gXX...F.hM",
-	".H...R.....HX....F..",
+	".H...R.....HX.Y..F..",
 	"s....R.............F",
 	"~~~~~B~~~~~~~~~~~~~~",
 	".....R........ss..F.",
@@ -149,6 +149,15 @@ func import_flags(data: Dictionary) -> void:
 	f_boss_met = bool(data.get("f_boss_met", false))
 	var fs = data.get("f_support", {})
 	f_support = fs.duplicate() if fs is Dictionary else {}
+
+
+## 村里的道具店、武器店（教学关就让玩家认识商店）
+const SHOP_VENDOR := Vector2i(7, 1)
+const SHOP_ARMORY := Vector2i(14, 3)
+
+
+func shops() -> Dictionary:
+	return {SHOP_VENDOR: ["vulnerary"], SHOP_ARMORY: ["iron_sword", "iron_lance", "iron_axe", "hand_axe", "iron_bow"]}
 
 
 ## 山道边的猎户小屋：送手斧（托比、斧兵能用；能投掷，射程 1–2）

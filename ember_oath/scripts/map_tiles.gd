@@ -38,6 +38,8 @@ const STUMP := Rect2(64, 128, 16, 16)
 const GRASS_SNOW := [Vector2i(0, 304), Vector2i(0, 304), Vector2i(0, 304), Vector2i(16, 304), Vector2i(32, 304), Vector2i(48, 304), Vector2i(64, 304)]
 const TREES_SNOW := [Rect2(128, 0, 32, 32), Rect2(160, 0, 32, 32), Rect2(192, 0, 32, 32)]
 const ROCK_SNOW := Rect2(32, 192, 32, 32)
+const SHOP_VENDOR := Rect2(256, 0, 48, 48)                             # TilesetHouse：挂碗招牌的小店
+const SHOP_ARMORY := Rect2(352, 0, 48, 48)                             # TilesetHouse：石砌铁匠铺
 const CHEST_CLOSED := Rect2(0, 0, 16, 16)                               # Chest：大宝箱（关）
 const CHEST_OPEN := Rect2(16, 0, 16, 16)                                # Chest：大宝箱（开）
 const FORT_WALL := [Rect2(176, 144, 16, 16), Rect2(192, 144, 16, 16)]   # TilesetHouse：带垛口的石墙
@@ -279,6 +281,8 @@ func _draw_object(p: Vector2i) -> void:
 			_stand("TilesetHouse", hut, p, 1.5, Color(0.45, 0.36, 0.32) if burning else Color.WHITE)
 		"T":
 			_fort(p)
+		"V", "Y":
+			_shop(p, t == "Y")
 		"G":
 			_gate(p)
 		"K":
@@ -340,6 +344,22 @@ func _fort(p: Vector2i) -> void:
 	# 旗杆 + 三角旗：单位站上去挡住石台时，头顶这面旗还认得出是堡垒
 	draw_line(o + Vector2(54, -34), o + Vector2(54, -6), Color(0.22, 0.16, 0.12), 3.0)
 	draw_colored_polygon(PackedVector2Array([o + Vector2(55, -34), o + Vector2(70, -28), o + Vector2(55, -22)]), Color(0.75, 0.16, 0.12) if not burning else Color(0.45, 0.12, 0.1))
+
+
+## 商店：店面 + 门口挂一块小招牌（武器店画剑、道具店画药瓶），一眼能认出来
+func _shop(p: Vector2i, armory: bool) -> void:
+	_stand("TilesetHouse", SHOP_ARMORY if armory else SHOP_VENDOR, p, 1.3)
+	var o := Vector2(p) * TILE + Vector2(40, 2)
+	var wood := Color(0.55, 0.36, 0.2)
+	draw_line(o + Vector2(8, -4), o + Vector2(8, 2), Color(0.25, 0.16, 0.1), 2.0)
+	draw_rect(Rect2(o + Vector2(0, 2), Vector2(18, 18)), wood)
+	draw_rect(Rect2(o + Vector2(0, 2), Vector2(18, 18)), Color(0.2, 0.12, 0.06), false, 2.0)
+	if armory:
+		draw_line(o + Vector2(4, 17), o + Vector2(14, 6), Color(0.85, 0.88, 0.95), 3.0)
+		draw_line(o + Vector2(5, 11), o + Vector2(10, 16), Color(0.9, 0.75, 0.3), 2.0)
+	else:
+		draw_circle(o + Vector2(9, 14), 5.0, Color(0.85, 0.25, 0.3))
+		draw_rect(Rect2(o + Vector2(7, 5), Vector2(4, 5)), Color(0.8, 0.85, 0.9))
 
 
 ## 浅滩：水面上一排踏脚石

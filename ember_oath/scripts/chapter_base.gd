@@ -68,6 +68,11 @@ func shop_items() -> Array:
 	return ["vulnerary", "iron_sword", "steel_sword", "iron_lance", "iron_axe", "iron_bow", "fire", "heal_staff"]
 
 
+## 地图上的商店：{格子: [物品 id, ...]}。格子是 V（道具店）或 Y（武器店）
+func shops() -> Dictionary:
+	return {}
+
+
 ## 宝箱内容：{格子: 物品 id}。盗贼站上去开
 func chests() -> Dictionary:
 	return {}
