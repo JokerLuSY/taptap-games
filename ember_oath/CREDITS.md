@@ -13,6 +13,7 @@
 - 第 2–5 章新角色（哈洛、妮娜、凯因、艾德里克、诺雅、圣焰教会步兵、圣焰骑士、塞拉斯、黑烬佣兵、霍克、巴雷特）的数据在
   `tools/pixelart/fe_art_ch2.py`，同一条命令一起生成；新增固定色 w / v（白布：教会制服、修女头巾），不随阵营变。
 - 第二篇新增（加雷斯、灰烬傀儡、天马骑士、囚车）的数据在 `tools/pixelart/fe_art_ch8.py`；每只小人都出蓝 / 红 / 绿（中立）三张。
+- 第三篇新增（奥瑞恩、欧文、莉莉丝、罗兰、七号、莫尔甘、炎龙）的数据在 `tools/pixelart/fe_art_ch23.py`。
 
 ## 战斗特写角色（原创）
 - `art/combat/fe/<角色>/<动作>.png` 与 `scripts/combat_sets.gd` 由 `tools/pixelart/fe_combat.py` 生成（数据在 `fe_combat_art.py`），
@@ -21,6 +22,7 @@
 - 第 2–5 章新角色的战斗特写数据在 `tools/pixelart/fe_combat_art_ch2.py`（同一条命令一起生成），复用第一章的骨架姿势，
   新增部件：披风层（艾德里克、塞拉斯）、盾牌层（巴雷特）、治疗杖武器（诺雅）、细剑 / 阔刃剑刃宽。
 - 第二篇新增（加雷斯、灰烬傀儡、天马骑士）的数据在 `tools/pixelart/fe_combat_art_ch8.py`；天马 = 骑马骨架 + 翅膀层。
+- 第三篇新增（奥瑞恩、欧文、莉莉丝、罗兰、七号、莫尔甘、炎龙）的数据在 `tools/pixelart/fe_combat_art_ch23.py`；炎龙 = 骑马骨架换红鳞金角 + 放大的龙翼，背上是莫尔甘。
 - 战斗背景（原创）：`art/combat/bg/` 里雪地 / 城镇 / 城堡内 / 山岭 / 河岸五套（sky / mountains / mid / ground_strip 四层）
   由 `python -P -E tools/pixelart/combat_bg.py art/combat/bg` 生成（320×180 逐像素绘制，最近邻放大 4 倍）；草地 / 森林 / 焦土三套是原有正稿
 - 检查：`godot --path . res://tools/combat_gallery.tscn` 输出对阵截图和每套条带的全部动作总表 `tools/shots/sheet_<条带>.png`

@@ -460,6 +460,8 @@ from fe_art_ch6 import UNITS_CH6  # noqa: E402
 
 from fe_art_ch8 import UNITS_CH8  # noqa: E402
 
+from fe_art_ch23 import UNITS_CH23  # noqa: E402
+
 UNITS = {
     "tia": TIA,
     "balto": BALTO,
@@ -471,4 +473,5 @@ UNITS = {
     **UNITS_CLASSES,
     **UNITS_CH6,
     **UNITS_CH8,
+    **UNITS_CH23,
 }

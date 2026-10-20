@@ -151,19 +151,19 @@ const FIGHTER_BY_ID := {
 	"kira": "pegasus",
 	"rock": "barrett",
 	"edmund": "balto",
-	"seven": "puppet",
+	"seven": "seven",
 	# ---- 第三篇 ----
-	"orion": "archer",
-	"owen": "mage",
-	"lilith": "mage",
-	"roland": "merc",
+	"orion": "orion",
+	"owen": "owen",
+	"lilith": "lilith",
+	"roland": "roland",
 	"hector": "barrett",
 	"werner": "mage",
 	"raven": "scout",
 	"marcus": "mage",
 	"zero": "puppet",
 	"alban": "mage",
-	"morgan": "mage",
+	"morgan": "morgan",
 }
 const FIGHTER_BY_PREFIX := [["mage", "mage"], ["bandit", "bandit"], ["archer", "archer"], ["church", "church"], ["knight", "knight"], ["merc", "merc"], ["soldier", "church"], ["armor", "barrett"], ["pegasus", "pegasus"], ["puppet", "puppet"], ["pirate", "bandit"], ["darkmage", "mage"], ["graycloak", "scout"], ["cleric", "noya"], ["sniper", "archer"], ["paladin", "knight"], ["general", "barrett"], ["sage", "mage"], ["brodden", "merc"], ["thief", "sparrow"], ["fighter", "harlo"], ["myrm", "scout"]]
 const FIGHTER_BY_WEAPON := {"sword": "scout", "lance": "balto", "axe": "bandit", "bow": "archer", "staff": "noya", "anima": "mage", "light": "mage", "dark": "mage"}
@@ -616,6 +616,8 @@ func _build_ambient(set_name: String) -> void:
 
 ## 单位 → 条带套名
 static func fighter_key_for(u: Unit) -> String:
+	if u.class_label == "炎龙":
+		return "dragon"
 	if FIGHTER_BY_ID.has(u.unit_id):
 		return FIGHTER_BY_ID[u.unit_id]
 	for rule in FIGHTER_BY_PREFIX:

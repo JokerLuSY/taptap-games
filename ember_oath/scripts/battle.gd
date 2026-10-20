@@ -167,7 +167,7 @@ func _on_screen_resized() -> void:
 	_layout_end_buttons()
 	if prep != null and is_instance_valid(prep):
 		SafeArea.fit_right(prep)
-	for c in [shop_window, tutorial]:
+	for c in [shop_window, tutorial, unit_status]:
 		if c != null and is_instance_valid(c):
 			SafeArea.fit(c)
 
@@ -856,6 +856,9 @@ func _handle_system_back() -> void:
 	if system_menu != null and system_menu.is_open():
 		system_menu.close()
 		return
+	if unit_status != null and is_instance_valid(unit_status):
+		unit_status.close()
+		return
 	if _has_cancel_layer():
 		cancel()
 		return
@@ -958,14 +961,36 @@ func _apply_checkpoint(data: Dictionary) -> bool:
 func _idle_click(p: Vector2i) -> void:
 	var u := board.unit_at(p)
 	if u == null:
+		_previewed = null
 		board.clear_highlights()
 		return
 	if u.is_player() and not u.has_acted:
 		select_unit(u)
 	elif not u.is_player():
-		_preview_enemy(u)
+		# 火纹式：第一次点亮出威胁范围，再点一次同一个人打开能力画面
+		if _previewed == u and (not board.move_tiles.is_empty() or not board.atk_tiles.is_empty()):
+			open_unit_status(u)
+		else:
+			_preview_enemy(u)
 	else:
-		_update_hover_info()
+		open_unit_status(u)
+
+
+var _previewed: Unit = null
+var unit_status: UnitStatus = null
+
+
+## 单位能力画面（立绘、能力、战斗数值、持有物、武器等级）；点任意处关闭
+func open_unit_status(u: Unit) -> void:
+	if unit_status != null and is_instance_valid(unit_status):
+		return
+	unit_status = UnitStatus.new()
+	ui.add_child(unit_status)
+	SafeArea.fit(unit_status)
+	unit_status.open(self, u)
+	tut("status", u)
+	await unit_status.closed
+	unit_status = null
 
 
 func select_unit(u: Unit) -> void:
@@ -1089,7 +1114,8 @@ func _preview_enemy(u: Unit) -> void:
 	for t in move:
 		area[t] = true
 	board.show_move({}, area)
-	hint(tr("%s 的威胁范围（点空白处清除）") % tr(u.display_name))
+	_previewed = u
+	hint(tr("%s 的威胁范围（再点一次看详细能力，点空白处清除）") % tr(u.display_name))
 	tut("preview", u)
 	_update_hover_info()
 

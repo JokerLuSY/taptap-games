@@ -30,6 +30,14 @@ func _run() -> void:
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(_shot_dir))
 	CampaignSave.clear()
 	# 只试玩指定章节：CHAPTERS=8,9 godot --path . res://tools/smoke_runner.tscn（开发新章节时用）
+	if OS.get_environment("SYSTEMS") != "":
+		GameLocale.set_code("zh_CN")
+		await _check_part2_systems()
+		print("SMOKE TEST: ALL PASS" if _failures.is_empty() else "SMOKE TEST: %d FAILURES" % _failures.size())
+		for f_ in _failures:
+			print("  FAIL: " + f_)
+		get_tree().quit()
+		return
 	var only := OS.get_environment("CHAPTERS")
 	if only != "":
 		GameLocale.set_code("zh_CN")
@@ -1090,6 +1098,20 @@ func _check_part2_systems() -> void:
 	load("res://scripts/battle.gd").queue_chapter(load("res://scripts/chapter7.gd"))
 	await _new_battle()
 	await _skip_story()
+	# 能力画面：第一次点敌人亮威胁范围，再点一次打开能力画面
+	var e0 = battle.get_unit("church1")
+	battle._idle_click(e0.grid_pos)
+	_check(battle.unit_status == null and battle._previewed == e0, "第一次点敌人只亮出威胁范围")
+	battle._idle_click(e0.grid_pos)
+	await _frames(3)
+	_check(battle.unit_status != null and is_instance_valid(battle.unit_status), "再点一次同一个敌人应打开能力画面")
+	if battle.unit_status != null:
+		var bs: Dictionary = battle.unit_status.battle_stats()
+		_check(int(bs["atk"]) == int(GameData.WEAPONS[e0.weapons[0]]["mt"]) + e0.pwr, "能力画面的攻击 = 武器威力 + 力")
+		_shot("21_unit_status.png")
+		battle.unit_status.close()
+		await _frames(3)
+	_check(battle.unit_status == null, "关闭后能力画面应消失")
 	var sp = battle.get_unit("sparrow")
 	var foe = battle.get_unit("church5")
 	_check(sp != null and foe != null, "第七章应有小雀和带伤药的教会兵")

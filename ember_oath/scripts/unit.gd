@@ -104,19 +104,19 @@ const SPRITE_BY_ID := {
 	"kira": "pegasus",
 	"rock": "barrett",
 	"edmund": "knight",
-	"seven": "puppet",
+	"seven": "seven",
 	# ---- 第三篇 ----
-	"orion": "archer",
-	"owen": "mage",
-	"lilith": "mage",
-	"roland": "merc",
+	"orion": "orion",
+	"owen": "owen",
+	"lilith": "lilith",
+	"roland": "roland",
 	"hector": "barrett",
 	"werner": "mage",
 	"raven": "scout",
 	"marcus": "mage",
 	"zero": "puppet",
 	"alban": "mage",
-	"morgan": "mage",
+	"morgan": "morgan",
 }
 const SPRITE_BY_PREFIX := [["mage", "mage"], ["bandit", "bandit"], ["archer", "archer"], ["church", "church"], ["knight", "knight"], ["merc", "merc"], ["soldier", "church"], ["armor", "barrett"], ["pegasus", "pegasus"], ["puppet", "puppet"], ["pirate", "bandit"], ["darkmage", "mage"], ["graycloak", "scout"], ["cleric", "noya"], ["sniper", "archer"], ["paladin", "knight"], ["general", "barrett"], ["sage", "mage"], ["brodden", "merc"], ["thief", "sparrow"], ["fighter", "harlo"], ["myrm", "scout"]]
 const SPRITE_PX := 4.0
@@ -175,7 +175,11 @@ func setup(def: Dictionary) -> void:
 	scar = def.get("scar", false)
 	position = tile_center()
 	_phase = float((grid_pos.x * 7 + grid_pos.y * 13) % 10) / 10.0 * TAU
-	_setup_sprite(str(def.get("sprite", _sprite_for_id(unit_id))))
+	_setup_sprite(str(def.get("sprite", SPRITE_BY_CLASS.get(str(def.get("class", "")), _sprite_for_id(unit_id)))))
+
+
+## 按职业换形态（与炎龙融合的莫尔甘）
+const SPRITE_BY_CLASS := {"炎龙": "dragon"}
 
 
 static func _sprite_for_id(id: String) -> String:
