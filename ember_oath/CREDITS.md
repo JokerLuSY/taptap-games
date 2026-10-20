@@ -24,4 +24,4 @@
 
 ## 原创像素对话立绘
 
-- `art/portraits/px/*.png` 由 `tools/pixelart/fe_portraits.py` 程序拼装生成（原创，随项目授权）。
+- `art/portraits/px/*.png` 由 `tools/pixelart/fe_portraits.py`（脸模板 `fe_faces.py`）逐人手绘坐标生成（原创，随项目授权）。
