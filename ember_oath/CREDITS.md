@@ -21,3 +21,7 @@
   新增部件：披风层（艾德里克、塞拉斯）、盾牌层（巴雷特）、治疗杖武器（诺雅）、细剑 / 阔刃剑刃宽。
 - 检查：`godot --path . res://tools/combat_gallery.tscn` 输出对阵截图和每套条带的全部动作总表 `tools/shots/sheet_<条带>.png`
 - 刀光特效 `art/cc0/ninja_adventure/fx/SlashCurved.png` 来自 Ninja Adventure（CC0，原包 `FX/Attack/SlashCurved`）
+
+## 原创像素对话立绘
+
+- `art/portraits/px/*.png` 由 `tools/pixelart/fe_portraits.py` 程序拼装生成（原创，随项目授权）。

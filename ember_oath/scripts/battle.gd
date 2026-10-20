@@ -2174,7 +2174,7 @@ func _update_hover_info() -> void:
 		tut("hover_tile", cursor.grid_pos)
 	if u != null and u.on_map():
 		var key := _unit_portrait_key(u)
-		var tex: Texture2D = load("res://art/portraits/%s.jpg" % key) if key != "" else null
+		var tex: Texture2D = load("res://art/portraits/px/%s.png" % key) if key != "" else null
 		hud.show_unit(_unit_info_text(u), tex)
 	else:
 		hud.hide_unit()
@@ -2188,23 +2188,22 @@ func _update_hover_info() -> void:
 	hud.show_terrain(text)
 
 
+## 单位 → 像素立绘（art/portraits/px）：有专属立绘的按 id，杂兵按 id 前缀
+const PORTRAIT_BY_ID := {
+	"tia": "tia", "balto": "balto", "harlo": "harlo", "bandit6": "toby", "nina": "nina", "kain": "kain", "edric": "edric",
+	"noya": "noya", "cyril": "cyril", "sparrow": "sparrow", "silas": "silas", "hawk": "hawk", "brock": "brock",
+	"marco": "marco", "barrett": "barrett", "august": "august", "lorenz": "lorenz", "scout1": "scout",
+}
+const PORTRAIT_BY_PREFIX := [["bandit", "bandit"], ["merc", "merc"], ["church", "church"], ["knight", "knight"],
+	["archer", "archer"], ["mage", "mage"]]
+
+
 func _unit_portrait_key(u: Unit) -> String:
-	match u.unit_id:
-		"harlo":
-			# 第一章报信的村里少年，沿用村民立绘
-			return "portrait_villager"
-		"tia":
-			# TODO(M3): 觉醒后仍用第一章立绘。专用「缇娅·觉醒」未到。
-			return "portrait_tia"
-		"balto":
-			return "portrait_balto"
-		"brock":
-			return "portrait_brock"
-		"scout1", "marco":
-			# TODO(M3): 探子立绘未到，暂用山贼，不挡通关。
-			return "portrait_bandit"
-	if u.unit_id.begins_with("bandit"):
-		return "portrait_bandit"
+	if PORTRAIT_BY_ID.has(u.unit_id):
+		return PORTRAIT_BY_ID[u.unit_id]
+	for rule in PORTRAIT_BY_PREFIX:
+		if u.unit_id.begins_with(rule[0]):
+			return rule[1]
 	return ""
 
 

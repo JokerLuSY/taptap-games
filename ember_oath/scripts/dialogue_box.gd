@@ -4,21 +4,18 @@ extends Control
 
 signal all_finished
 
-## 说话人 -> 立绘文件名（res://art/portraits/<name>.jpg）
+## 说话人 -> 像素立绘（res://art/portraits/px/<key>.png，64×64，框里 ×2 显示）。
+## 立绘由 tools/pixelart/fe_portraits.py 生成；杂兵、路人共用职业 / 身份立绘。
 const PORTRAITS := {
-	"缇娅": "portrait_tia",
-	"巴尔托": "portrait_balto",
-	"布洛克": "portrait_brock",
-	"山贼": "portrait_bandit",
-	"哈洛": "portrait_villager",
-	"村民": "portrait_villager",
-	"老奶奶": "portrait_granny",
-	"托比": "portrait_bandit",
-	# TODO(M3): 「缇娅·觉醒」专用立绘未到，暂复用第一章 portrait_tia。
-	"缇娅·觉醒": "portrait_tia",
-	# TODO(M3): 探子 / 马尔科没有新立绘，暂复用山贼，不挡通关。
-	"探子": "portrait_bandit",
-	"马尔科": "portrait_bandit",
+	"缇娅": "tia", "缇娅·觉醒": "tia", "巴尔托": "balto", "哈洛": "harlo", "托比": "toby", "山贼小弟": "toby",
+	"妮娜": "nina", "凯因": "kain", "艾德里克": "edric", "诺雅": "noya", "西里尔": "cyril", "小雀": "sparrow",
+	"塞拉斯": "silas", "莫尔甘": "morgan", "薇拉": "vera", "格雷": "gray", "霍克": "hawk", "七号": "seven",
+	"埃德蒙": "edmund", "兰斯": "lance", "布洛克": "brock", "马尔科": "marco", "巴雷特": "barrett",
+	"奥古斯特": "august", "罗伦兹": "lorenz",
+	"山贼": "bandit", "探子": "scout", "黑烬佣兵": "merc", "圣焰教会兵": "church", "圣焰骑士": "knight",
+	"教会弓兵": "archer", "弓箭手": "archer", "教会魔道士": "mage",
+	"村民": "villager", "店主": "villager", "猎人": "villager", "猎户": "villager", "樵夫": "villager",
+	"铁匠": "smith", "农妇": "villager_w", "寡妇": "villager_w", "老人": "elder", "老奶奶": "granny",
 }
 
 const BODY_FONT_SIZE := 22
@@ -27,7 +24,7 @@ const BODY_LINE_RATIO := 1.35
 ## 正文区高度：3 行 × 字号 1.35，约 90–100px
 const BODY_AREA_H := 96.0
 const PORTRAIT_ORIGIN := Vector2(18, 22)
-const PORTRAIT_SIZE := Vector2(124, 124)
+const PORTRAIT_SIZE := Vector2(128, 128)
 const TEXT_GAP := 16.0
 const TEXT_TOP := 36.0
 const TEXT_LEFT := 24.0
@@ -112,7 +109,8 @@ func _ready() -> void:
 	_portrait = TextureRect.new()
 	_portrait.set_anchors_preset(PRESET_FULL_RECT)
 	_portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	_portrait.stretch_mode = TextureRect.STRETCH_SCALE
+	_portrait.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	_portrait_frame.add_child(_portrait)
 
 	var hint := Label.new()
@@ -223,7 +221,7 @@ func _set_shown_chars(shown: float) -> void:
 
 func _get_portrait(key: String) -> Texture2D:
 	if not _tex_cache.has(key):
-		_tex_cache[key] = load("res://art/portraits/%s.jpg" % key)
+		_tex_cache[key] = load("res://art/portraits/px/%s.png" % key)
 	return _tex_cache[key]
 
 

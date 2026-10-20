@@ -75,7 +75,7 @@ func _init() -> void:
 	uh.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	unit_win.add_child(uh)
 	portrait_frame = Panel.new()
-	portrait_frame.custom_minimum_size = Vector2(72, 72)
+	portrait_frame.custom_minimum_size = Vector2(68, 68)
 	portrait_frame.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	portrait_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var pb := StyleBoxFlat.new()
@@ -88,13 +88,14 @@ func _init() -> void:
 	portrait = TextureRect.new()
 	portrait.set_anchors_preset(Control.PRESET_FULL_RECT)
 	portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	portrait.stretch_mode = TextureRect.STRETCH_KEEP_CENTERED
+	portrait.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	portrait.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	portrait_frame.add_child(portrait)
 	unit_label = _label(uh, 15, Color(0.94, 0.95, 1.0))
 	unit_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	unit_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	unit_label.custom_minimum_size = Vector2(W_UNIT - 24 - 72 - 10, 0)   # 换行宽度固定，首次布局时不会被撑成一字一行
+	unit_label.custom_minimum_size = Vector2(W_UNIT - 24 - 68 - 10, 0)   # 换行宽度固定，首次布局时不会被撑成一字一行
 	unit_win.visible = false
 
 	terrain_win = _window(Color(0.6, 0.8, 0.5))

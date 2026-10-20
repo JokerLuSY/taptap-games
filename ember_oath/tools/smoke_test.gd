@@ -1295,6 +1295,16 @@ func _check_tutorial() -> void:
 	ok = await _wait_cond(func() -> bool: return tia.has_acted and battle.state == battle.S.IDLE, 5.0)
 	_check(ok, "做过买卖关店后应算行动结束")
 	_check(battle.board.terrain(Chapter1.SHOP_ARMORY)["name"] == "武器店", "第一章应有武器店")
+	# 像素立绘：对话表里的立绘都要有文件；对话框里 ×2 最近邻显示
+	for spk in DialogueBox.PORTRAITS:
+		_check(ResourceLoader.exists("res://art/portraits/px/%s.png" % DialogueBox.PORTRAITS[spk]), "缺像素立绘：" + spk)
+	battle.dialogue.play([{"name": "缇娅", "color": Color(1, 0.62, 0.45), "text": "这是像素立绘的测试台词。"},
+		{"name": "塞拉斯", "color": Color(0.95, 0.92, 1.0), "text": "……异端。"}])
+	await get_tree().create_timer(0.8).timeout
+	_check(battle.dialogue._portrait_frame.visible and battle.dialogue._portrait.texture != null, "缇娅的台词应显示像素立绘")
+	_shot("00b_portrait.png")
+	battle.dialogue.skip_all()
+	await _frames(2)
 	# 剧情场景卡（尾声的敌方视角）
 	battle.play_scenes(battle.chapter.epilogue())
 	await get_tree().create_timer(1.0).timeout
