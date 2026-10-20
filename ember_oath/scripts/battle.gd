@@ -36,6 +36,7 @@ var lbl_chapter: Label
 var lbl_turn: Label
 var lbl_gold: Label
 var hud: MapHud                    # 浮动信息窗（目标 / 单位 / 地形 / 提示）
+var tutorial: Tutorial             # 新手教程：分步引导 + 情境提示
 var hint_label: Label
 var toast_label: Label
 var banner_label: Label
@@ -193,6 +194,12 @@ func _spawn_from_roster(id: String, pos: Vector2i) -> void:
 	units.append(u)
 
 
+## 教程事件（tutorial 不在时什么也不做）
+func tut(n: String, d = null) -> void:
+	if tutorial != null:
+		tutorial.on_event(n, d)
+
+
 func spawn_units(defs: Array) -> Array:
 	var made: Array = []
 	for def in ChapterBase.expand_with(defs, chapter.templates()):
@@ -205,6 +212,8 @@ func spawn_units(defs: Array) -> Array:
 		units.append(u)
 		made.append(u)
 	update_topbar()
+	if turn > 1 and made.any(func(m) -> bool: return not m.is_player()):
+		tut("spawn")
 	return made
 
 
@@ -292,6 +301,9 @@ func _build_ui() -> void:
 	_build_forecast_panel()
 	_build_levelup_panel()
 	_build_end_overlay()
+	tutorial = Tutorial.new()
+	ui.add_child(tutorial)
+	tutorial.setup(self)
 	dialogue = DialogueBox.new()
 	ui.add_child(dialogue)
 	combat_scene = CombatScene.new()
@@ -523,6 +535,7 @@ func start_player_phase(first := false) -> void:
 	state = S.IDLE
 	if pending_chapter == null:
 		CampaignSave.write_checkpoint(self)
+	tut("player_phase", turn)
 	_idle_hint()
 	_update_hover_info()
 
@@ -540,6 +553,7 @@ func enemy_phase() -> void:
 	update_topbar()
 	Audio.play_sfx("phase", 0.85)
 	show_banner(tr("敌方回合"), Color(1.0, 0.45, 0.4))
+	tut("enemy_phase")
 	_terrain_heal(false)
 	await get_tree().create_timer(0.9).timeout
 	for e in units.duplicate():
@@ -889,6 +903,7 @@ func select_unit(u: Unit) -> void:
 	board.show_move(move_dict, atk)
 	state = S.MOVE_SEL
 	u.hop()
+	tut("select", u)
 	hint(tr("%s：选择移动位置（点空白处取消）") % tr(u.display_name))
 	_update_hover_info()
 
@@ -997,6 +1012,7 @@ func _preview_enemy(u: Unit) -> void:
 		area[t] = true
 	board.show_move({}, area)
 	hint(tr("%s 的威胁范围（点空白处清除）") % tr(u.display_name))
+	tut("preview", u)
 	_update_hover_info()
 
 
@@ -1055,6 +1071,8 @@ func _open_action_menu(u: Unit) -> void:
 	_fill_menu(opts)
 	_place_menu(u)
 	hint(tr("选择行动（点菜单外撤销移动）"))
+	tut("menu", u)
+	tut("menu_opts", opts.map(func(o) -> String: return o["label"]))
 
 
 func _fill_menu(opts: Array) -> void:
@@ -1099,6 +1117,7 @@ func open_map_menu(p: Vector2i) -> void:
 	var opts: Array = [
 		{"label": tr("回合结束"), "enabled": true, "cb": _on_map_end_turn},
 		{"label": tr("隐藏危险范围") if danger_on else tr("显示危险范围"), "enabled": true, "cb": _on_map_danger},
+		{"label": tr("教程"), "enabled": true, "cb": _on_map_tutorial},
 		{"label": tr("菜单"), "enabled": true, "cb": _on_map_system},
 	]
 	_fill_menu(opts)
@@ -1121,6 +1140,11 @@ func _on_map_end_turn() -> void:
 func _on_map_danger() -> void:
 	_close_map_menu()
 	toggle_danger()
+
+
+func _on_map_tutorial() -> void:
+	_close_map_menu()
+	tutorial.open_browser()
 
 
 func _on_map_system() -> void:
@@ -1336,6 +1360,7 @@ func _on_menu_wait() -> void:
 func _finish_action(u: Unit) -> void:
 	u.has_acted = true
 	u.queue_redraw()
+	tut("acted", u)
 	board.clear_highlights()
 	selected = null
 	if state == S.OVER:
@@ -1406,6 +1431,7 @@ func _run_prep() -> void:
 	_update_hover_info()
 	prep.setup(self)
 	hint(tr("出击准备：选人、布阵、整理物品，准备好后点【开始战斗】"))
+	tut("prep")
 	await prep.done
 	prep.queue_free()
 	prep = null
@@ -1681,6 +1707,7 @@ func toggle_danger() -> void:
 		return
 	danger_on = not danger_on
 	board.set_danger(_compute_danger() if danger_on else {})
+	tut("danger")
 
 
 func _compute_danger() -> Dictionary:
@@ -1725,6 +1752,9 @@ func _show_forecast(att: Unit, def: Unit, wi: int) -> void:
 	else:
 		forecast_def.text = _forecast_text(def, def.weapon(), 0, 0, 0, 0) + "\n" + tr("（无法反击）")
 	forecast_panel.visible = true
+	var aw: Dictionary = att.weapon(wi)
+	var dw: Dictionary = def.weapon()
+	tut("forecast", {"triangle": GameData.triangle_dir(str(aw.get("type", "")), str(dw.get("type", ""))), "magic": aw.get("magic", false) or dw.get("magic", false)})
 	# 停在目标的另一侧，不挡住交战双方
 	forecast_panel.reset_size()
 	var safe := SafeArea.rect()
@@ -1824,6 +1854,7 @@ func _after_weapon_use(u: Unit, idx: int, n: int) -> void:
 		if broke != "":
 			Audio.play_sfx("miss", 0.7)
 			notify(tr("%s 的%s坏掉了！") % [tr(u.display_name), tr(broke)])
+			tut("weapon_broke", u)
 			break
 
 
@@ -1833,6 +1864,7 @@ func _give_xp(u: Unit, n: int) -> void:
 	await get_tree().create_timer(0.35).timeout
 	if res.is_empty():
 		return
+	tut("levelup", u)
 	Audio.play_sfx("levelup")
 	var lines: Array = [tr("%s 升级了！  Lv %d") % [tr(u.display_name), res["level"]], ""]
 	var gains: Dictionary = res["gains"]
@@ -2081,6 +2113,10 @@ func _update_hover_info() -> void:
 		return
 	hud.follow(tile_screen_pos(cursor.grid_pos))
 	var u: Unit = selected if selected != null else board.unit_at(cursor.grid_pos)
+	if state in [S.IDLE, S.MOVE_SEL]:
+		if u != null:
+			tut("hover_unit", u)
+		tut("hover_tile", cursor.grid_pos)
 	if u != null and u.on_map():
 		var key := _unit_portrait_key(u)
 		var tex: Texture2D = load("res://art/portraits/%s.jpg" % key) if key != "" else null

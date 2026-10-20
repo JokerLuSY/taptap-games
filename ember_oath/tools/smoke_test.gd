@@ -58,7 +58,7 @@ func _run() -> void:
 	# ---- 初始状态 ----
 	_check(battle.state == battle.S.IDLE, "开场剧情后应进入 IDLE, 实际 %d" % battle.state)
 	_check(battle.turn == 1, "应为第 1 回合, 实际 %d" % battle.turn)
-	_check(battle.units.size() == 11, "初始应有 11 个单位, 实际 %d" % battle.units.size())
+	_check(battle.units.size() == 16, "初始应有 16 个单位, 实际 %d" % battle.units.size())
 	_check_objectives(true)
 	# 地图：两章都走 CC0 图块静态层
 	var bd: Board = battle.board
@@ -261,11 +261,11 @@ func _run() -> void:
 	tia.has_acted = false
 	balto.has_acted = false
 	# ---- 大地图卷动 ----
-	_check(battle.board.width == 20 and battle.board.height == 11, "第一章应为 20×11（铺满全屏）")
-	_check(not battle.board.can_scroll() and battle.board.scroll == Vector2.ZERO, "20×11 的第一章不应卷动")
-	_check(battle.board.origin == Vector2(0, 8), "20×11 地图应在全屏视口里上下居中, origin %s" % battle.board.origin)
+	_check(battle.board.width == 20 and battle.board.height == 18, "第一章应为 20×18（村子 + 南边山道和营地）")
+	_check(battle.board.can_scroll() and battle.board.max_scroll() == Vector2(0, 18 * 64 - 720), "第一章应能上下卷动")
+	battle.board.set_scroll(Vector2.ZERO)
 	var c00: Vector2 = battle.tile_screen_pos(Vector2i(0, 0))
-	_check(c00 == Vector2(32, 40), "居中后 (0,0) 格中心应在 (32,40), 实际 %s" % c00)
+	_check(c00 == Vector2(32, 32), "卷到顶时 (0,0) 格中心应在 (32,32), 实际 %s" % c00)
 	_check(battle.board.tile_at_viewport(c00) == Vector2i(0, 0), "居中后点击换算应正确")
 	_check(battle.map_clip != null and battle.map_clip.clip_contents, "棋盘应放在裁剪框里")
 	var clip := Control.new()
@@ -594,6 +594,7 @@ func _run() -> void:
 	_shot("10_gameover_balto.png")
 	await _check_save_roundtrip()
 
+	await _check_tutorial()
 	await _check_campaign_chapters()
 	await _check_autoplay()
 
@@ -1190,6 +1191,88 @@ func _new_battle() -> void:
 	await _frames(6)
 
 
+## 新手教程：开场询问、分步引导按事件推进、金框、情境提示只弹一次、地图菜单里的教程手册
+func _check_tutorial() -> void:
+	_mark("新手教程")
+	if battle != null and is_instance_valid(battle):
+		battle.queue_free()
+		await _frames(3)
+	CampaignSave.clear()
+	Campaign.reset()
+	load("res://scripts/battle.gd").queue_chapter(null)
+	battle = load("res://scenes/battle.tscn").instantiate()
+	get_tree().root.add_child(battle)
+	battle.set_process_unhandled_input(false)
+	await _frames(6)
+	var t := 0.0
+	while not battle.tutorial.asking and t < 15.0:
+		battle.dialogue.skip_all()
+		await get_tree().create_timer(0.15).timeout
+		t += 0.15
+	_check(battle.tutorial.asking and battle.ui.find_child("TutorialYes", true, false) != null, "第一章开场应询问要不要教程")
+	await _frames(3)
+	_shot("01c_tutorial_ask.png")
+	battle.tutorial.choose(true)
+	var ok: bool = await _wait_cond(func() -> bool: return battle.state == battle.S.IDLE, 10.0)
+	_check(ok and battle.tutorial.guided and battle.tutorial.current_step() == 0, "选了教程应进入分步引导第一步")
+	var tia = battle.get_unit("tia")
+	var balto = battle.get_unit("balto")
+	_check(battle.tutorial._marker != null and battle.tutorial._marker.visible and battle.tutorial._marker.grid == tia.grid_pos, "第一步金框应标在缇娅身上")
+	await _frames(10)
+	_shot("01d_tutorial_step1.png")
+	battle.click_tile(balto.grid_pos)
+	await _frames(2)
+	_check(battle.tutorial.current_step() == 0, "点错人不应推进引导")
+	battle.cancel()
+	battle.click_tile(tia.grid_pos)
+	await _frames(2)
+	_check(battle.tutorial.current_step() == 1, "选中缇娅后应进入第二步（移动）")
+	battle.click_tile(tia.grid_pos)
+	ok = await _wait_cond(func() -> bool: return battle.state == battle.S.ACTION_MENU, 5.0)
+	_check(ok and battle.tutorial.current_step() == 2, "移动后弹出行动菜单应进入第三步")
+	var labels: Array = []
+	for b in battle.menu_box.get_children():
+		if b is Button and not b.is_queued_for_deletion():
+			labels.append(b.text)
+	battle._on_menu_wait()
+	ok = await _wait_cond(func() -> bool: return battle.state == battle.S.IDLE and tia.has_acted, 5.0)
+	_check(ok and battle.tutorial.current_step() == 3, "缇娅待机后应进入第四步（巴尔托）")
+	_check(battle.tutorial._marker.grid == balto.grid_pos, "第四步金框应标在巴尔托身上")
+	battle.tutorial._on_skip()
+	_check(not battle.tutorial.guided and not battle.tutorial.is_showing(), "跳过教程应收起引导")
+	# 情境提示：只弹一次
+	battle.tutorial.on_event("forecast", {"triangle": 1, "magic": false})
+	_check(battle.tutorial.is_showing() and Tutorial.seen("triangle"), "第一次遇到武器克制应弹提示")
+	battle.tutorial._on_ok()
+	battle.tutorial.on_event("forecast", {"triangle": -1, "magic": false})
+	_check(not battle.tutorial.is_showing(), "同一条提示不应再弹")
+	# 地图菜单里的教程手册
+	battle.open_map_menu(Vector2i(14, 9))
+	await _frames(2)
+	var mlabels: Array = []
+	for b in battle.menu_box.get_children():
+		if b is Button and not b.is_queued_for_deletion():
+			mlabels.append(b.text)
+	_check("教程" in mlabels, "地图菜单应有【教程】，实际 %s" % str(mlabels))
+	battle._on_map_tutorial()
+	await _frames(2)
+	_check(battle.tutorial.browser_open(), "应打开教程手册")
+	await _frames(3)
+	_shot("01e_tutorial_browser.png")
+	battle.tutorial.close_browser()
+	await _frames(2)
+	_check(not battle.tutorial.browser_open(), "教程手册应能关闭")
+	# 不要教程：不问第二遍、不弹提示
+	Campaign.flags["tutorial"] = false
+	Campaign.flags["tips_seen"] = []
+	battle.tutorial.on_event("prep")
+	_check(not battle.tutorial.is_showing(), "关掉教程后不应弹提示")
+	battle.queue_free()
+	await _frames(3)
+	CampaignSave.clear()
+	Campaign.reset()
+
+
 func _spawn_battle() -> void:
 	# 新开一局从第一章开始；读档时 battle 会用存档里的战役进度覆盖
 	if not CampaignSave.pending_load:
@@ -1205,7 +1288,9 @@ func _spawn_battle() -> void:
 func _skip_story() -> void:
 	var t := 0.0
 	while (battle.state == battle.S.STORY or battle.state == battle.S.PREP) and t < 20.0:
-		if battle.state == battle.S.PREP and battle.prep != null:
+		if battle.tutorial != null and battle.tutorial.asking:
+			battle.tutorial.choose(false)   # 测试默认不开教程（教程有专门的用例）
+		elif battle.state == battle.S.PREP and battle.prep != null:
 			battle.prep.done.emit()   # 整备按默认阵容直接开打
 		else:
 			battle.dialogue.skip_all()
@@ -1218,6 +1303,8 @@ func _skip_story() -> void:
 func _until_prep() -> bool:
 	var t := 0.0
 	while battle.state != battle.S.PREP and t < 20.0:
+		if battle.tutorial != null and battle.tutorial.asking:
+			battle.tutorial.choose(false)
 		battle.dialogue.skip_all()
 		await get_tree().create_timer(0.15).timeout
 		t += 0.15
@@ -1227,6 +1314,8 @@ func _until_prep() -> bool:
 func _wait_cond(cond: Callable, timeout: float) -> bool:
 	var t := 0.0
 	while not cond.call():
+		if battle.tutorial != null and battle.tutorial.asking:
+			battle.tutorial.choose(false)
 		if battle.state == battle.S.STORY:
 			battle.dialogue.skip_all()
 		if battle.combat_scene.active:
@@ -1660,7 +1749,7 @@ func _check_save_roundtrip() -> void:
 	_check(loaded != null and str(loaded.support_with.get("balto", "")) == "C", "读档应恢复支援")
 	_check(battle.chapter.f_talk, "读档应恢复对话旗标")
 	_check(battle.chapter.visited.has(Vector2i(9, 1)), "读档应恢复民居访问")
-	_check(battle.units.size() == 11, "读档单位数量应为 11，实际 %d" % battle.units.size())
+	_check(battle.units.size() == 16, "读档单位数量应为 16，实际 %d" % battle.units.size())
 
 
 func _check_objectives(zh: bool) -> void:
@@ -1731,12 +1820,12 @@ func _restart_from_defeat() -> void:
 	_check(battle.gold == 0, "重开不应读入失败检查点的金钱，实际 %d" % battle.gold)
 	_check(tia != null and tia.is_alive() and tia.hp == 20, "重开后缇娅应满血存活")
 	_check(balto != null and balto.is_alive(), "重开后巴尔托应存活")
-	_check(battle.units.size() == 11, "重开后应回到 11 个初始单位，实际 %d" % battle.units.size())
+	_check(battle.units.size() == 16, "重开后应回到 16 个初始单位，实际 %d" % battle.units.size())
 	var alive := 0
 	for u in battle.units:
 		if u.is_alive():
 			alive += 1
-	_check(alive == 11, "重开后应全员存活，实际 %d" % alive)
+	_check(alive == 16, "重开后应全员存活，实际 %d" % alive)
 	_check(not CampaignSave.pending_load, "重开不应留下读档请求")
 	var payload := CampaignSave.read()
 	_check(int(payload.get("turn", -1)) == 1 and int(payload.get("gold", -1)) == 0, "重开后的检查点应是第 1 回合空金，实际 %s" % str(payload))

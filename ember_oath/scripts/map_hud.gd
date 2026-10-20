@@ -94,6 +94,7 @@ func _init() -> void:
 	unit_label = _label(uh, 15, Color(0.94, 0.95, 1.0))
 	unit_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	unit_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	unit_label.custom_minimum_size = Vector2(W_UNIT - 24 - 72 - 10, 0)   # 换行宽度固定，首次布局时不会被撑成一字一行
 	unit_win.visible = false
 
 	terrain_win = _window(Color(0.6, 0.8, 0.5))

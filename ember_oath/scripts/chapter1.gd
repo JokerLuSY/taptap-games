@@ -12,7 +12,8 @@ const BG := ""
 
 ## 逻辑网格与 AI 手绘背景对齐: 道路/桥在第 5 列(手绘如此), 水井在 (8,2), 高台麦田在 11-13 列 x 1-2 行
 ## 'X' = 手绘崖壁/石梯田墙 (不可通行, 只存在于背景中)
-## 20×11：原来的 15×10 往东、往南补了林地、丘陵和河道，正好铺满全屏（坐标不变）
+## 20×18：北边是灰岩村（我方开局），河上一座桥；过河往南一条山道，尽头是山贼的栅栏营地，头目布洛克守在营门堡垒上。
+## 河南岸的山贼先冲过来；营地里的山贼守着不动，等我方打过去（教学关：一波一波来）。
 const MAP := [
 	"FFFFFFFFFFFFFFFFFMMM",
 	"F..H.R...H.gggFF.hhM",
@@ -25,6 +26,13 @@ const MAP := [
 	".....R...........h.F",
 	".....R..........F.FF",
 	".F...R..F....h...FFF",
+	"..F..R.....F..h..F..",
+	".h...R..M.....F....F",
+	"F....R.h......F.h...",
+	"..PPPT.PP..h....F..F",
+	"..P.A..AP...F..H...F",
+	".FP.....P.h........F",
+	"F.P..A..P..F...F.FFF",
 ]
 
 ## 高度层: 0=水面/沙滩, 1=陆地, 2=高地（攀爬 +2 移动力, 弓箭手射程+1）
@@ -36,6 +44,13 @@ const LEVELS := [
 	"01111111111111111111",
 	"00000100000000000000",
 	"11111111111111001111",
+	"11111111111111111111",
+	"11111111111111111111",
+	"11111111111111111111",
+	"11111111111111111111",
+	"11111111111111111111",
+	"11111111111111111111",
+	"11111111111111111111",
 	"11111111111111111111",
 	"11111111111111111111",
 	"11111111111111111111",
@@ -78,17 +93,21 @@ const UNITS := [
 	{"id": "bandit6", "pos": Vector2i(12, 7), "name": "山贼小弟"},  # 可被缇娅说得
 	# 弓箭手
 	{"id": "archer1", "pos": Vector2i(6, 8)}, {"id": "archer2", "pos": Vector2i(10, 7)},
-	# BOSS：疤面布洛克，守桥头
+	# BOSS：疤面布洛克，守在南边营地的营门堡垒上
 	{"id": "brock", "name": "布洛克", "class": "山贼头目", "faction": "enemy", "level": 4,
 		"hp": 34, "pwr": 8, "skl": 5, "spd": 4, "dfn": 5, "mov": 5,
 		"weapons": ["war_axe"], "stationary": true, "boss": true,
-		"pos": Vector2i(5, 6), "color": Color(0.60, 0.30, 0.25),
+		"pos": Vector2i(5, 14), "color": Color(0.60, 0.30, 0.25),
 		"hair": "spiky", "hair_color": Color(0.12, 0.10, 0.10), "armor": Color(0.42, 0.26, 0.24), "scar": true},
+	# 山道上的第二波、营地里守着不动的第三波
+	{"id": "bandit7", "pos": Vector2i(2, 12)}, {"id": "bandit8", "pos": Vector2i(10, 12)},
+	{"id": "archer3", "pos": Vector2i(11, 14), "hold": true},
+	{"id": "bandit9", "pos": Vector2i(4, 16), "hold": true}, {"id": "bandit10", "pos": Vector2i(7, 16), "hold": true},
 ]
 
 const REINFORCEMENTS := [
-	{"id": "bandit_r1", "pos": Vector2i(4, 10)},
-	{"id": "bandit_r2", "pos": Vector2i(6, 10)},
+	{"id": "bandit_r1", "pos": Vector2i(3, 15)},
+	{"id": "bandit_r2", "pos": Vector2i(6, 15)},
 ]
 
 ## 可说得的敌方单位: {unit_id: {"by": 说得者 unit_id}}
@@ -132,6 +151,10 @@ func import_flags(data: Dictionary) -> void:
 	f_support = fs.duplicate() if fs is Dictionary else {}
 
 
+## 山道边的猎户小屋：送手斧（托比、斧兵能用；能投掷，射程 1–2）
+const VISIT_HUNTER := Vector2i(15, 15)
+
+
 func chapter_id() -> String:
 	return "ch1"
 
@@ -153,7 +176,8 @@ static func expand(defs: Array) -> Array:
 
 func on_battle_start() -> void:
 	await battle.play_dialogue(_pre_battle())
-	await battle.play_dialogue(_tutorial_move())
+	if await battle.tutorial.ask():
+		battle.tutorial.start_guided()
 
 
 func on_turn_start(t: int) -> void:
@@ -179,7 +203,8 @@ func on_before_combat(att, def) -> void:
 func on_after_combat(att, def, def_died: bool) -> void:
 	if att.unit_id == "tia" and not f_first_attack:
 		f_first_attack = true
-		await battle.play_dialogue(_tutorial_danger())
+		if Tutorial.enabled():
+			await battle.play_dialogue(_tutorial_danger())
 	if def.is_boss and def_died:
 		await battle.play_dialogue(_boss_death())
 
@@ -198,6 +223,10 @@ func on_visit(u, pos: Vector2i) -> void:
 		await battle.play_dialogue(_visit_house1())
 	elif pos == Vector2i(11, 3):
 		await battle.play_dialogue(_visit_house2())
+	elif pos == VISIT_HUNTER:
+		await battle.play_dialogue(_visit_hunter())
+		u.receive("hand_axe")
+		battle.notify(tr("获得 手斧"))
 
 
 ## 缇娅 ↔ 巴尔托 的相邻对话（仅一次）
@@ -298,17 +327,10 @@ func _pre_battle() -> Array:
 	]
 
 
-func _tutorial_move() -> Array:
-	return [
-		_l("巴尔托", C_BALTO, "听好，战场上先看清四周再动手。点击缇娅，就能看到她能走到的范围。"),
-		_l("巴尔托", C_BALTO, "森林难走，平地好行。选好位置再出手——别逞强。"),
-	]
-
-
 func _tutorial_danger() -> Array:
 	return [
 		_l("巴尔托", C_BALTO, "剑只能贴身，弓手正好相反。看清敌人的兵器，别站在他们的射程里逞英雄。"),
-		_l("巴尔托", C_BALTO, "点击敌人可以查看它的威胁范围。也可以随时按【T】查看全军的危险范围。"),
+		_l("巴尔托", C_BALTO, "点一下敌人能看到它的威胁范围；点空地菜单里的【显示危险范围】，能看到全军的危险范围。"),
 	]
 
 
@@ -369,6 +391,13 @@ func _visit_west() -> Array:
 	return [
 		_l("老奶奶", C_NPC, "老婆子我就这点棺材本了……拜托你们，保护好村子。"),
 		_l("缇娅", C_TIA, "婆婆……嗯！我答应你！"),
+	]
+
+
+func _visit_hunter() -> Array:
+	return [
+		_l("猎户", C_NPC, "山贼的营地就在下面……这把手斧给你们，扔出去也能砍着人。"),
+		_l("缇娅", C_TIA, "谢谢大叔！快躲进林子里去！"),
 	]
 
 
