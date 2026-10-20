@@ -16,6 +16,9 @@ const PORTRAITS := {
 	"山贼": "bandit", "探子": "scout", "黑烬佣兵": "merc", "圣焰教会兵": "church", "圣焰骑士": "knight",
 	"教会弓兵": "archer", "弓箭手": "archer", "教会魔道士": "mage",
 	"卡斯帕": "scout", "阿德琳": "church", "奥斯瓦尔德": "mage", "布罗登国王": "elder", "欧蕾莉亚": "mage", "伊格纳兹": "knight", "瓦伦": "knight", "格里姆": "knight", "灰袍众": "scout", "赫尔曼": "mage", "贝尔纳": "knight", "卡尔顿": "knight", "西蒙": "archer", "巴洛": "knight", "斯卡尔": "brock", "老学者": "elder", "国王": "elder", "老修士": "elder", "押送兵": "church", "摆渡人": "villager", "老水手": "elder", "旅店老板娘": "villager_w", "锁匠": "smith", "老水道工": "elder", "牧羊人": "villager", "磨坊主": "villager", "宰相": "mage", "牧人": "villager", "村妇": "villager_w", "老兵": "elder", "小孩": "villager", "退役骑士": "elder", "教会使者": "church", "沼泽强盗": "bandit", "清理部队枪兵": "church", "海盗": "bandit", "王国骑士": "knight", "布罗登叛兵": "merc", "灰袍盗贼": "scout", "王城重甲兵": "knight",
+	"奥瑞恩": "archer", "欧文": "mage", "莉莉丝": "villager_w", "罗兰": "merc", "烬": "seven",
+	"赫克托": "knight", "维尔纳": "mage", "渡鸦": "scout", "马库斯": "mage", "零号": "seven", "阿尔班": "church",
+	"莫尔甘·炎龙": "morgan", "缇娅·守护之火": "tia", "义勇兵": "villager", "神殿杂役": "villager",
 	"村民": "villager", "店主": "villager", "猎人": "villager", "猎户": "villager", "樵夫": "villager",
 	"铁匠": "smith", "农妇": "villager_w", "寡妇": "villager_w", "老人": "elder", "老奶奶": "granny",
 }

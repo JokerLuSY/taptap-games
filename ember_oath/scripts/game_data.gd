@@ -51,6 +51,13 @@ const WEAPONS := {
 	"ash_claw": {"name": "灰烬之爪", "type": "sword", "mt": 9, "hit": 85, "crit": 10, "rng": [1], "rank": "C", "uses": -1, "wexp": 1},
 	# 加雷斯的家传战斧
 	"wolf_axe": {"name": "苍狼战斧", "type": "axe", "mt": 12, "hit": 75, "crit": 5, "rng": [1], "rank": "prf", "prf": ["gareth"], "uses": -1, "wexp": 2},
+	# ---- 第三篇 ----
+	# 菲恩之剑：埃德蒙的佩剑，第 28 章罗兰交给艾德里克
+	"fenn_sword": {"name": "菲恩之剑", "type": "sword", "mt": 11, "hit": 85, "crit": 10, "rng": [1], "rank": "prf", "prf": ["edric"], "uses": -1, "wexp": 2},
+	# 守护之火：缇娅终章觉醒。剑系魔法（打魔防），射程 1~2，对炎龙特效
+	"guardian_flame": {"name": "守护之火", "type": "sword", "mt": 12, "hit": 90, "crit": 10, "rng": [1, 2], "rank": "prf", "prf": ["tia"], "uses": -1, "wexp": 3, "magic": true, "slay": "dragon"},
+	# 炎龙之息：与炎龙融合的莫尔甘（敌方专属）
+	"dragon_flame": {"name": "炎龙之息", "type": "anima", "mt": 15, "hit": 90, "crit": 5, "rng": [1, 2], "rank": "S", "uses": -1, "wexp": 1, "magic": true},
 }
 
 ## 物理三角：剑克斧, 斧克枪, 枪克剑；魔法三角：理克光, 光克暗, 暗克理
@@ -120,6 +127,10 @@ const CLASSES := {
 		"bonus": {"hp": 3, "pwr": 1, "skl": 2, "spd": 1, "dfn": 2, "res": 2, "mov": 1}, "magic": true},
 	"王子": {"ranks": {"axe": "C"}, "con": 13},
 	"灰烬傀儡": {"ranks": {"sword": "B"}, "con": 10},
+	# ---- 第三篇 ----
+	"不灭巫女": {"ranks": {"sword": "A"}, "con": 7},
+	"誓约领主": {"ranks": {"sword": "B"}, "con": 9},
+	"炎龙": {"ranks": {"anima": "S"}, "con": 25, "magic": true},
 }
 
 const TERRAIN := {
@@ -177,7 +188,7 @@ const WEAPON_PRICE := {"E": 10, "D": 18, "C": 30, "B": 45, "A": 60, "S": 80}
 
 
 ## 上级职业（含剧情转职的炎刃使）：离队回归补等级时按 +20 级算
-const PROMOTED := ["剑圣", "勇者", "勇士", "狂战士", "枪斗士", "圣骑士", "将军", "狙击手", "隼骑士", "刺客", "司祭", "贤者", "德鲁伊", "炎刃使"]
+const PROMOTED := ["剑圣", "勇者", "勇士", "狂战士", "枪斗士", "圣骑士", "将军", "狙击手", "隼骑士", "刺客", "司祭", "贤者", "德鲁伊", "炎刃使", "不灭巫女", "誓约领主"]
 ## 飞行单位飞不过去的地形（其余地形一律消耗 1、不吃地形加成）
 const FLY_BLOCK := ["#", "E"]
 

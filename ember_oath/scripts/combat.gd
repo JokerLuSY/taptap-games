@@ -3,7 +3,7 @@ class_name Combat
 
 static var force_crit := false   # 测试用: 强制全部暴击
 
-## 特效（威力 ×3）：弓打飞行、破甲剑打重甲、拒马枪打骑马（GBA 火纹）
+## 特效（威力 ×3）：弓打飞行、破甲剑打重甲、拒马枪打骑马（GBA 火纹）、守护之火打炎龙
 static func effective_mt(w: Dictionary, target: Unit) -> int:
 	if w["type"] == "bow" and target.is_flying():
 		return int(w["mt"]) * 3
@@ -11,6 +11,8 @@ static func effective_mt(w: Dictionary, target: Unit) -> int:
 	if slay == "armor" and target.class_label in ["重甲兵", "将军", "王子"]:
 		return int(w["mt"]) * 3
 	if slay == "mounted" and bool(GameData.class_data(target.class_label).get("mounted", false)):
+		return int(w["mt"]) * 3
+	if slay == "dragon" and target.class_label == "炎龙":
 		return int(w["mt"]) * 3
 	return int(w["mt"])
 

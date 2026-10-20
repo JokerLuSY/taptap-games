@@ -18,7 +18,7 @@ func _ready() -> void:
 ## 看门狗：任何脚本错误导致 _run 中断时也能退出，避免挂死
 func _watchdog() -> void:
 	# 不受 Engine.time_scale 影响（自动试玩会加速）
-	await get_tree().create_timer(1800.0, true, false, true).timeout
+	await get_tree().create_timer(3600.0, true, false, true).timeout
 	print("WATCHDOG: 超时强制退出")
 	print("SMOKE TEST: TIMEOUT, %d FAILURES" % _failures.size())
 	for f_ in _failures:
@@ -621,6 +621,7 @@ func _run() -> void:
 	await _check_campaign_chapters()
 	await _check_part2_systems()
 	await _check_wide_screen()
+	await _check_part3()
 	await _check_autoplay()
 
 	print("========================================")
@@ -1254,11 +1255,242 @@ func _check_wide_screen() -> void:
 	Campaign.reset()
 
 
-## 自动试玩：我方也交给 EnemyAI 操作，把第 2–22 章各打几个回合。
+## 第三篇：第 23 章救缇娅、巴尔托回队；七号三步条件 → 第 27 章入队 / 战死；第 28 章罗兰与「名字」；第 30 章两种结局
+func _check_part3() -> void:
+	_mark("第三篇：第 23 章缇娅回队、巴尔托回归")
+	CampaignSave.clear()
+	_p3_roster({"edric": "active", "gareth": "active", "vera": "active", "noya": "active",
+		"tia": "away", "balto": "away", "harlo": "away", "bandit6": "retired"})
+	Campaign.chapter_index = Campaign.CHAPTERS.find("res://scripts/chapter23.gd")
+	Campaign.snapshot_start()
+	load("res://scripts/battle.gd").queue_chapter(null)
+	await _new_battle()
+	await _skip_story()
+	_check(battle.chapter.chapter_id() == "ch23", "第二十二章之后应进第二十三章，实际 " + battle.chapter.chapter_id())
+	var t23 = battle.get_unit("tia")
+	_check(t23 != null and t23.is_npc() and not "tia" in battle.chapter.lose_ids(), "第 23 章缇娅开场关在塔里（中立），还不算败北条件")
+	_check(battle.get_unit("balto") == null, "巴尔托第 2 回合才赶到")
+	battle.state = battle.S.IDLE
+	battle.start_player_phase()
+	var ok: bool = await _wait_cond(func() -> bool: return battle.state == battle.S.IDLE and battle.turn == 2, 20.0)
+	var b23 = battle.get_unit("balto")
+	_check(ok and b23 != null and b23.is_player() and Campaign.status_of("balto") == "active", "第 2 回合巴尔托从名单回队")
+	_check(battle.get_unit("harlo") != null and battle.get_unit("bandit6") == null, "哈洛回队，转幕后的托比不出场")
+	var o23 = battle.get_unit("orion")
+	_check(o23 != null and o23.is_player() and o23.class_label == "狙击手", "奥瑞恩随巴尔托入队")
+	var v23 = battle.get_unit("vera")
+	v23.grid_pos = Chapter23.CELL_DOOR + Vector2i(0, 1)
+	v23.position = v23.tile_center()
+	_check(Chapter23.CELL_DOOR in battle.door_tiles(v23), "薇拉站在塔顶牢门旁应能开门")
+	battle.open_door(v23, Chapter23.CELL_DOOR)
+	ok = await _wait_cond(func() -> bool: return battle.board.tile_at(Chapter23.CELL_DOOR) == "S" and battle.state == battle.S.IDLE, 10.0)
+	var e23 = battle.get_unit("edric")
+	e23.grid_pos = Chapter23.TIA_CELL + Vector2i(0, 1)
+	e23.position = e23.tile_center()
+	e23.has_acted = false
+	_check(ok and battle.chapter.get_recruit_target(e23) == t23, "开门后艾德里克走到缇娅身边应能【对话】")
+	battle.selected = e23
+	battle._on_menu_recruit()
+	ok = await _wait_cond(func() -> bool: return t23.is_player() and battle.state == battle.S.IDLE, 15.0)
+	_check(ok and Campaign.status_of("tia") == "active" and "tia" in battle.chapter.lose_ids(), "缇娅回队，之后倒下算败北")
+	battle.get_unit("hector").take_damage(999)
+	battle.check_end_conditions()
+	ok = await _wait_cond(func() -> bool: return battle.end_overlay.visible, 30.0)
+	_check(ok and Campaign.flags.get("tia_rescued", false) and Campaign.status_of("tia") == "active", "第 23 章通关，缇娅在队")
+	_check(Campaign.status_of("orion") == "active" and Campaign.status_of("bandit6") == "retired", "奥瑞恩写进名单，托比仍在幕后")
+
+	# ---- 七号第 2 步：第 24 章缇娅对话 ----
+	_mark("第三篇：七号三步条件")
+	CampaignSave.clear()
+	Campaign.reset()
+	Campaign.flags["seven_16_spared"] = true
+	_check(not Part3Chapter.seven_ready(), "只有第 16 章一步时七号条件不成立")
+	var s24 = await _p3_seven_turn3("res://scripts/chapter24.gd")
+	_check(s24 != null and s24.is_alive() and not s24.is_player(), "第 24 章第 3 回合七号出现")
+	if s24 != null:
+		var tia24 = battle.get_unit("tia")
+		_p3_place(tia24, s24.grid_pos)
+		_check(battle.chapter.get_recruit_target(tia24) == s24, "缇娅走到七号身边应能对话")
+		var g24 = battle.get_unit("gareth")
+		_check(g24 == null or battle.chapter.get_recruit_target(g24) != s24, "加雷斯不能和七号对话")
+		battle.selected = tia24
+		battle._on_menu_recruit()
+		ok = await _wait_cond(func() -> bool: return Campaign.flags.get("seven_24_talked", false) and battle.state == battle.S.IDLE, 15.0)
+		_check(ok and s24.grid_pos == Unit.OFF_MAP and not s24.is_player(), "对话后七号撤退（不入队），第 2 步达成")
+	# ---- 第 26 章：被击杀 → 第 3 步失败 ----
+	var s26k = await _p3_seven_turn3("res://scripts/chapter26.gd")
+	if s26k != null:
+		s26k.take_damage(999)
+		battle.chapter.on_after_combat(battle.get_unit("tia"), s26k, true)
+		await _wait_cond(func() -> bool: return battle.state == battle.S.IDLE and Campaign.flags.get("seven_26_killed", false), 10.0)
+	_check(Campaign.flags.get("seven_26_killed", false) and not Part3Chapter.seven_ready(), "第 26 章击杀七号，条件失败")
+	# ---- 第 26 章：缇娅对话 → 第 3 步达成 ----
+	Campaign.flags["seven_26_killed"] = false
+	var s26 = await _p3_seven_turn3("res://scripts/chapter26.gd")
+	_check(s26 != null and s26.is_alive() and not s26.is_player(), "第 26 章第 3 回合七号出现")
+	if s26 != null:
+		var tia26 = battle.get_unit("tia")
+		_p3_place(tia26, s26.grid_pos)
+		battle.selected = tia26
+		battle._on_menu_recruit()
+		ok = await _wait_cond(func() -> bool: return Campaign.flags.get("seven_26_talked", false) and battle.state == battle.S.IDLE, 15.0)
+		_check(ok and s26.grid_pos == Unit.OFF_MAP, "第 26 章缇娅对话后七号撤退")
+	_check(Part3Chapter.seven_ready(), "三步都达成后七号条件成立")
+	# ---- 第 27 章：倒戈入队 ----
+	var keep: Dictionary = Campaign.flags.duplicate(true)
+	load("res://scripts/battle.gd").queue_chapter(load("res://scripts/chapter27.gd"))
+	await _new_battle()
+	await _skip_story()
+	var s27 = battle.get_unit("seven")
+	_check(s27 != null and s27.is_npc(), "条件达成：第 27 章开场七号站在一边（中立）")
+	battle.state = battle.S.IDLE
+	battle.start_player_phase()
+	ok = await _wait_cond(func() -> bool: return battle.state == battle.S.IDLE and battle.turn == 2, 20.0)
+	var j27 = battle.get_unit("seven")
+	_check(ok and j27 != null and j27.is_player() and not j27.is_boss, "第 2 回合七号倒戈入队")
+	battle.get_unit("zero").take_damage(999)
+	battle.check_end_conditions()
+	ok = await _wait_cond(func() -> bool: return battle.end_overlay.visible, 30.0)
+	_check(ok and Campaign.flags.get("seven_joined", false) and not Campaign.flags.get("seven_dead", false), "击败零号：七号入队，没有战死")
+	_check(Campaign.status_of("seven") == "active", "七号写进名单")
+	# ---- 第 27 章：条件不足 → 战死 ----
+	Campaign.reset()
+	Campaign.flags = keep.duplicate(true)
+	Campaign.flags["seven_24_talked"] = false
+	load("res://scripts/battle.gd").queue_chapter(load("res://scripts/chapter27.gd"))
+	await _new_battle()
+	await _skip_story()
+	var f27 = battle.get_unit("seven")
+	_check(f27 != null and not f27.is_npc() and not f27.is_player() and f27.is_boss, "条件不足：七号是敌将")
+	battle.get_unit("zero").take_damage(999)
+	battle.check_end_conditions()
+	ok = await _wait_cond(func() -> bool: return battle.end_overlay.visible, 30.0)
+	_check(ok and Campaign.flags.get("seven_dead", false) and not Campaign.flags.get("seven_joined", false), "条件不足：第 27 章七号战死")
+	_check(not Campaign.has_member("seven"), "战死的七号不进名单")
+
+	# ---- 第 28 章：罗兰与菲恩之剑、缇娅 × 七号「名字」 ----
+	_mark("第三篇：罗兰 / 名字 / 双结局")
+	CampaignSave.clear()
+	Campaign.reset()
+	Campaign.flags["seven_joined"] = true
+	load("res://scripts/battle.gd").queue_chapter(load("res://scripts/chapter28.gd"))
+	await _new_battle()
+	await _skip_story()
+	var r28 = battle.get_unit("roland")
+	var e28 = battle.get_unit("edric")
+	_check(r28 != null and r28.is_npc(), "罗兰开场是中立单位")
+	_p3_place(e28, r28.grid_pos)
+	_check(battle.chapter.get_recruit_target(e28) == r28, "艾德里克走到罗兰身边应能对话")
+	var t28 = battle.get_unit("tia")
+	_p3_place(t28, r28.grid_pos)
+	_check(battle.chapter.get_recruit_target(t28) == null, "只有艾德里克能和罗兰对话")
+	battle.state = battle.S.IDLE
+	battle.selected = e28
+	battle._on_menu_recruit()
+	ok = await _wait_cond(func() -> bool: return r28.is_player() and battle.state == battle.S.IDLE, 15.0)
+	var conv: Array = []
+	for c in Campaign.convoy:
+		conv.append(c[0])
+	_check(ok and ("fenn_sword" in e28.weapons or "fenn_sword" in conv), "罗兰入队，艾德里克拿到菲恩之剑")
+	_check(e28.class_label == "誓约领主", "艾德里克满 Lv10 剧情转职为誓约领主，实际 " + e28.class_label)
+	var sev28 = battle.get_unit("seven")
+	_p3_place(t28, sev28.grid_pos)
+	_check(battle.chapter.get_talk_partner(t28) == sev28, "缇娅与七号相邻应能聊「名字」")
+	battle.selected = t28
+	battle._on_menu_talk()
+	ok = await _wait_cond(func() -> bool: return Campaign.flags.get("seven_named", false) and battle.state == battle.S.IDLE, 15.0)
+	_check(ok, "聊完「名字」记下 seven_named")
+	_check(battle.chapter.get_talk_partner(t28) != sev28, "「名字」全篇只聊一次")
+
+	# ---- 第 30 章：真结局 / 普通结局（没聊过「名字」）----
+	await _p3_finale(true)
+	await _p3_finale(false)
+	CampaignSave.clear()
+	Campaign.reset()
+	load("res://scripts/battle.gd").queue_chapter(null)
+
+
+## 终章：封印柱削弱、守护之火觉醒、击败莫尔甘后按条件给出结局
+func _p3_finale(good: bool) -> void:
+	CampaignSave.clear()
+	Campaign.reset()
+	Campaign.flags["seven_joined"] = true
+	Campaign.flags["seven_named"] = good
+	load("res://scripts/battle.gd").queue_chapter(load("res://scripts/chapter30.gd"))
+	await _new_battle()
+	await _skip_story()
+	_check(battle.chapter.chapter_id() == "ch30" and "seven" in battle.chapter.forced_ids(), "终章：七号在队时强制出击")
+	var m = battle.get_unit("morgan")
+	_check(m != null and m.class_label == "炎龙" and m.max_hp >= 120, "终章首领是与炎龙融合的莫尔甘")
+	var dfn0: int = m.dfn
+	var o = battle.get_unit("orion")
+	o.grid_pos = Chapter30.PILLARS[0]
+	o.position = o.tile_center()
+	o.has_acted = false
+	battle.state = battle.S.IDLE
+	battle._finish_action(o)
+	var ok: bool = await _wait_cond(func() -> bool: return m.dfn == dfn0 - Chapter30.PILLAR_CUT and battle.state == battle.S.IDLE, 15.0)
+	_check(ok and battle.board.goal_tiles.size() == 3, "点亮封印柱：莫尔甘守备 -4，剩 3 座")
+	battle.turn = 2
+	battle.start_player_phase()
+	ok = await _wait_cond(func() -> bool: return battle.state == battle.S.IDLE and battle.turn == 3, 20.0)
+	var tia = battle.get_unit("tia")
+	_check(ok and tia.weapons[0] == "guardian_flame" and Campaign.flags.get("tia_guardian", false), "第 3 回合缇娅觉醒守护之火")
+	_check(tia.class_label == "不灭巫女", "炎刃使满 Lv10：剧情转职为不灭巫女，实际 " + tia.class_label)
+	_check(Combat.effective_mt(GameData.WEAPONS["guardian_flame"], m) == 36, "守护之火对炎龙特效 ×3")
+	m.take_damage(999)
+	battle.check_end_conditions()
+	ok = await _wait_cond(func() -> bool: return battle.end_overlay.visible, 40.0)
+	var want := "true" if good else "normal"
+	_check(ok and Campaign.flags.get("ending", "") == want, "终章结局应为 %s，实际 %s" % [want, str(Campaign.flags.get("ending", ""))])
+	_check(("真结局" if good else "余烬") in battle.end_title.text and "完" in battle.end_title.text, "结局标题，实际 " + battle.end_title.text)
+	_check(Campaign.is_finished() and not battle.end_next.visible and tr("感谢游玩！") in battle.end_sub.text and not "制作中" in battle.end_sub.text, "通关：没有下一章，不显示制作中")
+	_shot("p3_ending_%s.png" % want)
+
+
+## 名单为空时按第三篇默认阵容造几个人进名单（status：active / away / retired）
+func _p3_roster(ids: Dictionary) -> void:
+	Campaign.reset()
+	for id in ids:
+		var d: Dictionary = Part3Chapter.member(id, 0)
+		d["id"] = id
+		var u := Unit.new()
+		u.setup(d)
+		var data: Dictionary = u.to_save()
+		data["status"] = ids[id]
+		Campaign.roster[id] = data
+		u.free()
+
+
+## 直接开某一章，推进到第 3 回合（七号出现），返回七号
+func _p3_seven_turn3(path: String):
+	load("res://scripts/battle.gd").queue_chapter(load(path))
+	await _new_battle()
+	await _skip_story()
+	battle.turn = 2
+	battle.state = battle.S.IDLE
+	battle.start_player_phase()
+	await _wait_cond(func() -> bool: return battle.state == battle.S.IDLE and battle.turn == 3, 20.0)
+	return battle.get_unit("seven")
+
+
+## 把 u 放到 near 旁边的空格
+func _p3_place(u, near: Vector2i) -> void:
+	for d in [Vector2i.DOWN, Vector2i.UP, Vector2i.LEFT, Vector2i.RIGHT]:
+		var q: Vector2i = near + d
+		if battle.board.passable(q, u) and (battle.board.unit_at(q) == null or battle.board.unit_at(q) == u):
+			u.grid_pos = q
+			u.position = u.tile_center()
+			u.has_acted = false
+			return
+
+
+## 自动试玩：我方也交给 EnemyAI 操作，把第 2–30 章各打几个回合。
 ## 只验证流程（敌方回合、治疗、增援、撤离 / 守关判定）不卡死、不报错；胜负结果打印出来供调难度参考。
 func _check_autoplay() -> void:
 	for spec in [[2, 3], [3, 4], [4, 5], [5, 7], [6, 4], [7, 4], [8, 3], [9, 3], [10, 3], [11, 3], [12, 3], [13, 3], [14, 3],
-			[15, 3], [16, 3], [17, 3], [18, 3], [19, 3], [20, 3], [21, 3], [22, 3]]:
+			[15, 3], [16, 3], [17, 3], [18, 3], [19, 3], [20, 3], [21, 3], [22, 3],
+			[23, 3], [24, 3], [25, 3], [26, 3], [27, 3], [28, 3], [29, 3], [30, 3]]:
 		var idx: int = spec[0]
 		_mark("自动试玩 第 %d 章" % idx)
 		var res: Dictionary = await _autoplay(load("res://scripts/chapter%d.gd" % idx), spec[1])

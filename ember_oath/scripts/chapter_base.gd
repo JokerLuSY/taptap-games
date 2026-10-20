@@ -126,6 +126,11 @@ func supports() -> Dictionary:
 	return Supports.PAIRS
 
 
+## 全篇最后一章：胜利后不再提示「后续章节制作中」
+func is_final() -> bool:
+	return false
+
+
 func win_condition() -> String:
 	return tr("击败所有敌人")
 

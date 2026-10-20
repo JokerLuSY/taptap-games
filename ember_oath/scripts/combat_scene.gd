@@ -152,6 +152,18 @@ const FIGHTER_BY_ID := {
 	"rock": "barrett",
 	"edmund": "balto",
 	"seven": "puppet",
+	# ---- 第三篇 ----
+	"orion": "archer",
+	"owen": "mage",
+	"lilith": "mage",
+	"roland": "merc",
+	"hector": "barrett",
+	"werner": "mage",
+	"raven": "scout",
+	"marcus": "mage",
+	"zero": "puppet",
+	"alban": "mage",
+	"morgan": "mage",
 }
 const FIGHTER_BY_PREFIX := [["mage", "mage"], ["bandit", "bandit"], ["archer", "archer"], ["church", "church"], ["knight", "knight"], ["merc", "merc"], ["soldier", "church"], ["armor", "barrett"], ["pegasus", "pegasus"], ["puppet", "puppet"], ["pirate", "bandit"], ["darkmage", "mage"], ["graycloak", "scout"], ["cleric", "noya"], ["sniper", "archer"], ["paladin", "knight"], ["general", "barrett"], ["sage", "mage"], ["brodden", "merc"], ["thief", "sparrow"], ["fighter", "harlo"], ["myrm", "scout"]]
 const FIGHTER_BY_WEAPON := {"sword": "scout", "lance": "balto", "axe": "bandit", "bow": "archer", "staff": "noya", "anima": "mage", "light": "mage", "dark": "mage"}

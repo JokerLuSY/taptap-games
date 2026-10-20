@@ -2128,7 +2128,7 @@ func _victory() -> void:
 	if Campaign.is_finished():
 		end_next.visible = false
 		sub += "
-" + tr("（后续章节制作中）")
+" + (tr("感谢游玩！") if chapter.is_final() else tr("（后续章节制作中）"))
 	else:
 		end_next.visible = true
 		end_next.text = tr("进入下一章")
@@ -2377,6 +2377,8 @@ const PORTRAIT_BY_ID := {
 	"marco": "marco", "barrett": "barrett", "august": "august", "lorenz": "lorenz", "scout1": "scout",
 	"lance": "lance", "gwen": "knight", "oscar": "knight", "mira": "villager_w", "victor": "mage", "bruno": "smith", "selene": "villager_w", "gareth": "knight", "hagen": "smith", "liss": "villager_w", "shuo": "merc", "gerard": "elder", "ivy": "granny", "ivan": "church", "vera": "vera", "gray": "gray", "talia": "villager_w", "benedict": "elder", "kira": "villager_w", "rock": "knight", "edmund": "edmund", "seven": "seven",
 	"caspar": "scout", "skarl": "brock", "hermann": "mage", "bernard": "knight", "carlton": "knight", "grimm": "knight", "varen": "knight", "simon": "archer", "barlow": "knight", "aurelia": "mage", "adeline": "church", "oswald": "mage", "ignaz": "knight",
+	"orion": "archer", "owen": "mage", "lilith": "villager_w", "roland": "merc",
+	"hector": "knight", "werner": "mage", "raven": "scout", "marcus": "mage", "zero": "seven", "alban": "church", "morgan": "morgan",
 }
 const PORTRAIT_BY_PREFIX := [["bandit", "bandit"], ["merc", "merc"], ["church", "church"], ["knight", "knight"],
 	["archer", "archer"], ["mage", "mage"], ["soldier", "church"], ["armor", "knight"], ["pegasus", "church"], ["puppet", "seven"], ["pirate", "bandit"], ["darkmage", "mage"], ["graycloak", "scout"], ["cleric", "church"], ["sniper", "archer"], ["paladin", "knight"], ["general", "knight"], ["sage", "mage"], ["brodden", "merc"], ["thief", "bandit"], ["fighter", "bandit"], ["myrm", "merc"]]

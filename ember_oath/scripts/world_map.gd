@@ -31,13 +31,15 @@ const PLACES := {
 	"peak": {"name": "天马峰", "pos": Vector2(866, 146), "icon": "fort"},
 	"brodden": {"name": "布罗登王城", "pos": Vector2(1176, 262), "icon": "castle"},
 	"temple": {"name": "圣焰神殿", "pos": Vector2(1040, 196), "icon": "holy"},
+	# ---- 第三篇 ----
+	"hero_hall": {"name": "英灵廊", "pos": Vector2(724, 118), "icon": "holy"},
 }
 ## 大陆上画出来的路（地点之间的虚线）
 const ROADS := [["grayrock", "fenn"], ["grayrock", "fortress"], ["grayrock", "ferry"], ["ferry", "inn"], ["inn", "whitewall"],
 	["whitewall", "capital"], ["capital", "holy"], ["fenn", "holy"],
 	["fenn", "marsh"], ["marsh", "lab"], ["lab", "riverford"], ["riverford", "harbor"], ["harbor", "holy"], ["holy", "brodden_pass"],
 	["brodden_pass", "valley"], ["valley", "prison"], ["prison", "holy"], ["capital", "plains"], ["plains", "camp"], ["camp", "monastery"],
-	["plains", "peak"], ["brodden_pass", "brodden"], ["holy", "temple"]]
+	["plains", "peak"], ["brodden_pass", "brodden"], ["holy", "temple"], ["peak", "hero_hall"]]
 
 static var _tex: ImageTexture = null
 

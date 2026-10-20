@@ -30,6 +30,14 @@ const CHAPTERS := [
 	"res://scripts/chapter20.gd",
 	"res://scripts/chapter21.gd",
 	"res://scripts/chapter22.gd",
+	"res://scripts/chapter23.gd",
+	"res://scripts/chapter24.gd",
+	"res://scripts/chapter25.gd",
+	"res://scripts/chapter26.gd",
+	"res://scripts/chapter27.gd",
+	"res://scripts/chapter28.gd",
+	"res://scripts/chapter29.gd",
+	"res://scripts/chapter30.gd",
 ]
 
 static var chapter_index := 0
