@@ -227,6 +227,28 @@ func _get_portrait(key: String) -> Texture2D:
 	return _tex_cache[key]
 
 
+## 正在打字（演示录像按「打完一句再等一会儿」的节奏翻页）
+func is_typing() -> bool:
+	return _active and _typing
+
+
+## 等同点一下：打字中先显示整句，否则翻到下一句
+func advance() -> void:
+	if not _active:
+		return
+	if _typing:
+		if _tween != null and _tween.is_valid():
+			_tween.kill()
+		_text_label.visible_characters = -1
+		_typing = false
+		return
+	_idx += 1
+	if _idx >= _lines.size():
+		_finish()
+	else:
+		_show_line()
+
+
 ## 测试 / 跳过用：立即结束当前对话
 func skip_all() -> void:
 	if not _active:

@@ -5,6 +5,9 @@ extends Node
 var _shot_dir := "res://tools/shots/"
 var _failures: Array = []
 var battle
+## 演示录像模式（DEMO=1）：对话按正常节奏翻页、战斗动画不跳过、我方单位走过去而不是瞬移
+var _demo := false
+var _demo_t := 0.0
 
 
 func _ready() -> void:
@@ -30,6 +33,7 @@ func _run() -> void:
 	var only := OS.get_environment("CHAPTERS")
 	if only != "":
 		GameLocale.set_code("zh_CN")
+		_demo = OS.get_environment("DEMO") != ""
 		for part in only.split(","):
 			var idx := int(part)
 			_mark("单章试玩 第 %d 章" % idx)
@@ -1272,10 +1276,13 @@ func _autoplay(script: Script, max_turns: int, shot := "") -> Dictionary:
 	Campaign.reset()
 	load("res://scripts/battle.gd").queue_chapter(script)
 	await _new_battle()
-	await _skip_story()
+	if _demo:
+		await _demo_story()
+	else:
+		await _skip_story()
 	if shot != "":
 		_shot(shot)
-	Engine.time_scale = 6.0
+	Engine.time_scale = 1.0 if _demo else 6.0
 	var t := 0.0
 	var stuck := false
 	var last_turn := 0
@@ -1287,24 +1294,37 @@ func _autoplay(script: Script, max_turns: int, shot := "") -> Dictionary:
 				if v.is_alive() and v.is_player():
 					alive.append("%s:%d/%d Lv%d" % [v.unit_id, v.hp, v.max_hp, v.level])
 			print("[AUTOPLAY]   turn %d %s" % [battle.turn, str(alive)])
+		if _demo:
+			_demo_tips()
 		if battle.state == battle.S.STORY:
-			battle.dialogue.skip_all()
+			if _demo:
+				_demo_dialogue()
+			else:
+				battle.dialogue.skip_all()
 		if battle.state == battle.S.PREP and battle.prep != null:
 			battle.prep.done.emit()
-		if battle.combat_scene.active:
+		if battle.combat_scene.active and not _demo:
 			battle.combat_scene.skip()
 		if battle.state == battle.S.IDLE:
-			_auto_act()
+			if _demo:
+				await get_tree().create_timer(0.4).timeout
+				if battle.state == battle.S.IDLE:
+					await _auto_act()
+			else:
+				_auto_act()
 		await get_tree().create_timer(0.05, true, false, true).timeout
 		t += 0.05
-		if t > 90.0:
+		if t > (900.0 if _demo else 90.0):
 			stuck = true
 			break
 	# 结算剧情也要放完
 	var t2 := 0.0
-	while (battle.state == battle.S.OVER or battle.state == battle.S.STORY) and not battle.end_overlay.visible and t2 < 10.0:
+	while (battle.state == battle.S.OVER or battle.state == battle.S.STORY) and not battle.end_overlay.visible and t2 < (120.0 if _demo else 10.0):
 		if battle.dialogue.visible:
-			battle.dialogue.skip_all()
+			if _demo:
+				_demo_dialogue()
+			else:
+				battle.dialogue.skip_all()
 		await get_tree().create_timer(0.05).timeout
 		t2 += 0.05
 	Engine.time_scale = 1.0
@@ -1390,12 +1410,64 @@ func _auto_act() -> void:
 					best_tile = tile
 					best_target = e
 					best_wi = wi
+	if _demo and best_tile != home:
+		# 演示：像玩家一样先亮出移动范围，再一格一格走过去
+		u.grid_pos = home
+		battle.state = battle.S.COMBAT
+		battle.board.show_move(move, {})
+		await get_tree().create_timer(0.5).timeout
+		battle.board.clear_highlights()
+		await battle._animate_move(u, battle.board.find_path(u, best_tile, move))
 	u.grid_pos = best_tile
 	u.position = u.tile_center()
 	if best_target != null:
 		battle.do_combat(u, best_target, best_wi)
 	else:
 		battle._finish_action(u)
+
+
+## 演示：情境提示框显示 2.5 秒后自动点「知道了」
+var _demo_tip_t := 0.0
+
+
+func _demo_tips() -> void:
+	if battle.tutorial == null or not battle.tutorial.is_showing():
+		_demo_tip_t = 0.0
+		return
+	_demo_tip_t += 0.05
+	if _demo_tip_t >= 2.5:
+		_demo_tip_t = 0.0
+		battle.tutorial._on_ok()
+
+
+## 演示：一句打完后停 1.6 秒再翻页
+func _demo_dialogue() -> void:
+	if not battle.dialogue.visible or battle.dialogue.is_typing():
+		_demo_t = 0.0
+		return
+	_demo_t += 0.05
+	if _demo_t >= 1.6:
+		_demo_t = 0.0
+		battle.dialogue.advance()
+
+
+## 演示：开场的大陆地图、旁白、对话、整备都按正常节奏放
+func _demo_story() -> void:
+	var t := 0.0
+	var prep_t := 0.0
+	while (battle.state == battle.S.STORY or battle.state == battle.S.PREP) and t < 300.0:
+		if battle.tutorial != null and battle.tutorial.asking:
+			battle.tutorial.choose(false)
+		elif battle.state == battle.S.PREP and battle.prep != null:
+			prep_t += 0.05
+			if prep_t > 2.5:
+				battle.prep.done.emit()
+		else:
+			_demo_dialogue()
+		_demo_tips()
+		await get_tree().create_timer(0.05).timeout
+		t += 0.05
+	await _frames(2)
 
 
 ## 站在当前格时，下个敌方回合大约要挨多少伤害（能走到并打到它的敌人，按命中率折算）
