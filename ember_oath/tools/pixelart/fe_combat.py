@@ -294,6 +294,10 @@ def _draw_horse(cv, u, pose):
         limb(cv, k, f, 1.4, pal["q"], pal["q"], K, r_end=1.2)
         limb(cv, (f[0] - 1, f[1] + 1), (f[0] + 2, f[1] + 1), 1.4, pal["Z"], pal["Z"], K)
     stamp(cv, m["art"], pal, hx, hy)
+    # 天马：翅膀从马背上往后上方扬起（在骑手之下）
+    if "wings" in m:
+        wx, wy = m.get("wing_at", (0, -10))
+        stamp(cv, m["wings"], pal, hx + wx, hy + wy)
     for key in ("hind_f", "fore_f"):
         a = _add((hx, hy), m["attach"][key])
         k, f = pose[key]

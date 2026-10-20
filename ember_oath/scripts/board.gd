@@ -281,12 +281,23 @@ func unit_at(p: Vector2i) -> Unit:
 func passable(p: Vector2i, for_unit: Unit) -> bool:
 	if not in_bounds(p):
 		return false
-	if not terrain(p)["pass"]:
+	if for_unit != null and for_unit.is_flying():
+		if tile_at(p) in GameData.FLY_BLOCK:
+			return false
+	elif not terrain(p)["pass"]:
 		return false
 	var occ := unit_at(p)
 	if occ != null and occ != for_unit and occ.faction != for_unit.faction:
 		return false
 	return true
+
+
+## 单位站在 p 上吃到的地形加成（飞行单位吃不到）
+func terrain_bonus(u: Unit, p: Vector2i) -> Dictionary:
+	if u != null and u.is_flying():
+		return {"dfn": 0, "avo": 0}
+	var t: Dictionary = terrain(p)
+	return {"dfn": int(t["dfn"]), "avo": int(t["avo"])}
 
 
 ## BFS 移动范围: {格子: 到达后剩余移动力}，不含其他单位占据的格子
@@ -302,7 +313,7 @@ func move_range(u: Unit) -> Dictionary:
 			var np: Vector2i = cur + d
 			if not passable(np, u):
 				continue
-			var remain: int = left - _enter_cost(cur, np)
+			var remain: int = left - _enter_cost(cur, np, u)
 			if remain < 0:
 				continue
 			if result.has(np) and result[np] >= remain:
@@ -315,8 +326,10 @@ func move_range(u: Unit) -> Dictionary:
 	return result
 
 
-## 进入 np 的代价 = 地形消耗 + 爬升高度差 ×2（下坡不加价）
-func _enter_cost(from_p: Vector2i, np: Vector2i) -> int:
+## 进入 np 的代价 = 地形消耗 + 爬升高度差 ×2（下坡不加价）；飞行一律 1
+func _enter_cost(from_p: Vector2i, np: Vector2i, u: Unit = null) -> int:
+	if u != null and u.is_flying():
+		return 1
 	var climb: int = maxi(0, level_at(np) - level_at(from_p)) * 2
 	return terrain(np)["cost"] + climb
 
@@ -381,7 +394,7 @@ func find_path(u: Unit, dst: Vector2i, range_dict: Dictionary) -> Array:
 				continue
 			if not passable(np, u):
 				continue
-			var remain: int = cost_left[cur] - _enter_cost(cur, np)
+			var remain: int = cost_left[cur] - _enter_cost(cur, np, u)
 			if remain < 0:
 				continue
 			if cost_left.has(np) and cost_left[np] >= remain:

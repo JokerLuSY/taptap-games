@@ -29,6 +29,28 @@ const WEAPONS := {
 	"elfire": {"name": "炎枪", "type": "anima", "mt": 10, "hit": 85, "crit": 0, "rng": [1, 2], "rank": "C", "uses": 30, "wexp": 2, "magic": true},
 	"lightning": {"name": "圣光", "type": "light", "mt": 4, "hit": 95, "crit": 5, "rng": [1, 2], "rank": "E", "uses": 35, "wexp": 1, "magic": true},
 	"flux": {"name": "暗影", "type": "dark", "mt": 7, "hit": 80, "crit": 0, "rng": [1, 2], "rank": "D", "uses": 45, "wexp": 1, "magic": true},
+	# ---- 第二篇起 ----
+	"silver_sword": {"name": "银剑", "type": "sword", "mt": 13, "hit": 80, "crit": 0, "rng": [1], "rank": "A", "uses": 20, "wexp": 1},
+	"killing_edge": {"name": "暗杀剑", "type": "sword", "mt": 9, "hit": 75, "crit": 30, "rng": [1], "rank": "C", "uses": 20, "wexp": 1},
+	"armorslayer": {"name": "斩甲剑", "type": "sword", "mt": 8, "hit": 80, "crit": 0, "rng": [1], "rank": "D", "uses": 18, "wexp": 1, "slay": "armor"},
+	"horseslayer": {"name": "斩马枪", "type": "lance", "mt": 7, "hit": 70, "crit": 0, "rng": [1], "rank": "D", "uses": 16, "wexp": 1, "slay": "mounted"},
+	"killer_lance": {"name": "必杀枪", "type": "lance", "mt": 10, "hit": 70, "crit": 30, "rng": [1], "rank": "C", "uses": 20, "wexp": 1},
+	"steel_axe": {"name": "钢斧", "type": "axe", "mt": 11, "hit": 65, "crit": 0, "rng": [1], "rank": "D", "uses": 30, "wexp": 1},
+	"killer_axe": {"name": "必杀斧", "type": "axe", "mt": 11, "hit": 65, "crit": 30, "rng": [1], "rank": "C", "uses": 20, "wexp": 1},
+	"silver_axe": {"name": "银斧", "type": "axe", "mt": 15, "hit": 70, "crit": 0, "rng": [1], "rank": "A", "uses": 20, "wexp": 1},
+	"tomahawk": {"name": "回旋斧", "type": "axe", "mt": 13, "hit": 65, "crit": 0, "rng": [1, 2], "rank": "A", "uses": 15, "wexp": 1},
+	"silver_bow": {"name": "银弓", "type": "bow", "mt": 13, "hit": 75, "crit": 0, "rng": [2], "rank": "A", "uses": 20, "wexp": 1},
+	"longbow": {"name": "长弓", "type": "bow", "mt": 5, "hit": 65, "crit": 0, "rng": [2, 3], "rank": "C", "uses": 20, "wexp": 1},
+	"killer_bow": {"name": "必杀弓", "type": "bow", "mt": 9, "hit": 75, "crit": 30, "rng": [2], "rank": "C", "uses": 20, "wexp": 1},
+	"bolganone": {"name": "爆炎", "type": "anima", "mt": 14, "hit": 75, "crit": 0, "rng": [1, 2], "rank": "B", "uses": 20, "wexp": 3, "magic": true},
+	"shine": {"name": "闪光", "type": "light", "mt": 6, "hit": 90, "crit": 8, "rng": [1, 2], "rank": "D", "uses": 30, "wexp": 1, "magic": true},
+	"divine": {"name": "神圣", "type": "light", "mt": 10, "hit": 85, "crit": 10, "rng": [1, 2], "rank": "B", "uses": 25, "wexp": 2, "magic": true},
+	"nosferatu": {"name": "吸血", "type": "dark", "mt": 10, "hit": 70, "crit": 0, "rng": [1, 2], "rank": "C", "uses": 20, "wexp": 2, "magic": true},
+	"fenrir": {"name": "芬里尔", "type": "dark", "mt": 15, "hit": 70, "crit": 0, "rng": [1, 2], "rank": "A", "uses": 20, "wexp": 3, "magic": true},
+	# 灰烬傀儡的武器：灰烬凝成的爪刃（不会坏，敌方专属）
+	"ash_claw": {"name": "灰烬之爪", "type": "sword", "mt": 9, "hit": 85, "crit": 10, "rng": [1], "rank": "C", "uses": -1, "wexp": 1},
+	# 加雷斯的家传战斧
+	"wolf_axe": {"name": "苍狼战斧", "type": "axe", "mt": 12, "hit": 75, "crit": 5, "rng": [1], "rank": "prf", "prf": ["gareth"], "uses": -1, "wexp": 2},
 }
 
 ## 物理三角：剑克斧, 斧克枪, 枪克剑；魔法三角：理克光, 光克暗, 暗克理
@@ -93,6 +115,11 @@ const CLASSES := {
 	"圣焰审判官": {"ranks": {"lance": "A", "sword": "C"}, "con": 11, "mounted": true},
 	"追捕队长": {"ranks": {"lance": "B", "sword": "C"}, "con": 11, "mounted": true},
 	"探子": {"ranks": {"sword": "D"}, "con": 6},
+	# ---- 第二篇 ----
+	"修士": {"ranks": {"staff": "D"}, "promote": "司祭", "item": "sage_crest", "con": 7,
+		"bonus": {"hp": 3, "pwr": 1, "skl": 2, "spd": 1, "dfn": 2, "res": 2, "mov": 1}, "magic": true},
+	"王子": {"ranks": {"axe": "C"}, "con": 13},
+	"灰烬傀儡": {"ranks": {"sword": "B"}, "con": 10},
 }
 
 const TERRAIN := {
@@ -130,6 +157,8 @@ const TERRAIN := {
 	# 商店：站上去买卖（章节 shops() 给货架）
 	"V": {"name": "道具店", "pass": true, "cost": 1, "dfn": 0, "avo": 10},
 	"Y": {"name": "武器店", "pass": true, "cost": 1, "dfn": 0, "avo": 10},
+	# 牢门 / 铁门：关着走不过去。盗贼（或带钥匙的人）站在旁边【开门】，开了变石地
+	"O": {"name": "牢门", "pass": false, "cost": 99, "dfn": 0, "avo": 0},
 }
 
 ## 道具：heal 回复量 / promote 转职道具（对应职业表里的 item）/ uses 使用次数 / price 商店价格
@@ -139,10 +168,26 @@ const ITEMS := {
 	"hero_crest": {"name": "勇者之证", "promote": true, "desc": "物理系 Lv10 以上可转职", "uses": 1, "price": 10000},
 	"sage_crest": {"name": "贤者之证", "promote": true, "desc": "魔法系 Lv10 以上可转职", "uses": 1, "price": 10000},
 	"overlord_crest": {"name": "霸王之证", "promote": true, "desc": "盗贼、天马系 Lv10 以上可转职", "uses": 1, "price": 10000},
+	"door_key": {"name": "钥匙", "key": true, "desc": "打开相邻的一扇牢门", "uses": 1, "price": 500},
+	"pure_water": {"name": "圣水", "desc": "（剧情道具）", "uses": 1, "price": 900},
 }
 
 ## 武器价格（商店）：每次耐久的单价 × 耐久，专属武器不卖
 const WEAPON_PRICE := {"E": 10, "D": 18, "C": 30, "B": 45, "A": 60, "S": 80}
+
+
+## 上级职业（含剧情转职的炎刃使）：离队回归补等级时按 +20 级算
+const PROMOTED := ["剑圣", "勇者", "勇士", "狂战士", "枪斗士", "圣骑士", "将军", "狙击手", "隼骑士", "刺客", "司祭", "贤者", "德鲁伊", "炎刃使"]
+## 飞行单位飞不过去的地形（其余地形一律消耗 1、不吃地形加成）
+const FLY_BLOCK := ["#", "E"]
+
+
+static func is_promoted(cls: String) -> bool:
+	return cls in PROMOTED
+
+
+static func is_flying(cls: String) -> bool:
+	return bool(class_data(cls).get("flying", false))
 
 
 ## 攻击方武器类型对防守方的克制: 1 = 克制, -1 = 被克, 0 = 无关系

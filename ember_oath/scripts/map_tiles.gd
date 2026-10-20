@@ -172,12 +172,12 @@ func _same(p: Vector2i, group: String) -> bool:
 func _draw_floor(p: Vector2i) -> void:
 	var t := board.tile_at(p)
 	var o := Vector2(p) * TILE
-	if "SGKI".contains(t):
+	if "SGKIO".contains(t):
 		_blit("TilesetInteriorFloor", STONE_FLOOR, Rect2(o, Vector2(TILE, TILE)))
 		# 跟非石地相邻的一侧压一道暗边，石地块的轮廓清楚些
 		for d in [Vector2i.UP, Vector2i.DOWN, Vector2i.LEFT, Vector2i.RIGHT]:
 			var q: Vector2i = p + d
-			if board.in_bounds(q) and not "SGKI#".contains(board.tile_at(q)):
+			if board.in_bounds(q) and not "SGKIO#".contains(board.tile_at(q)):
 				var r := Rect2(o + Vector2(maxf(0, d.x) * (TILE - 4), maxf(0, d.y) * (TILE - 4)), Vector2(4 if d.x != 0 else TILE, 4 if d.y != 0 else TILE))
 				draw_rect(r, Color(0.12, 0.14, 0.12, 0.45))
 	elif t == "#":
@@ -201,6 +201,19 @@ func _gate(p: Vector2i) -> void:
 	draw_rect(Rect2(o + Vector2(12, -10), Vector2(40, 10)), Color(0.16, 0.18, 0.16), false, 2.0)
 	for i in 5:
 		draw_line(o + Vector2(16 + i * 8, 0), o + Vector2(16 + i * 8, 8), Color(0.2, 0.2, 0.22), 2.0)
+
+
+## 牢门：铁箍木门 + 门闩
+func _door(p: Vector2i) -> void:
+	var o := Vector2(p) * TILE
+	var r := Rect2(o + Vector2(6, -6), Vector2(52, 66))
+	draw_rect(r, Color(0.42, 0.28, 0.16))
+	for i in 4:
+		draw_line(o + Vector2(6 + i * 13, -6), o + Vector2(6 + i * 13, 60), Color(0.28, 0.18, 0.1), 2.0)
+	for y in [6.0, 40.0]:
+		draw_rect(Rect2(o + Vector2(6, y), Vector2(52, 6)), Color(0.36, 0.38, 0.42))
+	draw_rect(r, Color(0.12, 0.1, 0.08), false, 2.0)
+	draw_circle(o + Vector2(46, 26), 4.0, Color(0.85, 0.7, 0.3))
 
 
 func _throne(p: Vector2i) -> void:
@@ -288,6 +301,8 @@ func _draw_object(p: Vector2i) -> void:
 			_shop(p, t == "Y")
 		"G":
 			_gate(p)
+		"O":
+			_door(p)
 		"K":
 			_throne(p)
 		"I":

@@ -164,9 +164,9 @@ def preview(path, team="blue"):
 if __name__ == "__main__":
     out_dir = sys.argv[1]
     os.makedirs(out_dir, exist_ok=True)
-    from fe_art_ch6 import GREEN
+    # 每个小人都出蓝 / 红 / 绿三张：第二篇有很多「先是中立、对话后入队」的人（囚犯、援军、流浪剑客）
     for unit in ART:
-        for team in ("blue", "red") + (("green",) if unit in GREEN else ()):
+        for team in ("blue", "red", "green"):
             sheet(unit, team).save(os.path.join(out_dir, f"{unit}_{team}.png"))
     if len(sys.argv) > 2:
         preview(sys.argv[2])

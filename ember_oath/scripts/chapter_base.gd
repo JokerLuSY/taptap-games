@@ -95,6 +95,11 @@ func goal_tiles() -> Array:
 	return []
 
 
+## 目标格在地形窗里的说明（撤离点 / 祭坛 / 王座……）
+func goal_label() -> String:
+	return "撤离点"
+
+
 ## 胜利判定。默认：敌人全灭。
 func is_won() -> bool:
 	for u in battle.units:
@@ -168,6 +173,12 @@ func on_after_combat(_att, _def, _def_died: bool) -> void:
 
 func on_visit(_u, pos: Vector2i) -> void:
 	visited[pos] = true
+	if false:
+		await battle.play_dialogue([])
+
+
+## 打开了一扇牢门（battle.open_door 之后）
+func on_door(_u, _pos: Vector2i) -> void:
 	if false:
 		await battle.play_dialogue([])
 
@@ -268,10 +279,13 @@ func on_recruit(u) -> void:
 		return
 	await battle.play_dialogue(recruit_lines(t.unit_id, u.unit_id))
 	t.faction = "player"
+	var back := Campaign.status_of(t.unit_id) == "away"
+	if back:
+		Campaign.set_status(t.unit_id, "active")
 	t.stationary = false
 	t.has_acted = true
 	t.queue_redraw()
-	battle.notify(tr("%s 成为同伴了！") % tr(t.display_name))
+	battle.notify((tr("%s 回到了队伍！") if back else tr("%s 成为同伴了！")) % tr(t.display_name))
 	battle._update_hover_info()
 	await on_recruited(t, u)
 

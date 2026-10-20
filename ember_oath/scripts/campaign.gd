@@ -2,7 +2,8 @@ class_name Campaign
 ## 跨章节的战役进度：当前章节、我方队伍名单、金钱、战役旗标。
 ##
 ## 队伍名单 roster = {unit_id: 单位存档字典 + "status"}，status 为
-##   active 在队 / away 暂时离队（剧情）/ dead 阵亡（永久死亡）。
+##   active 在队 / away 暂时离队（剧情）/ retired 重伤撤退、转到幕后（剧情里还活着，不能再出击，见 Fates）/
+##   dead 阵亡（永久死亡）。
 ## 每章开场按名单生成我方单位；章节胜利时把存活的我方单位写回名单。
 ## starts 记下每章开场时的快照，供「重开本关」和标题的章节选择回到那一章开头。
 
@@ -14,6 +15,21 @@ const CHAPTERS := [
 	"res://scripts/chapter5.gd",
 	"res://scripts/chapter6.gd",
 	"res://scripts/chapter7.gd",
+	"res://scripts/chapter8.gd",
+	"res://scripts/chapter9.gd",
+	"res://scripts/chapter10.gd",
+	"res://scripts/chapter11.gd",
+	"res://scripts/chapter12.gd",
+	"res://scripts/chapter13.gd",
+	"res://scripts/chapter14.gd",
+	"res://scripts/chapter15.gd",
+	"res://scripts/chapter16.gd",
+	"res://scripts/chapter17.gd",
+	"res://scripts/chapter18.gd",
+	"res://scripts/chapter19.gd",
+	"res://scripts/chapter20.gd",
+	"res://scripts/chapter21.gd",
+	"res://scripts/chapter22.gd",
 ]
 
 static var chapter_index := 0
@@ -78,6 +94,78 @@ static func active_ids() -> Array:
 	return out
 
 
+## 剧情里还活着（在队 / 暂离 / 转幕后）：台词里可以出现这个人
+static func alive_in_story(id: String) -> bool:
+	return status_of(id) in ["active", "away", "retired"]
+
+
+## 能回队：剧情离队中（转幕后、阵亡的都回不来）
+static func can_rejoin(id: String) -> bool:
+	return status_of(id) == "away"
+
+
+## 离队的人回队。离队期间不长经验；回队时若低于在队成员平均等级 − 2（上级职业按 +20 级算），
+## 按成长率补到那一级。返回补了几级。
+static func rejoin(id: String) -> int:
+	if not roster.has(id):
+		return 0
+	var n := catch_up(id)
+	roster[id]["status"] = "active"
+	return n
+
+
+## 只补等级、不改状态（中立出场、等被救的离队同伴先补好）
+static func catch_up(id: String) -> int:
+	if not roster.has(id):
+		return 0
+	var others: Array = active_ids()
+	others.erase(id)
+	if others.is_empty():
+		return 0
+	var total := 0
+	for o in others:
+		total += effective_level(roster[o])
+	var target := int(floor(float(total) / others.size())) - 2
+	var d: Dictionary = roster[id]
+	var n := 0
+	while effective_level(d) < target and int(d.get("level", 1)) < 20:
+		_level_up_data(d)
+		n += 1
+	return n
+
+
+## 剧情需要：把名单里某人至少补到 lv 级（例如第 8 章艾德里克离开第 3 章后自己也在成长）
+static func raise_to(id: String, lv: int) -> int:
+	if not roster.has(id):
+		return 0
+	var d: Dictionary = roster[id]
+	var n := 0
+	while int(d.get("level", 1)) < mini(lv, 20):
+		_level_up_data(d)
+		n += 1
+	return n
+
+
+## 实际强度用的等级：上级职业 +20
+static func effective_level(d: Dictionary) -> int:
+	return int(d.get("level", 1)) + (20 if GameData.is_promoted(str(d.get("class", ""))) else 0)
+
+
+## 存档字典直接升一级（按成长率）
+static func _level_up_data(d: Dictionary) -> void:
+	d["level"] = int(d.get("level", 1)) + 1
+	d["xp"] = 0
+	var g = d.get("growths", {})
+	if g is Dictionary:
+		for k in g:
+			if randf() * 100.0 < float(g[k]):
+				if k == "hp":
+					d["max_hp"] = int(d.get("max_hp", 20)) + 1
+				else:
+					d[k] = int(d.get(k, 0)) + 1
+	d["hp"] = int(d.get("max_hp", 20))
+
+
 ## 章节胜利：存活的我方写回名单（满血、未行动），阵亡的标记 dead
 static func store_party(units: Array) -> void:
 	for u in units:
@@ -86,7 +174,7 @@ static func store_party(units: Array) -> void:
 		var data: Dictionary = u.to_save()
 		var keep := str(roster.get(u.unit_id, {}).get("status", "active"))
 		if not u.is_alive():
-			data["status"] = "dead"
+			data["status"] = "retired" if u.get_meta("retreated", false) else "dead"
 		else:
 			data["hp"] = data["max_hp"]
 			data["has_acted"] = false

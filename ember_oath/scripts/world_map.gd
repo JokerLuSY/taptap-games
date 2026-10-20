@@ -17,10 +17,27 @@ const PLACES := {
 	"whitewall": {"name": "白垣镇", "pos": Vector2(660, 430), "icon": "town"},
 	"capital": {"name": "王都", "pos": Vector2(836, 446), "icon": "castle"},
 	"holy": {"name": "圣都", "pos": Vector2(960, 214), "icon": "holy"},
+	# ---- 第二篇 ----
+	"marsh": {"name": "雾沼村", "pos": Vector2(430, 250), "icon": "village"},
+	"lab": {"name": "废弃研究所", "pos": Vector2(600, 222), "icon": "fort"},
+	"riverford": {"name": "白鹭渡", "pos": Vector2(720, 318), "icon": "ferry"},
+	"harbor": {"name": "银湾港", "pos": Vector2(1010, 432), "icon": "town"},
+	"valley": {"name": "风鸣峡谷", "pos": Vector2(1060, 360), "icon": "fort"},
+	"brodden_pass": {"name": "布罗登关", "pos": Vector2(1110, 300), "icon": "fort"},
+	"prison": {"name": "黑石地牢", "pos": Vector2(880, 182), "icon": "fort"},
+	"plains": {"name": "王都平原", "pos": Vector2(760, 384), "icon": "fort"},
+	"camp": {"name": "黑烬营地", "pos": Vector2(560, 470), "icon": "fort"},
+	"monastery": {"name": "废修道院", "pos": Vector2(650, 556), "icon": "holy"},
+	"peak": {"name": "天马峰", "pos": Vector2(866, 146), "icon": "fort"},
+	"brodden": {"name": "布罗登王城", "pos": Vector2(1176, 262), "icon": "castle"},
+	"temple": {"name": "圣焰神殿", "pos": Vector2(1040, 196), "icon": "holy"},
 }
 ## 大陆上画出来的路（地点之间的虚线）
 const ROADS := [["grayrock", "fenn"], ["grayrock", "fortress"], ["grayrock", "ferry"], ["ferry", "inn"], ["inn", "whitewall"],
-	["whitewall", "capital"], ["capital", "holy"], ["fenn", "holy"]]
+	["whitewall", "capital"], ["capital", "holy"], ["fenn", "holy"],
+	["fenn", "marsh"], ["marsh", "lab"], ["lab", "riverford"], ["riverford", "harbor"], ["harbor", "holy"], ["holy", "brodden_pass"],
+	["brodden_pass", "valley"], ["valley", "prison"], ["prison", "holy"], ["capital", "plains"], ["plains", "camp"], ["camp", "monastery"],
+	["plains", "peak"], ["brodden_pass", "brodden"], ["holy", "temple"]]
 
 static var _tex: ImageTexture = null
 

@@ -82,8 +82,31 @@ const SPRITE_BY_ID := {
 	"sparrow": "sparrow",
 	"august": "barrett",
 	"lorenz": "knight",
+	# ---- 第二篇 ----
+	"lance": "knight",
+	"gwen": "knight",
+	"oscar": "barrett",
+	"mira": "church",
+	"victor": "mage",
+	"bruno": "bandit",
+	"selene": "pegasus",
+	"gareth": "gareth",
+	"hagen": "harlo",
+	"liss": "archer",
+	"shuo": "scout",
+	"gerard": "knight",
+	"ivy": "mage",
+	"ivan": "church",
+	"vera": "hawk",
+	"gray": "merc",
+	"talia": "noya",
+	"benedict": "mage",
+	"kira": "pegasus",
+	"rock": "barrett",
+	"edmund": "knight",
+	"seven": "puppet",
 }
-const SPRITE_BY_PREFIX := [["mage", "mage"], ["bandit", "bandit"], ["archer", "archer"], ["church", "church"], ["knight", "knight"], ["merc", "merc"]]
+const SPRITE_BY_PREFIX := [["mage", "mage"], ["bandit", "bandit"], ["archer", "archer"], ["church", "church"], ["knight", "knight"], ["merc", "merc"], ["soldier", "church"], ["armor", "barrett"], ["pegasus", "pegasus"], ["puppet", "puppet"], ["pirate", "bandit"], ["darkmage", "mage"], ["graycloak", "scout"], ["cleric", "noya"], ["sniper", "archer"], ["paladin", "knight"], ["general", "barrett"], ["sage", "mage"], ["brodden", "merc"], ["thief", "sparrow"], ["fighter", "harlo"], ["myrm", "scout"]]
 const SPRITE_PX := 4.0
 const SPRITE_FOOT := 30.0       # 脚底离格子中心的距离（格子半高 32，留 2px）
 const WALK_FPS := 10.0
@@ -257,6 +280,10 @@ func is_player() -> bool:
 
 
 ## 中立（绿色）：不归任何一方行动，谁也打不了它，只能对话招募
+func is_flying() -> bool:
+	return GameData.is_flying(class_label)
+
+
 func is_npc() -> bool:
 	return faction == "npc"
 
@@ -629,6 +656,8 @@ func to_save() -> Dictionary:
 		"skin": skin_color.to_html(false),
 		"scar": scar,
 		"alive": is_alive(),
+		"retreated": bool(get_meta("retreated", false)),
+		"sprite": sprite_sheet,
 	}
 
 
@@ -668,6 +697,8 @@ func apply_save(data: Dictionary) -> void:
 	}
 	if growths_in is Dictionary and not (growths_in as Dictionary).is_empty():
 		def["growths"] = growths_in
+	if str(data.get("sprite", "")) != "":
+		def["sprite"] = str(data["sprite"])
 	if data.has("res"):
 		def["res"] = int(data["res"])
 	if data.has("con"):
@@ -678,6 +709,8 @@ func apply_save(data: Dictionary) -> void:
 	has_acted = bool(data.get("has_acted", false))
 	var sw = data.get("support_with", {})
 	support_with = sw.duplicate() if sw is Dictionary else {}
+	if bool(data.get("retreated", false)):
+		set_meta("retreated", true)
 	if not bool(data.get("alive", hp > 0)):
 		hp = 0
 		visible = false

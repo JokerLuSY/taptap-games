@@ -15,7 +15,7 @@ func _ready() -> void:
 ## 看门狗：任何脚本错误导致 _run 中断时也能退出，避免挂死
 func _watchdog() -> void:
 	# 不受 Engine.time_scale 影响（自动试玩会加速）
-	await get_tree().create_timer(300.0, true, false, true).timeout
+	await get_tree().create_timer(1800.0, true, false, true).timeout
 	print("WATCHDOG: 超时强制退出")
 	print("SMOKE TEST: TIMEOUT, %d FAILURES" % _failures.size())
 	for f_ in _failures:
@@ -26,6 +26,22 @@ func _watchdog() -> void:
 func _run() -> void:
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(_shot_dir))
 	CampaignSave.clear()
+	# 只试玩指定章节：CHAPTERS=8,9 godot --path . res://tools/smoke_runner.tscn（开发新章节时用）
+	var only := OS.get_environment("CHAPTERS")
+	if only != "":
+		GameLocale.set_code("zh_CN")
+		for part in only.split(","):
+			var idx := int(part)
+			_mark("单章试玩 第 %d 章" % idx)
+			var res: Dictionary = await _autoplay(load("res://scripts/chapter%d.gd" % idx), int(OS.get_environment("TURNS")) if OS.get_environment("TURNS") != "" else 5, "ch%d_start.png" % idx)
+			print("[AUTOPLAY] ch%d %s" % [idx, str(res)])
+			_check(not res["stuck"], "第 %d 章自动试玩卡住了: %s" % [idx, str(res)])
+		print("========================================")
+		print("SMOKE TEST: ALL PASS" if _failures.is_empty() else "SMOKE TEST: %d FAILURES" % _failures.size())
+		for f_ in _failures:
+			print("  FAIL: " + f_)
+		get_tree().quit()
+		return
 	_check_infra()
 	await _check_title_and_narration()
 	await _check_en_topbar()
@@ -599,6 +615,7 @@ func _run() -> void:
 
 	await _check_tutorial()
 	await _check_campaign_chapters()
+	await _check_part2_systems()
 	await _check_wide_screen()
 	await _check_autoplay()
 
@@ -993,8 +1010,8 @@ func _check_campaign_chapters() -> void:
 	battle._finish_action(tia)
 	ok = await _wait_cond(func() -> bool: return battle.end_overlay.visible, 20.0)
 	_check(ok and "第一篇" in battle.end_title.text, "缇娅冲出南门应结束第一篇，标题 " + battle.end_title.text)
-	_check(not battle.end_next.visible and "后续章节制作中" in battle.end_sub.text, "第七章是目前最后一章")
-	_check(Campaign.is_finished() and CampaignSave.is_cleared(), "打完第七章应标为已通关")
+	_check(battle.end_next.visible and not "后续章节制作中" in battle.end_sub.text, "第一篇打完应能进入第二篇")
+	_check(not Campaign.is_finished() and Campaign.chapter_index == 7, "打完第七章应推进到第八章")
 	_check(Campaign.status_of("tia") == "away" and Campaign.status_of("sparrow") == "away" and Campaign.status_of("cyril") == "away", "篇末同伴应全部离队（被擒 / 四散）")
 	_check(Campaign.flags.get("arc1_captured", []) == ["tia", "noya"], "被擒的应是缇娅与诺雅，实际 %s" % str(Campaign.flags.get("arc1_captured", [])))
 	await _frames(4)
@@ -1004,20 +1021,143 @@ func _check_campaign_chapters() -> void:
 	var title = load("res://scenes/title.tscn").instantiate()
 	add_child(title)
 	await _frames(2)
-	_check(not (title.get_node("ContinueButton") as Button).visible, "通关后不应再显示继续游戏")
+	_check((title.get_node("ContinueButton") as Button).visible, "第一篇打完、第二篇没打，应显示继续游戏")
 	var sel := title.get_node("ChapterSelectButton") as Button
 	_check(sel.visible, "打到过第二章后应显示章节选择")
-	_check(title._reached_chapters() == [0, 1, 2, 3, 4, 5, 6], "章节选择应列出第 1–7 章，实际 %s" % str(title._reached_chapters()))
+	_check(title._reached_chapters() == [0, 1, 2, 3, 4, 5, 6, 7], "章节选择应列出第 1–8 章，实际 %s" % str(title._reached_chapters()))
 	title.queue_free()
 	await _frames(2)
+	await _check_part2_entry()
 	_check(Campaign.restore_start(2) and Campaign.chapter_index == 2 and not Campaign.has_member("nina"), "回到第三章开场时名单里还没有妮娜")
 	CampaignSave.clear()
 	Campaign.reset()
 	load("res://scripts/battle.gd").queue_chapter(null)
 
 
-## 自动试玩：我方也交给 EnemyAI 操作，把第 2–5 章各打几个回合。
-## 只验证流程（敌方回合、治疗、增援、撤离 / 守关判定）不卡死、不报错；胜负结果打印出来供调难度参考。
+## 第二篇开头：第七章的名单接进第八章（艾德里克补等级、家臣入队、缇娅不在），再跳到第十一章劫囚车让缇娅回队
+func _check_part2_entry() -> void:
+	_mark("第二篇：第八章接续、第十一章缇娅回队")
+	var keep := Campaign.to_dict()
+	load("res://scripts/battle.gd").queue_chapter(null)
+	await _new_battle()
+	await _skip_story()
+	_check(battle.chapter.chapter_id() == "ch8", "第七章之后应进第八章，实际 " + battle.chapter.chapter_id())
+	var ed = battle.get_unit("edric")
+	_check(ed != null and ed.is_player() and ed.level >= 7, "艾德里克应从名单出场并补到 Lv7")
+	_check(battle.get_unit("tia") == null and battle.get_unit("kain") == null, "第八章第一篇的同伴都不在")
+	for id in ["lance", "gwen", "oscar"]:
+		var u = battle.get_unit(id)
+		_check(u != null and u.is_player(), "%s 第八章开场应在队" % id)
+	_shot("19_chapter8_start.png")
+	# 第十一章：名单里缇娅还是离队状态，打开囚车让她回来
+	Campaign.chapter_index = 10
+	Campaign.snapshot_start()
+	load("res://scripts/battle.gd").queue_chapter(null)
+	await _new_battle()
+	await _skip_story()
+	_check(battle.chapter.chapter_id() == "ch11", "应进入第十一章")
+	var cage = battle.get_unit("cage")
+	var ed2 = battle.get_unit("edric")
+	_check(cage != null and cage.is_npc() and battle.get_unit("tia") == null, "第十一章开场缇娅还关在囚车里")
+	for d in [Vector2i.DOWN, Vector2i.UP, Vector2i.LEFT, Vector2i.RIGHT]:
+		var q: Vector2i = cage.grid_pos + d
+		if battle.board.passable(q, ed2) and (battle.board.unit_at(q) == null or battle.board.unit_at(q) == ed2):
+			ed2.grid_pos = q
+			break
+	ed2.position = ed2.tile_center()
+	_check(battle.chapter.get_recruit_target(ed2) == cage, "艾德里克走到囚车旁应能打开它")
+	battle.selected = ed2
+	battle._on_menu_recruit()
+	await _wait_cond(func() -> bool: return battle.get_unit("tia") != null and battle.state != battle.S.STORY, 15.0)
+	var t11 = battle.get_unit("tia")
+	_check(t11 != null and t11.is_player() and Campaign.status_of("tia") == "active", "打开囚车后缇娅应回队")
+	_check("tia" in battle.chapter.lose_ids(), "缇娅回队后倒下也算败北")
+	_shot("20_chapter11_reunion.png")
+	Campaign.from_dict(keep)
+	load("res://scripts/battle.gd").queue_chapter(null)
+
+
+## 第二篇用到的系统：偷窃、开门、飞行、撤退 / 阵亡、离队回归补等级
+func _check_part2_systems() -> void:
+	_mark("第二篇系统：偷窃 / 开门 / 飞行 / 撤退 / 回归")
+	CampaignSave.clear()
+	Campaign.reset()
+	load("res://scripts/battle.gd").queue_chapter(load("res://scripts/chapter7.gd"))
+	await _new_battle()
+	await _skip_story()
+	var sp = battle.get_unit("sparrow")
+	var foe = battle.get_unit("church5")
+	_check(sp != null and foe != null, "第七章应有小雀和带伤药的教会兵")
+	sp.faction = "player"
+	sp.grid_pos = foe.grid_pos + Vector2i(-1, 0)
+	if battle.board.unit_at(sp.grid_pos) != null and battle.board.unit_at(sp.grid_pos) != sp:
+		sp.grid_pos = foe.grid_pos + Vector2i(1, 0)
+	sp.position = sp.tile_center()
+	_check(foe in battle.steal_targets(sp), "小雀速度够、相邻，应能偷带道具的敌人")
+	var got: String = battle.steal(sp, foe)
+	_check(got == "vulnerary" and "vulnerary" in sp.items and foe.items.is_empty(), "偷窃后道具应转到小雀身上，实际 %s" % got)
+	_check(not foe in battle.steal_targets(sp), "敌人身上空了就不能再偷")
+	foe.items.append("elixir")
+	foe.item_uses.append(3)
+	foe.spd = sp.spd + 1
+	_check(not foe in battle.steal_targets(sp), "对方比小雀快就偷不了")
+	# 开门
+	var door: Vector2i = sp.grid_pos + Vector2i(0, -1)
+	if battle.board.unit_at(door) != null:
+		door = sp.grid_pos + Vector2i(0, 1)
+	battle.board.set_tile(door, "O")
+	_check(not battle.board.passable(door, sp), "牢门关着不能通过")
+	_check(door in battle.door_tiles(sp), "盗贼站在牢门旁应能开门")
+	var tia = battle.get_unit("tia")
+	_check(battle.door_tiles(tia).is_empty() or tia.grid_pos.distance_to(door) > 1.0, "没钥匙的缇娅不能开门")
+	await battle.open_door(sp, door)
+	_check(battle.board.tile_at(door) == "S" and battle.board.passable(door, sp), "开门后应变成石地")
+	_check([door.x, door.y] in battle.chapter.flags.get("doors_opened", []), "开过的门应记进章节旗标（读档补回）")
+	# 飞行：天马骑士越过河流，每格 1；弓对天马 ×3
+	var peg: Unit = battle.spawn_units([{"id": "pegasus_t", "name": "天马骑士", "class": "天马骑士", "faction": "enemy", "level": 5,
+		"hp": 20, "pwr": 6, "skl": 7, "spd": 10, "dfn": 4, "res": 6, "mov": 7, "weapons": ["iron_lance"], "pos": Vector2i(5, 11)}])[0]
+	var rng: Dictionary = battle.board.move_range(peg)
+	var over_water := false
+	for p in rng:
+		if battle.board.tile_at(p) == "~":
+			over_water = true
+	_check(peg.is_flying() and over_water, "天马骑士应能飞到河面上")
+	_check(Combat.effective_mt(GameData.WEAPONS["iron_bow"], peg) == 18, "弓对飞行单位威力应 ×3")
+	_check(battle.board.terrain_bonus(peg, Vector2i(4, 13))["avo"] == 0, "飞行单位不吃地形回避")
+	# 撤退 / 阵亡：第七章里凯因（主线戏份到第 18 章）重伤撤退，妮娜阵亡
+	var kain = battle.get_unit("kain")
+	var nina = battle.get_unit("nina")
+	_check(battle.chapter_number() == 7, "第七章的章节序号应为 7")
+	kain.take_damage(999)
+	nina.take_damage(999)
+	for v in [kain, nina]:
+		battle._fallen_words(v)
+		await _frames(2)
+		await _wait_cond(func() -> bool: return not battle.dialogue.visible, 5.0)
+	_check(kain.get_meta("retreated", false) and not nina.get_meta("retreated", false), "凯因应撤退、妮娜应阵亡")
+	Campaign.store_party(battle.units)
+	_check(Campaign.status_of("kain") == "retired" and Campaign.status_of("nina") == "dead", "名单：凯因 retired、妮娜 dead，实际 %s / %s" % [Campaign.status_of("kain"), Campaign.status_of("nina")])
+	_check(Campaign.alive_in_story("kain") and not Campaign.alive_in_story("nina"), "转幕后的人剧情里还在，阵亡的不在")
+	_check(not Campaign.can_rejoin("kain"), "转幕后的人不能回队出击")
+	var saved: Dictionary = kain.to_save()
+	_check(bool(saved.get("retreated", false)), "撤退标记应写进存档")
+	# 回归补等级：在队两人 Lv15，离队的人 Lv5 → 补到 Lv13（平均 − 2）
+	Campaign.roster = {
+		"a": {"id": "a", "class": "剑士", "level": 15, "status": "active", "max_hp": 30},
+		"b": {"id": "b", "class": "剑士", "level": 15, "status": "active", "max_hp": 30},
+		"c": {"id": "c", "class": "剑士", "level": 5, "status": "away", "max_hp": 20, "pwr": 5,
+			"growths": {"hp": 100, "pwr": 100, "skl": 0, "spd": 0, "dfn": 0}},
+	}
+	var n := Campaign.rejoin("c")
+	_check(n == 8 and int(Campaign.roster["c"]["level"]) == 13, "回归应补 8 级到 Lv13，实际 +%d" % n)
+	_check(int(Campaign.roster["c"]["max_hp"]) == 28 and int(Campaign.roster["c"]["pwr"]) == 13, "补等级按成长率加能力")
+	_check(Campaign.status_of("c") == "active", "回归后状态应为 active")
+	Campaign.roster["d"] = {"id": "d", "class": "剑士", "level": 18, "status": "away", "max_hp": 30}
+	Campaign.roster["a"]["class"] = "剑圣"
+	_check(Campaign.effective_level(Campaign.roster["a"]) == 35, "上级职业按 +20 级算")
+	Campaign.reset()
+
+
 ## 宽屏手机（比 16:9 宽，例如 20:9）：地图、信息窗铺满整屏，战斗特写和标题居中且两边不露黑框
 func _check_wide_screen() -> void:
 	_mark("宽屏")
@@ -1110,8 +1250,11 @@ func _check_wide_screen() -> void:
 	Campaign.reset()
 
 
+## 自动试玩：我方也交给 EnemyAI 操作，把第 2–22 章各打几个回合。
+## 只验证流程（敌方回合、治疗、增援、撤离 / 守关判定）不卡死、不报错；胜负结果打印出来供调难度参考。
 func _check_autoplay() -> void:
-	for spec in [[2, 3], [3, 4], [4, 5], [5, 7], [6, 4], [7, 4]]:
+	for spec in [[2, 3], [3, 4], [4, 5], [5, 7], [6, 4], [7, 4], [8, 3], [9, 3], [10, 3], [11, 3], [12, 3], [13, 3], [14, 3],
+			[15, 3], [16, 3], [17, 3], [18, 3], [19, 3], [20, 3], [21, 3], [22, 3]]:
 		var idx: int = spec[0]
 		_mark("自动试玩 第 %d 章" % idx)
 		var res: Dictionary = await _autoplay(load("res://scripts/chapter%d.gd" % idx), spec[1])
@@ -1124,12 +1267,14 @@ func _check_autoplay() -> void:
 	load("res://scripts/battle.gd").queue_chapter(null)
 
 
-func _autoplay(script: Script, max_turns: int) -> Dictionary:
+func _autoplay(script: Script, max_turns: int, shot := "") -> Dictionary:
 	CampaignSave.clear()
 	Campaign.reset()
 	load("res://scripts/battle.gd").queue_chapter(script)
 	await _new_battle()
 	await _skip_story()
+	if shot != "":
+		_shot(shot)
 	Engine.time_scale = 6.0
 	var t := 0.0
 	var stuck := false
@@ -1186,7 +1331,7 @@ func _auto_act() -> void:
 			break
 	if u == null:
 		return  # 最后一人行动完，after_player_action 会自己进敌方回合
-	var foes: Array = battle.units.filter(func(x) -> bool: return not x.is_player() and x.is_alive())
+	var foes: Array = battle.units.filter(func(x) -> bool: return not x.is_player() and not x.is_npc() and x.is_alive())
 	battle.selected = u
 	if foes.is_empty():
 		battle._finish_action(u)

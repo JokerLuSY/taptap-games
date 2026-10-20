@@ -261,6 +261,44 @@ func join_unit(def: Dictionary, near: Vector2i) -> Unit:
 	return u
 
 
+## 离队的同伴回队（剧情加入 / 救出 / 对话）：按回归规则补等级，从名单生成到 pos 附近。
+## faction = "npc" 时先作为中立单位出场（例如等着被救的囚犯），被【对话】/【说得】后才算回队。
+## 名单里没有这个人（直接从这一章开打的测试）就用 fallback 的默认数值；转幕后、阵亡的回不来，返回 null。
+func rejoin_unit(id: String, pos: Vector2i, faction := "player", fallback := {}) -> Unit:
+	var existing := get_unit(id)
+	if existing != null and existing.is_alive():
+		return existing
+	if Campaign.has_member(id):
+		if not (Campaign.can_rejoin(id) or Campaign.status_of(id) == "active"):
+			return null
+		var n := Campaign.catch_up(id)
+		if faction == "player":
+			Campaign.set_status(id, "active")
+		_spawn_from_roster(id, pos)
+		var u: Unit = units.back()
+		u.faction = faction
+		u.has_acted = faction == "player"
+		u.queue_redraw()
+		if faction == "player":
+			notify(tr("%s 回到了队伍！") % tr(u.display_name))
+		if n > 0:
+			notify(tr("%s 补上了离队期间的成长（+%d 级）") % [tr(u.display_name), n])
+		update_topbar()
+		return u
+	if fallback.is_empty():
+		return null
+	var d := fallback.duplicate()
+	d["id"] = id
+	d["faction"] = faction
+	d["pos"] = pos
+	var made := spawn_units([d])
+	if made.is_empty():
+		return null
+	var nu: Unit = made[0]
+	nu.has_acted = faction == "player"
+	return nu
+
+
 func _nearest_free(p: Vector2i) -> Vector2i:
 	for r in range(1, 6):
 		for dx in range(-r, r + 1):
@@ -500,6 +538,11 @@ func _start_chapter() -> void:
 	board.goal_tiles = chapter.goal_tiles()
 	board.opened = chapter.visited
 	var lead := get_unit("tia")
+	if lead == null:
+		for id in chapter.lose_ids():
+			lead = get_unit(id)
+			if lead != null and lead.is_player():
+				break
 	if lead != null:
 		board.center_on(lead.grid_pos)
 	await play_prologue()
@@ -860,6 +903,9 @@ func _on_system_title() -> void:
 
 
 func _resume_idle() -> void:
+	for pair in chapter.flags.get("doors_opened", []):
+		if typeof(pair) == TYPE_ARRAY and pair.size() >= 2:
+			board.set_tile(Vector2i(int(pair[0]), int(pair[1])), "S")
 	chapter.on_resume()
 	board.goal_tiles = chapter.goal_tiles()
 	board.opened = chapter.visited
@@ -1089,6 +1135,10 @@ func _open_action_menu(u: Unit) -> void:
 		opts.append({"label": tr("对话") if rt.is_npc() else tr("说得"), "enabled": true, "cb": _on_menu_recruit})
 	if _can_open_chest(u):
 		opts.append({"label": tr("开宝箱"), "enabled": true, "cb": _on_menu_chest})
+	if not door_tiles(u).is_empty():
+		opts.append({"label": tr("开门"), "enabled": true, "cb": _on_menu_door})
+	if not steal_targets(u).is_empty():
+		opts.append({"label": tr("偷窃"), "enabled": true, "cb": _on_menu_steal})
 	if chapter.shops().has(u.grid_pos):
 		opts.append({"label": tr("武器店") if board.tile_at(u.grid_pos) == "Y" else tr("道具店"), "enabled": true, "cb": _on_menu_shop})
 	if not rescue_targets(u).is_empty():
@@ -1346,6 +1396,94 @@ func open_chest(u: Unit) -> void:
 	notify(tr("%s 打开了宝箱：获得 %s") % [tr(u.display_name), tr(PrepScreen.item_name(item))])
 
 
+## 开门：盗贼 / 刺客，或者背包里有钥匙的人，相邻的牢门
+func door_tiles(u: Unit) -> Array:
+	if not (u.class_label in ["盗贼", "刺客"] or "door_key" in u.items):
+		return []
+	var out: Array = []
+	for d in [Vector2i.UP, Vector2i.DOWN, Vector2i.LEFT, Vector2i.RIGHT]:
+		var p: Vector2i = u.grid_pos + d
+		if board.in_bounds(p) and board.tile_at(p) == "O":
+			out.append(p)
+	return out
+
+
+func _on_menu_door() -> void:
+	_start_pick(door_tiles(selected), _do_door_at, tr("选择要打开的门（点空白处返回）"), false)
+
+
+func _do_door_at(p: Vector2i) -> void:
+	var u := selected
+	board.clear_highlights()
+	state = S.COMBAT
+	await open_door(u, p)
+	_finish_action(u)
+
+
+## 打开一扇牢门：变成石地（记进章节旗标，读档后补回来）；不是盗贼就用掉一把钥匙
+func open_door(u: Unit, p: Vector2i) -> void:
+	if not u.class_label in ["盗贼", "刺客"]:
+		var k := u.items.find("door_key")
+		if k >= 0:
+			u.use_item(k)
+	board.set_tile(p, "S")
+	var opened: Array = chapter.flags.get("doors_opened", [])
+	opened.append([p.x, p.y])
+	chapter.flags["doors_opened"] = opened
+	Audio.play_sfx("coin")
+	notify(tr("%s 打开了门") % tr(u.display_name))
+	await chapter.on_door(u, p)
+
+
+## 偷窃（盗贼 / 刺客）：相邻、速度不低于对方、对方身上有道具（武器偷不了）
+func steal_targets(u: Unit) -> Array:
+	if not u.class_label in ["盗贼", "刺客"]:
+		return []
+	var out: Array = []
+	for v in units:
+		if v.is_alive() and v.on_map() and not v.is_player() and not v.is_npc() 				and GameData.dist(u.grid_pos, v.grid_pos) == 1 and not v.items.is_empty() and u.eff_spd() >= v.eff_spd():
+			out.append(v)
+	return out
+
+
+func _on_menu_steal() -> void:
+	_start_pick(_units_at(steal_targets(selected)), _do_steal_at, tr("选择要偷的敌人（点空白处返回）"), false)
+
+
+func _do_steal_at(p: Vector2i) -> void:
+	var t := board.unit_at(p)
+	var u := selected
+	board.clear_highlights()
+	state = S.COMBAT
+	steal(u, t)
+	await _give_xp(u, 10)
+	_finish_action(u)
+
+
+## 偷走对方最值钱的一件道具（剩余次数一起带走）
+func steal(u: Unit, t: Unit) -> String:
+	var best := -1
+	var best_price := -1
+	for i in t.items.size():
+		var price := GameData.item_price(t.items[i])
+		if price > best_price:
+			best_price = price
+			best = i
+	if best < 0:
+		return ""
+	var id: String = t.items[best]
+	var uses := int(t.item_uses[best]) if best < t.item_uses.size() else -2
+	t.items.remove_at(best)
+	if best < t.item_uses.size():
+		t.item_uses.remove_at(best)
+	if not u.give(id, uses):
+		Campaign.convoy.append([id, uses if uses > 0 else int(GameData.ITEMS.get(id, {}).get("uses", 1))])
+	Audio.play_sfx("coin")
+	notify(tr("%s 从 %s 身上偷到了 %s") % [tr(u.display_name), tr(t.display_name), tr(PrepScreen.item_name(id))])
+	tut("steal", u)
+	return id
+
+
 func _on_menu_recruit() -> void:
 	_clear_menu()
 	state = S.COMBAT
@@ -1462,7 +1600,8 @@ func recruit_hints() -> Array:
 		for id in table[eid]:
 			var who := get_unit(id)
 			names.append(tr(who.display_name) if who != null else id)
-		out.append(tr("说得 %s：需要 %s 出击") % [tr(e.display_name), tr("、").join(PackedStringArray(names))])
+		var fmt := "对话 %s：需要 %s 出击" if e.is_npc() else "说得 %s：需要 %s 出击"
+		out.append(tr(fmt) % [tr(e.display_name), tr("、").join(PackedStringArray(names))])
 	return out
 
 
@@ -1882,6 +2021,11 @@ func do_combat(att: Unit, def: Unit, wi: int) -> void:
 		_after_weapon_use(def, dwi, d_n)
 	for u in [att, def]:
 		if not u.is_alive() and u.visible:
+			if u.is_player():
+				await _fallen_words(u)
+			elif u.is_npc() and Campaign.status_of(u.unit_id) == "away":
+				var r := Fates.retreats(u.unit_id, chapter_number())
+				Campaign.set_status(u.unit_id, "retired" if r else "dead")
 			await _death_anim(u)
 			_drop_from_fallen(u)
 	if att.is_alive() and att.is_player():
@@ -2222,7 +2366,7 @@ func _update_hover_info() -> void:
 	if int(t.get("heal", 0)) > 0:
 		text += "\n" + tr("回合开始回复 %d%%") % int(t["heal"])
 	if cursor.grid_pos in board.goal_tiles:
-		text += "\n" + tr("（撤离点）")
+		text += "\n" + tr("（%s）") % tr(chapter.goal_label())
 	hud.show_terrain(text)
 
 
@@ -2231,9 +2375,11 @@ const PORTRAIT_BY_ID := {
 	"tia": "tia", "balto": "balto", "harlo": "harlo", "bandit6": "toby", "nina": "nina", "kain": "kain", "edric": "edric",
 	"noya": "noya", "cyril": "cyril", "sparrow": "sparrow", "silas": "silas", "hawk": "hawk", "brock": "brock",
 	"marco": "marco", "barrett": "barrett", "august": "august", "lorenz": "lorenz", "scout1": "scout",
+	"lance": "lance", "gwen": "knight", "oscar": "knight", "mira": "villager_w", "victor": "mage", "bruno": "smith", "selene": "villager_w", "gareth": "knight", "hagen": "smith", "liss": "villager_w", "shuo": "merc", "gerard": "elder", "ivy": "granny", "ivan": "church", "vera": "vera", "gray": "gray", "talia": "villager_w", "benedict": "elder", "kira": "villager_w", "rock": "knight", "edmund": "edmund", "seven": "seven",
+	"caspar": "scout", "skarl": "brock", "hermann": "mage", "bernard": "knight", "carlton": "knight", "grimm": "knight", "varen": "knight", "simon": "archer", "barlow": "knight", "aurelia": "mage", "adeline": "church", "oswald": "mage", "ignaz": "knight",
 }
 const PORTRAIT_BY_PREFIX := [["bandit", "bandit"], ["merc", "merc"], ["church", "church"], ["knight", "knight"],
-	["archer", "archer"], ["mage", "mage"]]
+	["archer", "archer"], ["mage", "mage"], ["soldier", "church"], ["armor", "knight"], ["pegasus", "church"], ["puppet", "seven"], ["pirate", "bandit"], ["darkmage", "mage"], ["graycloak", "scout"], ["cleric", "church"], ["sniper", "archer"], ["paladin", "knight"], ["general", "knight"], ["sage", "mage"], ["brodden", "merc"], ["thief", "bandit"], ["fighter", "bandit"], ["myrm", "merc"]]
 
 
 func _unit_portrait_key(u: Unit) -> String:
@@ -2300,6 +2446,27 @@ func _float_text(u: Unit, text: String, color: Color) -> void:
 	t.tween_property(l, "position:y", l.position.y - 30, 0.8)
 	t.tween_property(l, "modulate:a", 0.0, 0.8)
 	t.finished.connect(l.queue_free)
+
+
+## 我方倒下（永久死亡）：主线还有戏份的人重伤撤退、转到幕后（之后不能再出击），其余阵亡。各留一句话。
+## 倒下即败北的主角不走这里（直接进败北演出）。
+func _fallen_words(u: Unit) -> void:
+	if u.unit_id in chapter.lose_ids():
+		return
+	var retreat := Fates.retreats(u.unit_id, chapter_number())
+	u.set_meta("retreated", retreat)
+	var text := Fates.last_words(u.unit_id, retreat)
+	if text != "":
+		await play_dialogue([{"name": u.display_name, "color": Color(0.7, 0.85, 1.0), "text": tr(text)}])
+	if retreat:
+		notify(tr("%s 重伤撤退了（之后不能再出击）") % tr(u.display_name))
+	else:
+		notify(tr("%s 阵亡了") % tr(u.display_name))
+
+
+## 当前是第几章（从 1 数；不在战役章节表里返回 0）
+func chapter_number() -> int:
+	return Campaign.index_of(chapter.get_script()) + 1
 
 
 func _death_anim(u: Unit) -> void:

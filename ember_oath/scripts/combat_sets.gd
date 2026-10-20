@@ -22,4 +22,7 @@ const SETS := {
 	"mage": {"frame": Vector2i(120, 120), "feet": Vector2(60, 92), "scale": 3, "reach": 140, "anims": {"idle": [4, -1], "run": [10, -1], "attack": [9, 3], "crit": [9, 5], "hit": [8, -1], "death": [5, -1]}},
 	"cyril": {"frame": Vector2i(120, 120), "feet": Vector2(60, 92), "scale": 3, "reach": 140, "anims": {"idle": [4, -1], "run": [10, -1], "attack": [9, 3], "crit": [9, 5], "hit": [8, -1], "death": [5, -1]}},
 	"sparrow": {"frame": Vector2i(120, 120), "feet": Vector2(60, 92), "scale": 3, "reach": 110, "anims": {"idle": [4, -1], "run": [10, -1], "attack": [12, 2], "crit": [12, 6], "hit": [8, -1], "death": [5, -1]}},
+	"gareth": {"frame": Vector2i(128, 136), "feet": Vector2(64, 108), "scale": 3, "reach": 125, "anims": {"idle": [4, -1], "run": [10, -1], "attack": [11, 3], "crit": [12, 5], "hit": [8, -1], "death": [5, -1]}},
+	"puppet": {"frame": Vector2i(120, 120), "feet": Vector2(60, 92), "scale": 3, "reach": 112, "anims": {"idle": [4, -1], "run": [10, -1], "attack": [12, 2], "crit": [12, 6], "hit": [8, -1], "death": [5, -1]}},
+	"pegasus": {"frame": Vector2i(172, 144), "feet": Vector2(78, 116), "scale": 3, "reach": 175, "anims": {"idle": [4, -1], "run": [10, -1], "attack": [10, 2], "crit": [9, 4], "hit": [8, -1], "death": [5, -1]}},
 }

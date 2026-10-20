@@ -129,8 +129,31 @@ const FIGHTER_BY_ID := {
 	"sparrow": "sparrow",
 	"august": "barrett",
 	"lorenz": "knight",
+	# ---- 第二篇 ----
+	"lance": "knight",
+	"gwen": "knight",
+	"oscar": "barrett",
+	"mira": "church",
+	"victor": "mage",
+	"bruno": "bandit",
+	"selene": "pegasus",
+	"gareth": "gareth",
+	"hagen": "harlo",
+	"liss": "archer",
+	"shuo": "scout",
+	"gerard": "knight",
+	"ivy": "mage",
+	"ivan": "church",
+	"vera": "sparrow",
+	"gray": "merc",
+	"talia": "noya",
+	"benedict": "noya",
+	"kira": "pegasus",
+	"rock": "barrett",
+	"edmund": "balto",
+	"seven": "puppet",
 }
-const FIGHTER_BY_PREFIX := [["mage", "mage"], ["bandit", "bandit"], ["archer", "archer"], ["church", "church"], ["knight", "knight"], ["merc", "merc"]]
+const FIGHTER_BY_PREFIX := [["mage", "mage"], ["bandit", "bandit"], ["archer", "archer"], ["church", "church"], ["knight", "knight"], ["merc", "merc"], ["soldier", "church"], ["armor", "barrett"], ["pegasus", "pegasus"], ["puppet", "puppet"], ["pirate", "bandit"], ["darkmage", "mage"], ["graycloak", "scout"], ["cleric", "noya"], ["sniper", "archer"], ["paladin", "knight"], ["general", "barrett"], ["sage", "mage"], ["brodden", "merc"], ["thief", "sparrow"], ["fighter", "harlo"], ["myrm", "scout"]]
 const FIGHTER_BY_WEAPON := {"sword": "scout", "lance": "balto", "axe": "bandit", "bow": "archer", "staff": "noya", "anima": "mage", "light": "mage", "dark": "mage"}
 const MAGIC_TYPES := ["anima", "light", "dark"]
 ## 魔法打到身上的特效：[特效名, 放大倍数, 染色]；必杀再叠 crit 那组

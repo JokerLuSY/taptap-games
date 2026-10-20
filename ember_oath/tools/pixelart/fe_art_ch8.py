@@ -1,0 +1,260 @@
+"""第二篇新角色 / 新兵种的地图小人像素数据（原创，GBA 火纹风）。字符含义见 fe_units.py，结构同 fe_art.py。
+
+加雷斯：布罗登王子。重甲（金属色）、阵营色短披风，战斧扛在右肩。
+灰烬傀儡：阵营色兜帽长袍，兜帽里是灰白的脸和发光的眼（金色），两手是灰色爪刃。
+天马骑士：白色天马 + 一对白翅膀，骑手是阵营色轻装、金属轻盔，24×20（同骑马单位）。
+"""
+from fe_art_ch2 import slim_legs
+
+GARETH = {
+    "size": (16, 16),
+    "views": {
+        "front": [
+            "............KK..",
+            ".....KKKK..KxyK.",
+            "....K1122K.KyzK.",
+            "...K211223KKzK..",
+            "...K2aaaa3K.Kn..",
+            "...KaEaaEaK.Kn..",
+            "...KaaaaaaKKnK..",
+            "...KKabbaKK.Kn..",
+            ".KKyyKKKKyyKKnK.",
+            "KyxyK3xx3KyxyKn.",
+            "KyyyKx33xKyyyKa.",
+            ".KzKKyxxyKKzK.K.",
+            "..KK4KyyK4KK....",
+            "...K44yy44K.....",
+            "....KzKKzK......",
+            "...KKyKKyKK.....",
+        ],
+        "back": [
+            "............KK..",
+            ".....KKKK..KxyK.",
+            "....K1122K.KyzK.",
+            "...K211223KKzK..",
+            "...K222223K.Kn..",
+            "...K322233K.Kn..",
+            "...K333334KKnK..",
+            "...KK4444KK.Kn..",
+            ".KKyyK444KyyKnK.",
+            "KyxyK23332KyxyK.",
+            "KyyyK33333KyyyK.",
+            ".KzK3444443KzK..",
+            "..KK4444444KK...",
+            "...K4444444K....",
+            "....KzKKzK......",
+            "...KKyKKyKK.....",
+        ],
+        "side": [
+            "................",
+            "......KKKK......",
+            ".....K1122K.....",
+            "....K211223K....",
+            "....Ka22223K....",
+            "...KaEa2223K....",
+            "...Kaaa2234K....",
+            "....KbaKK44K....",
+            "...KKyyyKKyyKK..",
+            "..KxyyxK3yxyyK..",
+            ".KnKyyyK33yyyK..",
+            "KxnK.KyxxyyK....",
+            "KyzK.K4444K.....",
+            ".KK.K444444K....",
+            ".....KzKzK......",
+            "....KKyKyKK.....",
+        ],
+    },
+    "legs": {
+        "front": {"row": 14, "n": ["....KzKKzK......", "...KKyKKyKK....."], "a": ["....KzKKyK......", "...KKyK.KK......"],
+                  "b": ["....KyKKzK......", "....KK.KyKK....."]},
+        "back": {"row": 14, "n": ["....KzKKzK......", "...KKyKKyKK....."], "a": ["....KzKKyK......", "...KKyK.KK......"],
+                 "b": ["....KyKKzK......", "....KK.KyKK....."]},
+        "side": {"row": 14, "n": [".....KzKzK......", "....KKyKyKK....."], "a": ["....KzKKzK......", "...KKyK.KyK....."],
+                 "b": ["....KyKKzK......", "....KK..KyKK...."]},
+    },
+}
+
+PUPPET = {
+    "size": (16, 16),
+    "views": {
+        "front": [
+            "................",
+            "......KKKK......",
+            ".....K1222K.....",
+            "....K122223K....",
+            "...K12KKKK23K...",
+            "...K2KvggvK2K...",
+            "...K3KvvvvK3K...",
+            "...K3KKvvKK4K...",
+            "..KK43333334KK..",
+            ".KzK43333334KzK.",
+            ".KyK34444443KyK.",
+            ".KxKK444444KKxK.",
+            "..KK.K4444K.KK..",
+            "....K544445K....",
+            ".....K5KK5K.....",
+            ".....KmKKmK.....",
+        ],
+        "back": [
+            "................",
+            "......KKKK......",
+            ".....K1222K.....",
+            "....K122223K....",
+            "...K12222223K...",
+            "...K22222223K...",
+            "...K32222233K...",
+            "...K33333334K...",
+            "..KK43333334KK..",
+            ".KzK43333334KzK.",
+            ".KyK34444443KyK.",
+            ".KyKK444444KKyK.",
+            "..KK.K4444K.KK..",
+            "....K544445K....",
+            ".....K5KK5K.....",
+            ".....KmKKmK.....",
+        ],
+        "side": [
+            "................",
+            ".....KKKK.......",
+            "....K12222K.....",
+            "...K1222223K....",
+            "...KKKK2223K....",
+            "..KvgvK2223K....",
+            "..KvvvK3223K....",
+            "...KKvK3334K....",
+            "...KK433344KK...",
+            "..KzzK33344K....",
+            ".KyyzK44444K....",
+            "KxK..K44444K....",
+            ".K...K4444K.....",
+            "....K544445K....",
+            ".....K5K5K......",
+            ".....KmKmK......",
+        ],
+    },
+}
+PUPPET["legs"] = slim_legs(PUPPET["views"])
+
+PEGASUS = {
+    "size": (24, 20),
+    "views": {
+        "front": [
+            "K......................K",
+            "KwK.......KKKK.......KwK",
+            "KwwK.....KyxxyK.....KwwK",
+            ".KwwK...KyxxxxzK...KwwK.",
+            ".KwwvK..Ky2aa2zK..KvwwK.",
+            "..KwwvK.KaEaaEaK.KvwwK..",
+            "...KwwvKKaabbaaKKvwwK...",
+            "....KwwvK3122133KvwwK...",
+            ".....KKvK32gg23KvKK.....",
+            ".......KKKwwwwKKK.......",
+            "........KwwwwwwK........",
+            ".......KwwEwwEwwK.......",
+            "........KwwvvwwK........",
+            ".......KKwvKKvwKK.......",
+            "......KwwKwwwwKwwK......",
+            "......KwwKvvvvKwwK......",
+            ".......KK.KvvK.KK.......",
+            "........KvK..KvK........",
+            "........KwK..KwK........",
+            "........KvK..KvK........",
+        ],
+        "back": [
+            "K......................K",
+            "KwK.......KKKK.......KwK",
+            "KwwK.....KyxxyK.....KwwK",
+            ".KwwK...KyxxxxzK...KwwK.",
+            ".KwwvK..Ky2222zK..KvwwK.",
+            "..KwwvK.K322223K.KvwwK..",
+            "...KwwvKK333333KKvwwK...",
+            "....KwwvK3333333KvwwK...",
+            ".....KKvK3444443KvKK....",
+            ".......KKKwwwwKKK.......",
+            "........KwwwwwwK........",
+            ".......KwwwwwwwwK.......",
+            "........KwwvvwwK........",
+            ".......KKwvKKvwKK.......",
+            "......KwwKwwwwKwwK......",
+            "......KwwKvvvvKwwK......",
+            ".......KK.KvvK.KK.......",
+            "........KvK..KvK........",
+            "........KwK..KwK........",
+            "........KvK..KvK........",
+        ],
+        "side": [
+            "..............KK........",
+            ".............KwwK..KK...",
+            "............KwwvK.KwwK..",
+            ".......KK..KwwvK.KwwvK..",
+            "......KyxzKKwvK.KwwvK...",
+            ".....KyxxzKwwvKKwwvK....",
+            ".....KaEa2KwwwwwwvK.....",
+            "....KKaa3KKwwwwvK.......",
+            "xyyzzKbK2KwwwwvK........",
+            "..KKKK33K2KwwvK.........",
+            ".KwwK.K333KwwwwKKKKK....",
+            "KwEwwK.K4KwwwwwwwwwvK...",
+            "KwwwwwKKwwwwwwwwwwwvvK..",
+            ".KKvwwwwwwwwwwwwwwvvvK..",
+            "...KKvwwwwwwwwwwvvvvK.K.",
+            "....KvwK.KvvK..KvvK.KvK.",
+            "....KwK..KwK...KwK..KK..",
+            "....KwK..KwK...KwK......",
+            "....KwK..KwK...KwK......",
+            "....KvK..KvK...KvK......",
+        ],
+    },
+    "legs": {
+        "front": {"row": 17, "n": ["........KvK..KvK........", "........KwK..KwK........", "........KvK..KvK........"],
+                  "a": ["........KvK..KvK........", "........KwK..KvK........", "........KvK..KK........."],
+                  "b": ["........KvK..KvK........", "........KvK..KwK........", "........KK...KvK........"]},
+        "back": {"row": 17, "n": ["........KvK..KvK........", "........KwK..KwK........", "........KvK..KvK........"],
+                 "a": ["........KvK..KvK........", "........KwK..KvK........", "........KvK..KK........."],
+                 "b": ["........KvK..KvK........", "........KvK..KwK........", "........KK...KvK........"]},
+        "side": {"row": 16, "n": ["....KwK..KwK...KwK......", "....KwK..KwK...KwK......", "....KwK..KwK...KwK......", "....KvK..KvK...KvK......"],
+                 "a": ["...KwK....KwK.KwK.......", "..KwK......KwKwK........", "..KvK.......KvK.........", "........................"],
+                 "b": [".....KwKKwK.....KwKKwK..", ".....KwKKwK.....KwKKwK..", ".....KvKKvK.....KvKKvK..", "........................"]},
+    },
+}
+
+
+
+def _team_tint(rows):
+    """天马整只走阵营色（GBA 做法）：骑手衣服压深两档，白马、白翅膀换成阵营最亮的两档"""
+    tr = {"1": "3", "2": "4", "3": "5", "4": "5", "w": "1", "v": "2"}
+    return ["".join(tr.get(c, c) for c in r) for r in rows]
+
+
+PEGASUS["views"] = {k: _team_tint(v) for k, v in PEGASUS["views"].items()}
+PEGASUS["legs"] = {k: {kk: (_team_tint(vv) if isinstance(vv, list) else vv) for kk, vv in d.items()} for k, d in PEGASUS["legs"].items()}
+
+# 囚车（第 11 章押送缇娅的铁笼车）：不动，三个视角同一张
+_CAGE = [
+    "................",
+    "................",
+    "..KKKKKKKKKKKK..",
+    "..K3333333333K..",
+    "..KKKKKKKKKKKK..",
+    "..KyKyKyKyKyKK..",
+    "..KyKyKaKyKyKK..",
+    "..KyKyKbKyKyKK..",
+    "..KyKyKyKyKyKK..",
+    "..KKKKKKKKKKKK..",
+    "..KnnnnnnnnnnK..",
+    "..KmmmmmmmmmmK..",
+    "..KKKKKKKKKKKK..",
+    "...KzK....KzK...",
+    "..KzyzK..KzyzK..",
+    "...KKK....KKK...",
+]
+_CAGE_LEGS = {"row": 13, "n": _CAGE[13:], "a": _CAGE[13:], "b": _CAGE[13:]}
+CAGE = {"size": (16, 16), "views": {"front": _CAGE, "back": _CAGE, "side": _CAGE},
+        "legs": {"front": _CAGE_LEGS, "back": _CAGE_LEGS, "side": _CAGE_LEGS}}
+
+UNITS_CH8 = {
+    "gareth": GARETH,
+    "puppet": PUPPET,
+    "pegasus": PEGASUS,
+    "cage": CAGE,
+}

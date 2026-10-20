@@ -12,8 +12,10 @@ const PORTRAITS := {
 	"塞拉斯": "silas", "莫尔甘": "morgan", "薇拉": "vera", "格雷": "gray", "霍克": "hawk", "七号": "seven",
 	"埃德蒙": "edmund", "兰斯": "lance", "布洛克": "brock", "马尔科": "marco", "巴雷特": "barrett",
 	"奥古斯特": "august", "罗伦兹": "lorenz",
+	"葛温": "knight", "奥斯卡": "knight", "米拉": "villager_w", "维克多": "mage", "布鲁诺": "smith", "赛莲": "villager_w", "加雷斯": "knight", "哈根": "smith", "莉丝": "villager_w", "朔": "merc", "杰拉德": "elder", "艾薇": "granny", "伊万": "church", "塔莉亚": "villager_w", "本笃": "elder", "琪拉": "villager_w", "洛克": "knight",
 	"山贼": "bandit", "探子": "scout", "黑烬佣兵": "merc", "圣焰教会兵": "church", "圣焰骑士": "knight",
 	"教会弓兵": "archer", "弓箭手": "archer", "教会魔道士": "mage",
+	"卡斯帕": "scout", "阿德琳": "church", "奥斯瓦尔德": "mage", "布罗登国王": "elder", "欧蕾莉亚": "mage", "伊格纳兹": "knight", "瓦伦": "knight", "格里姆": "knight", "灰袍众": "scout", "赫尔曼": "mage", "贝尔纳": "knight", "卡尔顿": "knight", "西蒙": "archer", "巴洛": "knight", "斯卡尔": "brock", "老学者": "elder", "国王": "elder", "老修士": "elder", "押送兵": "church", "摆渡人": "villager", "老水手": "elder", "旅店老板娘": "villager_w", "锁匠": "smith", "老水道工": "elder", "牧羊人": "villager", "磨坊主": "villager", "宰相": "mage", "牧人": "villager", "村妇": "villager_w", "老兵": "elder", "小孩": "villager", "退役骑士": "elder", "教会使者": "church", "沼泽强盗": "bandit", "清理部队枪兵": "church", "海盗": "bandit", "王国骑士": "knight", "布罗登叛兵": "merc", "灰袍盗贼": "scout", "王城重甲兵": "knight",
 	"村民": "villager", "店主": "villager", "猎人": "villager", "猎户": "villager", "樵夫": "villager",
 	"铁匠": "smith", "农妇": "villager_w", "寡妇": "villager_w", "老人": "elder", "老奶奶": "granny",
 }

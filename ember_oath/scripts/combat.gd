@@ -3,6 +3,18 @@ class_name Combat
 
 static var force_crit := false   # 测试用: 强制全部暴击
 
+## 特效（威力 ×3）：弓打飞行、斩甲剑打重甲、斩马枪打骑马（GBA 火纹）
+static func effective_mt(w: Dictionary, target: Unit) -> int:
+	if w["type"] == "bow" and target.is_flying():
+		return int(w["mt"]) * 3
+	var slay := str(w.get("slay", ""))
+	if slay == "armor" and target.class_label in ["重甲兵", "将军", "王子"]:
+		return int(w["mt"]) * 3
+	if slay == "mounted" and bool(GameData.class_data(target.class_label).get("mounted", false)):
+		return int(w["mt"]) * 3
+	return int(w["mt"])
+
+
 ## from_pos: 攻击方出手位置（默认当前格，AI 评估时传目标格）
 static func forecast(att: Unit, def: Unit, wpn_idx: int, board: Board, from_pos := Vector2i(-1, -1)) -> Dictionary:
 	var a_pos: Vector2i = att.grid_pos if from_pos.x < 0 else from_pos
@@ -11,8 +23,10 @@ static func forecast(att: Unit, def: Unit, wpn_idx: int, board: Board, from_pos 
 	var tri: int = GameData.triangle_dir(w["type"], def.weapon(maxi(0, def.counter_weapon(d)))["type"])
 	# 魔法打魔防，物理打守备；地形守备两种都加
 	var d_def: int = def.res if w.get("magic", false) else def.dfn
-	var a_dmg: int = maxi(0, w["mt"] + att.pwr + (1 if tri == 1 else 0) - d_def - board.terrain(def.grid_pos)["dfn"])
-	var a_hit: int = clampi(w["hit"] + att.eff_skl() * 2 + tri * 10 - def.eff_spd() * 2 - board.terrain(def.grid_pos)["avo"], 0, 100)
+	var tb_d: Dictionary = board.terrain_bonus(def, def.grid_pos)
+	var tb_a: Dictionary = board.terrain_bonus(att, a_pos)
+	var a_dmg: int = maxi(0, effective_mt(w, def) + att.pwr + (1 if tri == 1 else 0) - d_def - tb_d["dfn"])
+	var a_hit: int = clampi(w["hit"] + att.eff_skl() * 2 + tri * 10 - def.eff_spd() * 2 - tb_d["avo"], 0, 100)
 	# 居高临下: 高度占优方 +10 命中 +1 伤害
 	var lv_a: int = board.level_at(a_pos)
 	var lv_d: int = board.level_at(def.grid_pos)
@@ -35,8 +49,8 @@ static func forecast(att: Unit, def: Unit, wpn_idx: int, board: Board, from_pos 
 		var dw: Dictionary = def.weapon(d_wi)
 		var tri2: int = GameData.triangle_dir(dw["type"], w["type"])
 		var a_def: int = att.res if dw.get("magic", false) else att.dfn
-		d_dmg = maxi(0, dw["mt"] + def.pwr + (1 if tri2 == 1 else 0) - a_def - board.terrain(a_pos)["dfn"])
-		d_hit = clampi(dw["hit"] + def.eff_skl() * 2 + tri2 * 10 - att.eff_spd() * 2 - board.terrain(a_pos)["avo"], 0, 100)
+		d_dmg = maxi(0, effective_mt(dw, att) + def.pwr + (1 if tri2 == 1 else 0) - a_def - tb_a["dfn"])
+		d_hit = clampi(dw["hit"] + def.eff_skl() * 2 + tri2 * 10 - att.eff_spd() * 2 - tb_a["avo"], 0, 100)
 		if lv_d > lv_a:
 			d_hit = clampi(d_hit + 10, 0, 100)
 			d_dmg += 1

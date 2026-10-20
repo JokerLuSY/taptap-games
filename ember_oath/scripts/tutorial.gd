@@ -26,7 +26,7 @@ const TIPS := {
 	"talk": ["对话与说得",
 		"【对话】是同伴之间聊天，常常会送东西或加深感情；【说得】能劝特定的敌人加入我方，只有特定的人才说得动特定的人。"],
 	"item": ["道具与永久死亡",
-		"受伤了就退到后面，用【道具】里的伤药回血（会用掉这回合的行动）。同伴倒下就是阵亡，之后的章节不会再出场；主角倒下直接败北。"],
+		"受伤了就退到后面，用【道具】里的伤药回血（会用掉这回合的行动）。同伴倒下就是阵亡，之后的章节不会再出场；对剧情还有戏份的人会重伤撤退，剧情里还在，但再也不能出击。主角倒下直接败北。"],
 	"reinforce": ["增援",
 		"敌人会在某些回合从地图边、营地或城门冒出来。别把伤员留在入口附近。"],
 	"boss": ["首领",
@@ -47,10 +47,14 @@ const TIPS := {
 		"绿色的是中立单位：敌我都不会攻击它。走到旁边用【对话】，有的人会加入我方。"],
 	"chest": ["宝箱",
 		"只有盗贼能开宝箱：让盗贼站到宝箱上，菜单里选【开宝箱】。"],
+	"steal": ["偷窃",
+		"盗贼走到身上带着道具的敌人旁边，速度不比对方慢，就能【偷窃】：偷走最值钱的一件道具（武器偷不了）。光标停在敌人身上能看到它带着什么。"],
+	"flying": ["飞行单位",
+		"天马骑士能飞过河流、山地、崖壁，每格只花 1 点移动力，但站在森林、堡垒上也吃不到地形加成。弓箭对飞行单位威力 ×3。"],
 }
 ## 地图菜单【教程】里的顺序
 const ORDER := ["basics", "forecast", "triangle", "terrain", "exp", "item", "visit", "talk", "reinforce", "boss",
-	"prep", "shop", "durability", "rescue", "support", "magic", "npc", "chest"]
+	"prep", "shop", "durability", "rescue", "support", "magic", "npc", "chest", "steal", "flying"]
 
 var battle = null
 var asking := false                 # 开场正在问要不要教程
@@ -305,11 +309,15 @@ func on_event(n: String, d = null) -> void:
 				tip("support")
 			elif tr("开宝箱") in labels:
 				tip("chest")
+			elif tr("偷窃") in labels:
+				tip("steal")
 			elif tr("武器店") in labels or tr("道具店") in labels:
 				tip("shop")
 		"hover_unit":
 			if d.is_npc():
 				tip("npc")
+			elif d.is_flying():
+				tip("flying")
 			elif d.is_boss and not d.is_player():
 				tip("boss")
 			elif d.weapon_kind() in ["anima", "light", "dark", "staff"]:

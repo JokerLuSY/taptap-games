@@ -111,7 +111,7 @@ const UNITS := [
 	{"id": "church2", "pos": Vector2i(10, 6)},
 	{"id": "church3", "pos": Vector2i(19, 9)},
 	{"id": "church4", "pos": Vector2i(27, 6), "hold": true},
-	{"id": "church5", "pos": Vector2i(16, 11)},
+	{"id": "church5", "pos": Vector2i(16, 11), "items": ["vulnerary"]},
 	{"id": "church6", "pos": Vector2i(6, 13)},
 	{"id": "church7", "pos": Vector2i(27, 13)},
 	{"id": "church8", "pos": Vector2i(14, 18)},
@@ -119,10 +119,10 @@ const UNITS := [
 	{"id": "knight2", "pos": Vector2i(19, 19)},
 	{"id": "knight3", "pos": Vector2i(31, 15)},
 	{"id": "archer1", "pos": Vector2i(26, 3), "hold": true},
-	{"id": "archer2", "pos": Vector2i(9, 10)},
+	{"id": "archer2", "pos": Vector2i(9, 10), "items": ["vulnerary"]},
 	{"id": "archer3", "pos": Vector2i(15, 20)},
 	{"id": "archer4", "pos": Vector2i(20, 16)},
-	{"id": "mage1", "pos": Vector2i(14, 14)},
+	{"id": "mage1", "pos": Vector2i(14, 14), "items": ["elixir"]},
 	{"id": "mage2", "pos": Vector2i(29, 3), "hold": true},
 	{"id": "mage3", "pos": Vector2i(18, 21)},
 	# 南门守将罗伦兹：站在门洞里不动（门洞守备高，回合开始回血）
@@ -471,6 +471,5 @@ func epilogue() -> Array:
 		_l("兰斯", CB_LANCE, "最后一次有人见到他，是在去圣都的路上。"),
 		_l("艾德里克", CB_EDRIC, "备马。叫上葛温和奥斯卡。……我去把他找回来。"),
 		_l("", CB_NARR, "——第一篇「灰烬之芽」 完。"),
-		_l("", CB_NARR, "第二篇「寻父之旅」，制作中。"),
 	]})
 	return scenes
