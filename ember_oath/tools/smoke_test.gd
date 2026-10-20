@@ -35,6 +35,9 @@ func _run() -> void:
 	get_tree().root.add_child(battle)
 	battle.set_process_unhandled_input(false)
 	await _frames(6)
+	_check(battle.ui.find_child("WorldMap", true, false) != null, "第一章开场应先显示大陆地图")
+	await get_tree().create_timer(1.6).timeout
+	_shot("00a_worldmap.png")
 	_check(battle.dialogue.offset_left == SafeArea.MARGIN_X, "对话框左边距应为安全区")
 	_check(battle.dialogue.offset_right == -SafeArea.MARGIN_X, "对话框右边距应为安全区")
 	_check(battle.dialogue.offset_bottom == -SafeArea.MARGIN_Y, "对话框底边距应为安全区")
@@ -667,8 +670,8 @@ func _check_campaign_chapters() -> void:
 	_check(toby != null and toby.is_player() and toby.display_name == "托比", "托比应随队进入第二章")
 	_check(battle.board.width == 30 and battle.board.height == 22 and battle.board.can_scroll(), "第二章地图应为 30×22 且能卷动")
 	_check(battle.board.tiles != null and battle.board.is_burning(), "第二章应走图块地图并开启火场氛围")
-	_check(Audio._current_loop == "fire", "进图应叠火焰 loop")
 	await _skip_story()
+	_check(Audio._current_loop == "fire", "进图应叠火焰 loop")
 	var harlo = battle.get_unit("harlo")
 	_check(harlo != null and harlo.is_player() and not harlo.has_acted, "哈洛应在开场剧情入队且本回合可行动")
 	_check(battle.chapter.flags.get("first_flame", false), "第二章应演完火焰初醒")
@@ -1292,6 +1295,17 @@ func _check_tutorial() -> void:
 	ok = await _wait_cond(func() -> bool: return tia.has_acted and battle.state == battle.S.IDLE, 5.0)
 	_check(ok, "做过买卖关店后应算行动结束")
 	_check(battle.board.terrain(Chapter1.SHOP_ARMORY)["name"] == "武器店", "第一章应有武器店")
+	# 剧情场景卡（尾声的敌方视角）
+	battle.play_scenes(battle.chapter.epilogue())
+	await get_tree().create_timer(1.0).timeout
+	_check(battle.ui.find_child("SceneCard", true, false) != null and battle.state == battle.S.STORY, "尾声应放场景卡")
+	_shot("01g_scene_card.png")
+	var sc_t := 0.0
+	while battle.ui.find_child("SceneCard", true, false) != null and sc_t < 10.0:
+		battle.dialogue.skip_all()
+		await get_tree().create_timer(0.15).timeout
+		sc_t += 0.15
+	battle.state = battle.S.IDLE
 	# 不要教程：不问第二遍、不弹提示
 	_check(Tutorial.seen("shop"), "第一次碰到商店应弹商店提示")
 	battle.tutorial._on_ok()

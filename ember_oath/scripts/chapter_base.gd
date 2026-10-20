@@ -4,6 +4,18 @@ extends RefCounted
 ## 每章继承它，写自己的 MAP / LEVELS / UNITS / BG / CHAPTER_TITLE 等常量，再按需覆盖钩子。
 ## 钩子都可能被 battle `await`，所以默认实现也写成协程。
 
+## 幕后角色的台词色（各章敌方视角的场景共用）
+const CB_NARR := Color(0.82, 0.82, 0.88)
+const CB_MORGAN := Color(0.85, 0.7, 1.0)
+const CB_SILAS := Color(0.95, 0.92, 1.0)
+const CB_VERA := Color(0.95, 0.6, 0.55)
+const CB_GRAY := Color(0.75, 0.7, 0.68)
+const CB_EDMUND := Color(0.7, 0.82, 1.0)
+const CB_EDRIC := Color(0.55, 0.85, 1.0)
+const CB_SEVEN := Color(0.7, 0.68, 0.72)
+const CB_LANCE := Color(0.8, 0.9, 0.75)
+const CB_ENEMY := Color(1.0, 0.55, 0.5)
+
 var battle = null
 var visited := {}
 var flags := {}                   # 本章剧情旗标（随检查点存档）
@@ -108,6 +120,16 @@ func lose_condition() -> String:
 func on_battle_start() -> void:
 	if false:
 		await battle.play_dialogue([])
+
+
+## 开场：大陆地图 + 旁白。{"place": 地点 id, "from": 来处 id, "lines": [...]}；空字典 = 不放
+func prologue() -> Dictionary:
+	return {}
+
+
+## 尾声：胜利后放的场景（敌方视角、远方的另一条线）。[{"title": 地点, "mood": 氛围, "lines": [...]}]
+func epilogue() -> Array:
+	return []
 
 
 ## 读档回到本章检查点后（地图已按 MAP 重建）：把剧情改过的地形等补回来

@@ -472,6 +472,7 @@ func _start_chapter() -> void:
 	var lead := get_unit("tia")
 	if lead != null:
 		board.center_on(lead.grid_pos)
+	await play_prologue()
 	await chapter.on_battle_start()
 	if chapter.prep_mode() != "":
 		await _run_prep()
@@ -1930,6 +1931,7 @@ func _victory() -> void:
 	Audio.play_sfx("victory")
 	await get_tree().create_timer(0.7).timeout
 	await chapter.on_victory()
+	await play_scenes(chapter.epilogue())
 	# 存活的我方写回战役名单，推进到下一章
 	Campaign.store_party(units)
 	var st: Dictionary = chapter.after_victory_status()
@@ -2063,6 +2065,34 @@ func get_unit(id: String) -> Unit:
 
 
 # ==================== 表现 ====================
+
+## 章节开场：大陆地图（来路虚线、当前地点脉动）+ 旁白
+func play_prologue() -> void:
+	var pr: Dictionary = chapter.prologue()
+	if pr.is_empty():
+		return
+	var wm := WorldMap.new()
+	ui.add_child(wm)
+	ui.move_child(wm, dialogue.get_index())
+	wm.setup(str(pr.get("place", "")), str(pr.get("from", "")), tr(chapter.CHAPTER_TITLE))
+	await wm.intro()
+	await play_dialogue(pr.get("lines", []))
+	await wm.outro()
+	wm.queue_free()
+
+
+## 剧情场景：全屏氛围底 + 地点标题，台词走对话框
+func play_scenes(scenes: Array) -> void:
+	for sc in scenes:
+		var card := SceneCard.new()
+		ui.add_child(card)
+		ui.move_child(card, dialogue.get_index())
+		card.setup(tr(str(sc.get("title", ""))), str(sc.get("mood", "night")))
+		await card.intro()
+		await play_dialogue(sc.get("lines", []))
+		await card.outro()
+		card.queue_free()
+
 
 func play_dialogue(lines: Array) -> void:
 	var prev := state

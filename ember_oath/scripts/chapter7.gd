@@ -432,7 +432,6 @@ func _post_battle() -> Array:
 	else:
 		lines.append(_l("", C_NARR, "笼子里坐着一个红发的少女。她一直望着北方。"))
 	lines.append(_l("", C_NARR, "其余的人，都消失在了夜色里。"))
-	lines.append(_l("", C_NARR, "——同一时刻，北方的菲恩城。艾德里克收到了一封信：父亲在调查圣器失窃案的途中，失踪了。"))
 	return lines
 
 
@@ -441,3 +440,37 @@ func _defeat_tia() -> Array:
 		_l("缇娅", C_TIA, "笼子……原来，一直都是笼子……"),
 		_l("", C_NARR, "缇娅倒下了。白垣镇的城门，一扇接一扇地关上。"),
 	]
+
+
+# ============ 开场与尾声 ============
+
+func prologue() -> Dictionary:
+	return {"place": "whitewall", "from": "inn", "lines": [
+		_l("", CB_NARR, "翻过雪岭，离王都只剩三天的路程。"),
+		_l("", CB_NARR, "边境的白垣镇，城墙刷得雪白。南来北往的商队，都在这里歇一晚。"),
+	]}
+
+
+func epilogue() -> Array:
+	var scenes: Array = []
+	var noya_in := _captured_ids().has("noya")
+	var cage: Array = [
+		_l("", CB_NARR, "铁笼车在夜路上颠簸。车外的白色火把，一路延伸到看不见的地方。"),
+	]
+	if noya_in:
+		cage.append(_l("诺雅", C_NOYA, "缇娅……你冷吗？"))
+		cage.append(_l("缇娅", C_TIA, "不冷。手心里，还剩一点点火。"))
+		cage.append(_l("诺雅", C_NOYA, "那就留着它。……等到能用的那一天。"))
+		cage.append(_l("缇娅", C_TIA, "嗯。大家……一定都逃出去了吧。"))
+	else:
+		cage.append(_l("缇娅", C_TIA, "（手心里，还剩一点点火。……大家，一定都逃出去了吧。）"))
+	scenes.append({"title": "通往圣都的夜路", "mood": "night", "lines": cage})
+	scenes.append({"title": "菲恩城", "mood": "castle", "lines": [
+		_l("兰斯", CB_LANCE, "少主！圣都来的信——领主大人他……在调查圣器失窃案的途中，失踪了。"),
+		_l("艾德里克", CB_EDRIC, "……父亲？"),
+		_l("兰斯", CB_LANCE, "最后一次有人见到他，是在去圣都的路上。"),
+		_l("艾德里克", CB_EDRIC, "备马。叫上葛温和奥斯卡。……我去把他找回来。"),
+		_l("", CB_NARR, "——第一篇「灰烬之芽」 完。"),
+		_l("", CB_NARR, "第二篇「寻父之旅」，制作中。"),
+	]})
+	return scenes
