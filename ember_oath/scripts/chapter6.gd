@@ -11,49 +11,63 @@ const DEFEAT_SUB := "雪把山路埋住了，也把那团火种埋住了……"
 const BG := ""
 const THEME := "snow"
 
-## 24×16。北面雪山正中一道山口，督察奥古斯特守在山口内侧的堡垒上；
-## 正中是石墙围起来的山间旅店：北门对山口、西门对来路，院里主屋、马厩、水井，西里尔被困在院里。
-## 东边是结冰的山湖，南坡一条山道横穿全图（我方从西南上山，东侧会来增援）。西北有猎人木屋。
+## 34×22，三层台地（山脚 1、半山腰 2、山口 3，往上爬每层多花 2 点移动力）。
+## 我方从半山腰的盘山路口出发（身后的山脚小村有铁匠铺和杂货铺，可以回头去买）；石墙围着的山间旅店里困着西里尔（西门、北门、东门）；
+## 东边是结冰的山湖，东侧山道会上来增援；最北的山口堡垒上守着教会督察奥古斯特。西北有猎人木屋。
 const MAP := [
-	"MMMMMMMMMMM..MMMMMMMMMMM",
-	"MMFFMMMMMF..R.FMMMMFFFMM",
-	".....hh....TRFF..h..F.F.",
-	"F.H.F.F.F..R..hh..FF.F..",
-	".F...F.F.h.R.F..hF....FF",
-	"...F.......R......~~~~~.",
-	"F......####G#####~~~~~~~",
-	"....h..#.W..DDDH#~~~~~~~",
-	"..MM...#........#.~~~~~.",
-	"..h..RRG.......D#.~~~~~.",
-	".F.F.R.#f......D#..~~~..",
-	"F....R.##########F.....F",
-	".h...R...F..FMM.F.F..hF.",
-	"RRRRRRRRRRRRRRRRRRRRRRRR",
-	"........F.F...F.hh..F...",
-	"F.FF..h..F.h.F.h...F...F",
+	"MMMMMMMMMMMMMMMMMM...MMMMMMMMMMMMM",
+	".M.MMMMMMMM..F.....R......MMMMMMF.",
+	"M.MMMMMMMMM.M..hA.FTF.AhMMMMM..MMM",
+	".MMMMMMMMMMM..hh...R..hhMMMMM.MMMF",
+	"......M.F..........R...h.F..M.....",
+	"....F...FFF........R.....FF....FF.",
+	"...F...FFFFF..#####G#####.FFF.....",
+	"...H.....F....#.W...DDDH#.F.......",
+	".............F#.........#..~~~~~~.",
+	"..F.F......RRRR.........GR~~~~~~~.",
+	"FF.FFFF....R..#ff......D#R~~~~~~~~",
+	".FFFFF.....R..###########R.~~~~~~.",
+	".F.F..h....R.F...........R.~~~~~~.",
+	"....hhhhh..R..........h..R..~~~.F.",
+	"......h....R.........h...R...F....",
+	".......F.F.R.........hh..R........",
+	"...........R......F..hFF.RRRRRRRRR",
+	"..h..DV..F.R....h........R......F.",
+	"...RRRRRRRRRRRRRRRRRRRRRRR.FFFF...",
+	"...R.h..YD......F..........FFFF...",
+	"...R...D.h...FFFFF.F.......F.FFF..",
+	"...R.........................F....",
 ]
 
 const LEVELS := [
-	"111111111111111111111111",
-	"111111111111111111111111",
-	"111111111111111111111111",
-	"111111111111111111111111",
-	"111111111111111111111111",
-	"111111111111111111000001",
-	"111111111111111110000000",
-	"111111111111111110000000",
-	"111111111111111111000001",
-	"111111111111111111000001",
-	"111111111111111111100011",
-	"111111111111111111111111",
-	"111111111111111111111111",
-	"111111111111111111111111",
-	"111111111111111111111111",
-	"111111111111111111111111",
+	"3333333333333333333333333333333333",
+	"3333333333333333333333333333333333",
+	"3333333333333333333333333333333333",
+	"3333333333333333333333333333333333",
+	"3333333333333333333333333333333333",
+	"2222222222222222222222222222222222",
+	"2222222222222222222222222222222222",
+	"2222222222222222222222222222222222",
+	"2222222222222222222222222220000002",
+	"2222222222222222222222222200000002",
+	"2222222222222222222222222200000000",
+	"2222222222222222222222222220000002",
+	"2222222222222222222222222220000002",
+	"2222222222222222222222222222000222",
+	"2222222222222222222222222222222222",
+	"1111111111111111111111111111111111",
+	"1111111111111111111111111111111111",
+	"1111111111111111111111111111111111",
+	"1111111111111111111111111111111111",
+	"1111111111111111111111111111111111",
+	"1111111111111111111111111111111111",
+	"1111111111111111111111111111111111",
 ]
 
-const VISIT_INN := Vector2i(15, 7)
-const VISIT_HUNTER := Vector2i(2, 3)
+const VISIT_INN := Vector2i(23, 7)
+const VISIT_HUNTER := Vector2i(3, 7)
+const SHOP_ARMORY := Vector2i(8, 19)
+const SHOP_VENDOR := Vector2i(6, 17)
 
 const C_TIA := Color(1.0, 0.62, 0.45)
 const C_NINA := Color(0.7, 0.95, 0.7)
@@ -87,15 +101,15 @@ const UNITS := [
 		"hp": 28, "pwr": 9, "skl": 11, "spd": 12, "dfn": 6, "mov": 5,
 		"weapons": ["iron_sword"], "items": ["vulnerary"],
 		"growths": {"hp": 75, "pwr": 45, "skl": 55, "spd": 60, "dfn": 35},
-		"pos": Vector2i(2, 13), "color": Color(0.85, 0.45, 0.35),
+		"pos": Vector2i(11, 13), "color": Color(0.85, 0.45, 0.35),
 		"hair": "ponytail", "hair_color": Color(0.80, 0.22, 0.18), "armor": Color(0.62, 0.45, 0.32)},
-	{"id": "nina", "pos": Vector2i(1, 13), "name": "妮娜", "class": "弓箭手", "faction": "player", "level": 5,
+	{"id": "nina", "pos": Vector2i(10, 13), "name": "妮娜", "class": "弓箭手", "faction": "player", "level": 5,
 		"hp": 21, "pwr": 7, "skl": 10, "spd": 9, "dfn": 3, "mov": 5, "weapons": ["iron_bow"],
 		"growths": {"hp": 55, "pwr": 45, "skl": 55, "spd": 50, "dfn": 15}},
-	{"id": "kain", "pos": Vector2i(3, 13), "name": "凯因", "class": "佣兵", "faction": "player", "level": 6,
+	{"id": "kain", "pos": Vector2i(12, 13), "name": "凯因", "class": "佣兵", "faction": "player", "level": 6,
 		"hp": 26, "pwr": 8, "skl": 11, "spd": 12, "dfn": 5, "mov": 5, "weapons": ["iron_sword"],
 		"growths": {"hp": 70, "pwr": 40, "skl": 60, "spd": 65, "dfn": 25}},
-	{"id": "noya", "pos": Vector2i(1, 14), "name": "诺雅", "class": "修女", "faction": "player", "level": 4,
+	{"id": "noya", "pos": Vector2i(11, 14), "name": "诺雅", "class": "修女", "faction": "player", "level": 4,
 		"hp": 18, "pwr": 5, "skl": 5, "spd": 8, "dfn": 1, "mov": 5, "weapons": ["heal_staff"],
 		"growths": {"hp": 45, "pwr": 40, "skl": 40, "spd": 50, "dfn": 15}},
 	# 西里尔：被困在旅店院里的流浪法师。开场就归我方指挥，倒下即败北，章末正式入队
@@ -103,30 +117,36 @@ const UNITS := [
 		"hp": 23, "pwr": 7, "skl": 7, "spd": 7, "dfn": 3, "res": 7, "mov": 5,
 		"weapons": ["fire"], "items": ["vulnerary"],
 		"growths": {"hp": 50, "pwr": 55, "skl": 45, "spd": 50, "dfn": 15, "res": 45},
-		"pos": Vector2i(10, 9), "color": Color(0.55, 0.35, 0.25),
+		"pos": Vector2i(17, 9), "color": Color(0.55, 0.35, 0.25),
 		"hair": "short", "hair_color": Color(0.30, 0.34, 0.48), "armor": Color(0.50, 0.38, 0.26)},
-	# 敌方：山口下来的教会兵、东侧山道的骑士
-	{"id": "church1", "pos": Vector2i(11, 4)},
-	{"id": "church2", "pos": Vector2i(13, 3)},
-	{"id": "church3", "pos": Vector2i(9, 5)},
-	{"id": "church4", "pos": Vector2i(17, 12)},
-	{"id": "mage1", "pos": Vector2i(15, 4)},
+	# 敌方：山脚、半山腰西坡、旅店北门外、山口、东侧山道
+	{"id": "church4", "pos": Vector2i(10, 20)},
+	{"id": "archer2", "pos": Vector2i(14, 17)},
+	{"id": "church5", "pos": Vector2i(20, 18)},
+	{"id": "church3", "pos": Vector2i(9, 11)},
+	{"id": "mage2", "pos": Vector2i(7, 9), "hold": true},
+	{"id": "church1", "pos": Vector2i(19, 5)},
+	{"id": "church2", "pos": Vector2i(21, 4)},
+	{"id": "mage1", "pos": Vector2i(22, 5)},
+	{"id": "church6", "pos": Vector2i(8, 9)},
 	{"id": "archer1", "pos": Vector2i(15, 3), "hold": true},
-	{"id": "archer2", "pos": Vector2i(9, 12)},
-	{"id": "knight1", "pos": Vector2i(20, 13)},
-	{"id": "knight2", "pos": Vector2i(22, 13)},
+	{"id": "archer3", "pos": Vector2i(25, 5), "hold": true},
+	{"id": "church7", "pos": Vector2i(18, 3), "hold": true},
+	{"id": "church8", "pos": Vector2i(20, 3), "hold": true},
+	{"id": "knight1", "pos": Vector2i(30, 16)},
+	{"id": "knight2", "pos": Vector2i(32, 17)},
 	# 教会督察奥古斯特：重甲，守在山口内侧的堡垒上不动
 	{"id": "august", "name": "奥古斯特", "class": "重甲兵", "faction": "enemy", "level": 9,
 		"hp": 32, "pwr": 10, "skl": 6, "spd": 3, "dfn": 12, "res": 3, "mov": 4,
 		"weapons": ["steel_lance"], "items": ["vulnerary"], "boss": true, "stationary": true,
-		"pos": Vector2i(11, 2), "color": Color(0.74, 0.70, 0.64),
+		"pos": Vector2i(19, 2), "color": Color(0.74, 0.70, 0.64),
 		"hair": "short", "hair_color": Color(0.36, 0.30, 0.24), "armor": Color(0.70, 0.68, 0.64)},
 ]
 
 ## 增援：第 3 回合从山口下来，第 5 回合沿东侧山道上来
 const WAVES := {
-	3: [{"id": "church_r1", "pos": Vector2i(11, 0)}, {"id": "archer_r1", "pos": Vector2i(12, 0)}],
-	5: [{"id": "knight_r1", "pos": Vector2i(23, 13)}, {"id": "church_r2", "pos": Vector2i(23, 12)}],
+	3: [{"id": "church_r1", "pos": Vector2i(18, 0)}, {"id": "archer_r1", "pos": Vector2i(20, 0)}],
+	5: [{"id": "knight_r1", "pos": Vector2i(33, 16)}, {"id": "church_r2", "pos": Vector2i(33, 15)}],
 }
 
 
@@ -144,7 +164,13 @@ func deploy_limit() -> int:
 
 
 func extra_deploy_slots() -> Array:
-	return [Vector2i(0, 13), Vector2i(4, 13), Vector2i(3, 14)]
+	return [Vector2i(10, 14), Vector2i(12, 14), Vector2i(12, 12)]
+
+
+## 山脚小村的铁匠铺、杂货铺
+func shops() -> Dictionary:
+	return {SHOP_ARMORY: ["iron_sword", "steel_sword", "iron_lance", "iron_bow", "steel_bow", "fire", "thunder"],
+		SHOP_VENDOR: ["vulnerary", "elixir", "heal_staff"]}
 
 
 func templates() -> Dictionary:
@@ -156,7 +182,7 @@ func lose_ids() -> Array:
 
 
 func extra_slots() -> Array:
-	return [Vector2i(0, 13), Vector2i(4, 13), Vector2i(3, 14), Vector2i(0, 14)]
+	return [Vector2i(10, 14), Vector2i(12, 14), Vector2i(12, 12), Vector2i(10, 12)]
 
 
 func shop_items() -> Array:

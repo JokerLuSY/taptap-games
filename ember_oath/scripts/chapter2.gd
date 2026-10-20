@@ -11,40 +11,56 @@ const DEFEAT_SUB := "灰岩村葬于火海……"
 ## 不用手绘底图：和第一章一样走 CC0 图块（MapTiles）。
 const BG := ""
 
-## 22×14。南边麦田是进村的路，村前一条小河（两座桥、东边浅滩）；
-## 河北是烧着的村子：西边水井旁、东边各一户还能访问，正北望楼（堡垒）上是放火的头目马尔科。E 不可踏。
+## 30×22。从南边麦田出发：一路往北推过着火的田地、过河（两座桥、西边浅滩），穿过烧着的村子，
+## 最后攻上北边坡顶的小教堂——放火的头目马尔科守在教堂门口的堡垒上。井边人家、东头铁匠铺、河南岸农舍可访问。E 不可踏。
 const MAP := [
-	"FFFFFhhFFF.Z.Z.FFhhhFF",
-	"FF..h..F..ZCTCZ.h..hFF",
-	"F..D.E...CCCRCCC...hhF",
-	"..DHC.ZD..E.R.ED.D.H.F",
-	"..CCE..C....R...C.CC..",
-	".F...W.ZC...R..ZE..D..",
-	"..RRRRRRRRRRRRRRRRRR..",
-	".D.E..ZC....R..D..E.F.",
-	"FF..f.ff....R.....ffFF",
-	"~~~~B~~~~~~~B~~~~ww~~~",
-	"ff.....E....R..F....ff",
-	"fH.ff......RR..FF..E.f",
-	"ffEff....RRR........ff",
-	"F.ff.....R.......FF..F",
+	"FFFFFFFFFFFF#######FFFFFFFFFFF",
+	"F..........F#ISKSI#.F..F...FFF",
+	".F.F.F..F.h.#SSSSS#........FFF",
+	"FF......Fhhh###G###.hh....FFFF",
+	"FFFF.F....h.F..T.F......F..FFF",
+	"FFF.....CC.....R...C.....C..FF",
+	"FFFC.....DDE...R..DDED.CC.....",
+	"..F.H.DDE....E.R....ZCDDZHD...",
+	".....W....C..C.R.C...C.C...E..",
+	"....RRRRRRRRRRRRRRRRRRRRRRR...",
+	"...EC.CE.DZ.RCC....Z....R.....",
+	"......D.D..ZRCZ.EDDCD.E.RC.D..",
+	"......ZCCZ..R.Z........CR...Z.",
+	"~~~ww~~~~~~~B~~~~~~~~~~~B~~~~~",
+	"Fh..........R...F.......R.....",
+	"FFh.FF......R...E.....F.Rffff.",
+	"Fh..........R...........RfEff.",
+	"F...RRRRRRRRRRRRRRRRRRRRRffff.",
+	"F..FR..ffff....fffffF.F.......",
+	"....R..fEff....ffEffFFF..FFHD.",
+	"....R..ffff....fffffFFF...D...",
+	"....R..........F.....F........",
 ]
 
 const LEVELS := [
-	"1111111111111111111111",
-	"1111111111111111111111",
-	"1111111111111111111111",
-	"1111111111111111111111",
-	"1111111111111111111111",
-	"1111111111111111111111",
-	"1111111111111111111111",
-	"1111111111111111111111",
-	"1111111111111111111111",
-	"0000100000001000011000",
-	"1111111111111111111111",
-	"1111111111111111111111",
-	"1111111111111111111111",
-	"1111111111111111111111",
+	"111111111222222222222211111111",
+	"111111111222222222222211111111",
+	"111111111222222222222211111111",
+	"111111111222222222222211111111",
+	"111111111222222222222211111111",
+	"111111111111111111111111111111",
+	"111111111111111111111111111111",
+	"111111111111111111111111111111",
+	"111111111111111111111111111111",
+	"111111111111111111111111111111",
+	"111111111111111111111111111111",
+	"111111111111111111111111111111",
+	"111111111111111111111111111111",
+	"000110000000100000000000100000",
+	"111111111111111111111111111111",
+	"111111111111111111111111111111",
+	"111111111111111111111111111111",
+	"111111111111111111111111111111",
+	"111111111111111111111111111111",
+	"111111111111111111111111111111",
+	"111111111111111111111111111111",
+	"111111111111111111111111111111",
 ]
 
 const C_TIA := Color(1.0, 0.62, 0.45)
@@ -70,33 +86,39 @@ const UNITS := [
 		"hp": 20, "pwr": 5, "skl": 6, "spd": 7, "dfn": 3, "mov": 5,
 		"weapons": ["iron_sword"], "items": ["vulnerary"],
 		"growths": {"hp": 75, "pwr": 45, "skl": 55, "spd": 60, "dfn": 35},
-		"pos": Vector2i(11, 12), "color": Color(0.85, 0.45, 0.35),
+		"pos": Vector2i(4, 20), "color": Color(0.85, 0.45, 0.35),
 		"hair": "ponytail", "hair_color": Color(0.80, 0.22, 0.18), "armor": Color(0.62, 0.45, 0.32)},
 	{"id": "balto", "name": "巴尔托", "class": "圣骑士", "faction": "player", "level": 8,
 		"hp": 26, "pwr": 8, "skl": 9, "spd": 8, "dfn": 7, "mov": 7,
 		"weapons": ["silver_lance", "javelin"], "items": ["vulnerary"],
 		"growths": {"hp": 40, "pwr": 20, "skl": 25, "spd": 25, "dfn": 20},
-		"pos": Vector2i(12, 12), "color": Color(0.45, 0.55, 0.75),
+		"pos": Vector2i(5, 20), "color": Color(0.45, 0.55, 0.75),
 		"hair": "short", "hair_color": Color(0.75, 0.75, 0.78), "armor": Color(0.70, 0.73, 0.82)},
-	# 河南岸两个先手冲上来的；河北村里分散放火的；东北丘陵上的弓手
-	{"id": "bandit7", "pos": Vector2i(6, 10)},
-	{"id": "bandit8", "pos": Vector2i(17, 11)},
-	{"id": "bandit1", "pos": Vector2i(4, 7)},
-	{"id": "bandit2", "pos": Vector2i(16, 7)},
-	{"id": "bandit3", "pos": Vector2i(8, 4)},
-	{"id": "bandit5", "pos": Vector2i(18, 4)},
-	{"id": "bandit4", "pos": Vector2i(2, 1), "hold": true},
-	{"id": "archer1", "pos": Vector2i(19, 1)},
-	{"id": "archer2", "pos": Vector2i(5, 3)},
+	# 南边麦田：先冲上来的两个
+	{"id": "bandit7", "pos": Vector2i(9, 17)},
+	{"id": "bandit8", "pos": Vector2i(16, 17)},
+	# 桥头守着的
+	{"id": "bandit1", "pos": Vector2i(12, 11)},
+	{"id": "archer1", "pos": Vector2i(10, 12)},
+	{"id": "bandit2", "pos": Vector2i(24, 11)},
+	# 村子里放火的（我方靠近才动）
+	{"id": "bandit3", "pos": Vector2i(8, 9), "hold": true},
+	{"id": "bandit5", "pos": Vector2i(19, 9), "hold": true},
+	{"id": "bandit9", "pos": Vector2i(22, 10), "hold": true},
+	{"id": "archer2", "pos": Vector2i(14, 6), "hold": true},
+	# 坡顶教堂前
+	{"id": "bandit4", "pos": Vector2i(13, 5), "hold": true},
+	{"id": "bandit10", "pos": Vector2i(17, 5), "hold": true},
+	{"id": "archer3", "pos": Vector2i(20, 3), "hold": true},
 	# 探子：可击破的普通敌人，没有说得，不挡通关。立绘暂用山贼。
 	{"id": "scout1", "name": "探子", "class": "探子", "faction": "enemy", "level": 2,
 		"hp": 17, "pwr": 4, "skl": 5, "spd": 7, "dfn": 2, "mov": 5,
-		"weapons": ["iron_sword"], "pos": Vector2i(20, 6), "color": Color(0.40, 0.42, 0.38),
+		"weapons": ["iron_sword"], "pos": Vector2i(27, 10), "color": Color(0.40, 0.42, 0.38),
 		"hair": "hood", "hair_color": Color(0.25, 0.22, 0.18), "armor": Color(0.35, 0.38, 0.32)},
 	{"id": "marco", "name": "马尔科", "class": "山贼头目", "faction": "enemy", "level": 4,
 		"hp": 30, "pwr": 8, "skl": 5, "spd": 4, "dfn": 5, "mov": 5,
 		"weapons": ["war_axe"], "stationary": true, "boss": true,
-		"pos": Vector2i(12, 1), "color": Color(0.55, 0.28, 0.18),
+		"pos": Vector2i(15, 4), "color": Color(0.55, 0.28, 0.18),
 		"hair": "spiky", "hair_color": Color(0.18, 0.10, 0.08), "armor": Color(0.42, 0.24, 0.18), "scar": true},
 ]
 
@@ -110,9 +132,9 @@ const HARLO := {"id": "harlo", "name": "哈洛", "class": "战士", "faction": "
 
 
 ## 能访问的三户：井边人家、东头铁匠铺、河南岸的农舍
-const VISIT_WELL := Vector2i(3, 3)
-const VISIT_SMITH := Vector2i(19, 3)
-const VISIT_FARM := Vector2i(1, 11)
+const VISIT_WELL := Vector2i(4, 7)
+const VISIT_SMITH := Vector2i(25, 7)
+const VISIT_FARM := Vector2i(27, 19)
 
 
 func chapter_id() -> String:
@@ -123,9 +145,24 @@ func templates() -> Dictionary:
 	return {"bandit": _BANDIT, "archer": _ARCHER}
 
 
+## 增援：第 4 回合西边林子里冲出两个，第 6 回合东边再来一个
+const REINFORCEMENTS := {
+	4: [{"id": "bandit_r1", "pos": Vector2i(0, 9)}, {"id": "bandit_r2", "pos": Vector2i(0, 10)}],
+	6: [{"id": "bandit_r3", "pos": Vector2i(29, 9)}],
+}
+
+
+func on_turn_start(t: int) -> void:
+	if REINFORCEMENTS.has(t) and not flags.get("reinforce_%d" % t, false):
+		flags["reinforce_%d" % t] = true
+		battle.spawn_units(REINFORCEMENTS[t])
+		Audio.play_sfx("reinforce")
+		battle.show_banner(tr("敌方增援！"), Color(1.0, 0.5, 0.3))
+
+
 ## 第一章说得过来的托比等人站在缇娅身后
 func extra_slots() -> Array:
-	return [Vector2i(11, 13), Vector2i(12, 13), Vector2i(10, 12), Vector2i(13, 12)]
+	return [Vector2i(3, 20), Vector2i(5, 21), Vector2i(3, 21), Vector2i(4, 19)]
 
 
 # ==================== 事件 ====================
@@ -136,7 +173,7 @@ func on_battle_start() -> void:
 	await battle.play_dialogue(_pre_battle())
 	if battle.get_unit("harlo") == null:
 		await battle.play_dialogue(_harlo_join())
-		battle.join_unit(HARLO, Vector2i(10, 13))
+		battle.join_unit(HARLO, Vector2i(4, 21))
 		var h = battle.get_unit("harlo")
 		if h != null:
 			h.has_acted = false

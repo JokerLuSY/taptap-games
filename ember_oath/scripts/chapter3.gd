@@ -10,44 +10,56 @@ const VICTORY_SUB := "佣兵的密信上，盖着圣焰教会的火漆。"
 const DEFEAT_SUB := "山道上的营火，烧到了天明……"
 const BG := ""
 
-## 26×16。西北山脚是妮娜的小屋；东北是被黑烬佣兵团占据的废弃边境要塞：南面城门进前院（帐篷、石柱），
-## 再过内堡门，霍克坐在王座上。中间一条河（两座桥、东边浅滩），南岸艾德里克被围在废哨塔上。
+## 36×22。西南山道口出发：过西桥（或中间浅滩）上北岸，沿河往东，翻过凯因守着的山口，攻进东北角黑烬佣兵团占据的废弃边境要塞
+## （南门 + 西侧小门 → 前院营帐 → 内堡门 → 王座上的霍克）。西北山脚是妮娜的猎户小屋；南岸山道边的废哨塔上，艾德里克正被佣兵围攻。
 const MAP := [
-	"MMMMFFFMMMMMMFF###########",
-	"MF..FF.hhMMM..F#ASS#IKI#S#",
-	"F..H..F.hh.FF..#SSS#SSS#A#",
-	"F....RF......F.#ASS##G##S#",
-	"..F..R.....hh.F#SSISSSSSI#",
-	"...FFR......h..#SASSSSSAS#",
-	".F...R.........####G######",
-	".....RRRRRRRRRRRRRRR...FFF",
-	"~~~~~B~~~~~~~~B~~~~~~ww~~~",
-	"F....R..F.....R..F......F.",
-	".F.h.R...Fhh..R...FF.....F",
-	".f...R........R.h....FT...",
-	".ff..R...RRRRRR...........",
-	"..RRRR.......T......h...F.",
-	".......F.........F...h...F",
-	"FF......F..F......F.......",
+	"MMMMMMMMMMMMMMMMMMMMMMMMMM##########",
+	"M.MMMMM.M..MMMMMMM...MMM.F#ASA#IKI##",
+	"...FM....MMMMM..MM...MMM..#SSS#SSSS#",
+	".FFFFF.......M.......MMF.F#ASS#SSSS#",
+	"...HFFF....FF........FM...#SSS##G###",
+	"FF.R..FF.FFFFF..h.hFFFF..RGSSISSSSS#",
+	"...RRRR....F.Fhh.hhhhFFF.R#SSSSSSSA#",
+	"..FFF..........hhhhhFFF..R#SSSSSISS#",
+	".F.......RRRRRR..h...F...R#ASSSSSAS#",
+	".........R...FRRRRRRRRRRRR####G#####",
+	"F........R...................RR.....",
+	"~~~~~~~~~B~~~~~~~~ww~~~~~~~~~B~~~~~~",
+	"F.F...F..R..h..F.........h...R......",
+	"F....FF..R....FF....F.h......R..hT..",
+	"F....FFFFR...FFFF.M.....RRRRRRF..h..",
+	"F.F......R.h.FFFF.M............F....",
+	".........R..FT....Mh....R......F.F..",
+	"...RRRRRRRRRRRRRRRRRRRRRR....F.FFF..",
+	"...R.........h......h.......FFFFFFF.",
+	".ffRF......h.......hhhh..F....FF...F",
+	".f.R.....FFFFFFF....h....h..........",
+	"...R........F.......................",
 ]
 
 const LEVELS := [
-	"11111111111111111111111111",
-	"11111111111111111111111111",
-	"11111111111111111111111111",
-	"11111111111111111111111111",
-	"11111111111111111111111111",
-	"11111111111111111111111111",
-	"11111111111111111111111111",
-	"11111111111111111111111111",
-	"00000100000000100000011000",
-	"11111111111111111111111111",
-	"11111111111111111111111111",
-	"11111111111111111111111111",
-	"11111111111111111111111111",
-	"11111111111111111111111111",
-	"11111111111111111111111111",
-	"11111111111111111111111111",
+	"111111111111111111111111111111111111",
+	"111111111111111111111111111111111111",
+	"111111111111111111111111111111111111",
+	"111111111111111111111111111111111111",
+	"111111111111111111111111111111111111",
+	"111111111111111111111111111111111111",
+	"111111111111111111111111111111111111",
+	"111111111111111111111111111111111111",
+	"111111111111111111111111111111111111",
+	"111111111111111111111111111111111111",
+	"111111111111111111111111111111111111",
+	"000000000100000000110000000001000000",
+	"111111111111111111111111111111111111",
+	"111111111111111111111111111111111111",
+	"111111111111111111111111111111111111",
+	"111111111111111111111111111111111111",
+	"111111111111111111111111111111111111",
+	"111111111111111111111111111111111111",
+	"111111111111111111111111111111111111",
+	"111111111111111111111111111111111111",
+	"111111111111111111111111111111111111",
+	"111111111111111111111111111111111111",
 ]
 
 const C_TIA := Color(1.0, 0.62, 0.45)
@@ -80,61 +92,70 @@ const UNITS := [
 		"hp": 22, "pwr": 6, "skl": 7, "spd": 8, "dfn": 4, "mov": 5,
 		"weapons": ["iron_sword"], "items": ["vulnerary"],
 		"growths": {"hp": 75, "pwr": 45, "skl": 55, "spd": 60, "dfn": 35},
-		"pos": Vector2i(3, 13), "color": Color(0.85, 0.45, 0.35),
+		"pos": Vector2i(3, 20), "color": Color(0.85, 0.45, 0.35),
 		"hair": "ponytail", "hair_color": Color(0.80, 0.22, 0.18), "armor": Color(0.62, 0.45, 0.32)},
 	{"id": "balto", "name": "巴尔托", "class": "圣骑士", "faction": "player", "level": 8,
 		"hp": 26, "pwr": 8, "skl": 9, "spd": 8, "dfn": 7, "mov": 7,
 		"weapons": ["silver_lance", "javelin"], "items": ["vulnerary"],
 		"growths": {"hp": 40, "pwr": 20, "skl": 25, "spd": 25, "dfn": 20},
-		"pos": Vector2i(3, 14), "color": Color(0.45, 0.55, 0.75),
+		"pos": Vector2i(4, 20), "color": Color(0.45, 0.55, 0.75),
 		"hair": "short", "hair_color": Color(0.75, 0.75, 0.78), "armor": Color(0.70, 0.73, 0.82)},
 	{"id": "harlo", "name": "哈洛", "class": "战士", "faction": "player", "level": 2,
 		"hp": 23, "pwr": 7, "skl": 3, "spd": 4, "dfn": 3, "mov": 5,
 		"weapons": ["iron_axe"], "items": [],
 		"growths": {"hp": 85, "pwr": 55, "skl": 35, "spd": 40, "dfn": 30},
-		"pos": Vector2i(2, 14), "color": Color(0.70, 0.60, 0.40), "hair": "short",
+		"pos": Vector2i(2, 20), "color": Color(0.70, 0.60, 0.40), "hair": "short",
 		"hair_color": Color(0.50, 0.32, 0.18), "armor": Color(0.55, 0.48, 0.35)},
 	# 客串：艾德里克在东南被佣兵追赶
 	{"id": "edric", "name": "艾德里克", "class": "领主骑士", "faction": "player", "level": 3, "join": true,
 		"hp": 24, "pwr": 6, "skl": 8, "spd": 8, "dfn": 6, "mov": 5,
 		"weapons": ["rapier"], "items": ["vulnerary"],
 		"growths": {"hp": 70, "pwr": 45, "skl": 55, "spd": 55, "dfn": 35},
-		"pos": Vector2i(13, 13), "color": Color(0.35, 0.50, 0.85),
+		"pos": Vector2i(13, 16), "color": Color(0.35, 0.50, 0.85),
 		"hair": "short", "hair_color": Color(0.30, 0.42, 0.75), "armor": Color(0.40, 0.48, 0.70)},
 	# 敌方
-	# 南岸：围着艾德里克的追兵
-	{"id": "merc4", "pos": Vector2i(15, 13)},
-	{"id": "bandit2", "pos": Vector2i(11, 12)},
-	{"id": "bandit3", "pos": Vector2i(9, 14)},
-	{"id": "archer3", "pos": Vector2i(20, 12)},
-	# 北岸山道与小屋一带
-	{"id": "merc2", "pos": Vector2i(8, 4)},
-	{"id": "bandit1", "pos": Vector2i(4, 3)},
-	{"id": "bandit4", "pos": Vector2i(13, 7)},
-	{"id": "archer2", "pos": Vector2i(1, 4)},
-	# 营门与营里
-	{"id": "merc1", "pos": Vector2i(19, 5)},
-	{"id": "merc3", "pos": Vector2i(21, 4), "hold": true},
-	{"id": "archer1", "pos": Vector2i(17, 2)},
-	{"id": "archer4", "pos": Vector2i(22, 2)},
+	# 山道口附近
+	{"id": "bandit1", "pos": Vector2i(8, 18)},
+	{"id": "bandit2", "pos": Vector2i(7, 15)},
+	{"id": "archer2", "pos": Vector2i(6, 14)},
+	# 南岸：围着废哨塔上艾德里克的追兵
+	{"id": "merc4", "pos": Vector2i(16, 16)},
+	{"id": "bandit3", "pos": Vector2i(13, 19)},
+	{"id": "archer3", "pos": Vector2i(17, 13), "hold": true},
+	{"id": "merc5", "pos": Vector2i(25, 15), "hold": true},
+	# 北岸：西桥头、猎户小屋一带的林子
+	{"id": "merc2", "pos": Vector2i(10, 9)},
+	{"id": "bandit5", "pos": Vector2i(7, 6), "hold": true},
+	{"id": "archer5", "pos": Vector2i(5, 8), "hold": true},
+	# 山口（凯因身边）
+	{"id": "merc6", "pos": Vector2i(15, 7), "hold": true},
+	{"id": "archer4", "pos": Vector2i(19, 7), "hold": true},
+	{"id": "bandit4", "pos": Vector2i(23, 9)},
+	# 要塞：营门、前院、内堡
+	{"id": "merc1", "pos": Vector2i(30, 8)},
+	{"id": "merc3", "pos": Vector2i(31, 6), "hold": true},
+	{"id": "merc7", "pos": Vector2i(28, 6), "hold": true},
+	{"id": "archer1", "pos": Vector2i(28, 2), "hold": true},
+	{"id": "archer6", "pos": Vector2i(33, 6), "hold": true},
 	# 凯因：动摇的佣兵新人，守着不动，等缇娅来说得
 	{"id": "kain", "name": "凯因", "class": "佣兵", "faction": "enemy", "level": 3,
 		"hp": 22, "pwr": 5, "skl": 8, "spd": 9, "dfn": 3, "mov": 5,
 		"weapons": ["iron_sword"], "items": [], "hold": true,
 		"growths": {"hp": 70, "pwr": 40, "skl": 60, "spd": 65, "dfn": 25},
-		"pos": Vector2i(11, 5), "color": Color(0.45, 0.40, 0.55),
+		"pos": Vector2i(17, 6), "color": Color(0.45, 0.40, 0.55),
 		"hair": "short", "hair_color": Color(0.20, 0.18, 0.24), "armor": Color(0.38, 0.34, 0.42)},
 	# 佣兵队长霍克：坐在要塞内堡的王座上
 	{"id": "hawk", "name": "霍克", "class": "佣兵队长", "faction": "enemy", "level": 7,
 		"hp": 34, "pwr": 9, "skl": 10, "spd": 9, "dfn": 6, "mov": 5,
 		"weapons": ["steel_sword"], "stationary": true, "boss": true,
-		"pos": Vector2i(21, 1), "color": Color(0.30, 0.20, 0.22),
+		"pos": Vector2i(32, 1), "color": Color(0.30, 0.20, 0.22),
 		"hair": "spiky", "hair_color": Color(0.10, 0.08, 0.08), "armor": Color(0.32, 0.18, 0.20), "scar": true},
 ]
 
 const REINFORCEMENTS := [
-	{"id": "merc_r1", "pos": Vector2i(24, 3)},
-	{"id": "merc_r2", "pos": Vector2i(24, 5)},
+	{"id": "merc_r1", "pos": Vector2i(34, 7)},
+	{"id": "merc_r2", "pos": Vector2i(28, 7)},
+	{"id": "merc_r3", "pos": Vector2i(35, 14)},
 ]
 
 ## 妮娜：访问山脚小屋后入队
@@ -145,7 +166,7 @@ const NINA := {"id": "nina", "name": "妮娜", "class": "弓箭手", "level": 2,
 	"color": Color(0.45, 0.60, 0.35), "hair": "ponytail", "hair_color": Color(0.55, 0.36, 0.20),
 	"armor": Color(0.42, 0.55, 0.32)}
 
-const NINA_CABIN := Vector2i(3, 2)
+const NINA_CABIN := Vector2i(3, 4)
 
 
 func chapter_id() -> String:
@@ -162,7 +183,7 @@ func deploy_limit() -> int:
 
 
 func extra_deploy_slots() -> Array:
-	return [Vector2i(4, 14), Vector2i(2, 12), Vector2i(4, 12)]
+	return [Vector2i(3, 19), Vector2i(4, 21), Vector2i(2, 21)]
 
 
 func templates() -> Dictionary:
@@ -174,7 +195,7 @@ func lose_ids() -> Array:
 
 
 func extra_slots() -> Array:
-	return [Vector2i(4, 14), Vector2i(2, 13), Vector2i(4, 12), Vector2i(1, 13)]
+	return [Vector2i(3, 19), Vector2i(4, 21), Vector2i(2, 21), Vector2i(4, 19)]
 
 
 ## 艾德里克章末离队，第 8 章起正式在队

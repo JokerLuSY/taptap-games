@@ -46,13 +46,15 @@ func _render(idx: int) -> void:
 	marks.z_index = 20
 	marks.slots = ch.extra_slots() + ch.extra_deploy_slots()
 	marks.goals = ch.goal_tiles()
-	if consts.has("REINFORCEMENTS"):
-		for d in consts["REINFORCEMENTS"]:
-			marks.spawns.append([d["pos"], "R"])
-	if consts.has("WAVES"):
-		for t in consts["WAVES"]:
-			for d in consts["WAVES"][t]:
-				marks.spawns.append([d["pos"], str(t)])
+	for key in ["REINFORCEMENTS", "WAVES"]:
+		var wv = consts.get(key, null)
+		if wv is Array:
+			for d in wv:
+				marks.spawns.append([d["pos"], "R"])
+		elif wv is Dictionary:
+			for t in wv:
+				for d in wv[t]:
+					marks.spawns.append([d["pos"], str(t)])
 	board.add_child(marks)
 	for i in 12:
 		await get_tree().process_frame

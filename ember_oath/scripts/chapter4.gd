@@ -10,50 +10,59 @@ const VICTORY_SUB := "巴尔托留在了桥头。"
 const DEFEAT_SUB := "异端的火，被押往圣都……"
 const BG := ""
 
-## 28×16。西北是灰岩村废墟（老奶奶的地窖屋可访问），中间一条河：
-## 西边一座桥接南岸大路（路上教会兵、路南堡垒），东边浅滩走北岸丘陵小道（北堡上有魔道士、猎人小屋可访问）。
-## 撤离点在东南角大路尽头。
+## 38×20。西北是灰岩村废墟（我方开局，老奶奶的地窖屋可访问），中间一条河：
+## 西桥接南岸大路（教会兵沿路设卡、路边有流动商人的道具店、路南一座堡垒），中间浅滩、东桥接北岸丘陵小道（北堡上有魔道士、猎人小屋）。
+## 撤离点在东南角大路尽头，三名骑士守着。审判官塞拉斯第 4 回合从西北林子追来，第 6 回合东边再来一队堵路。
 const MAP := [
-	"FFFFF..FFFFF.FFFFFFFFFMMMMMM",
-	"FFCCCZ.RCC.FF...FF.FF...MMMM",
-	"F.CHC.WRZCZ..hh............M",
-	"F.CC...RCC....h...T.........",
-	".FZ....RRRRRRRRRRRRRRRRRH.FF",
-	".Z.....R.Z..h...F..........F",
-	"FF.CC.ZRC.ZF.....F..hh...FFF",
-	".......R....................",
-	"~~~~~~~B~~~~~~~~~~~~~~~ww~~~",
-	"FF..ff.R..h.F...hh.FF....F..",
-	"..F.ff.R............F.h.F...",
-	".......RRRRRRRRRRRRRRRRRRRR.",
-	"..MM.h.........T..........R.",
-	"F.....h...F..F.....h.F....R.",
-	".F..F......F.MM..F....F...RR",
-	"F..F........F.MM..F....F.RRR",
+	"FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+	"...CC..RCZZFFF.h............F.....F.F.",
+	"..CH..WRZ.CF.hhhhh...AA..FFH......FF.F",
+	".FCC......C.F.....F.....RRRRRRRR..FFF.",
+	".FC...ZRRRRRRR..........R......R..FF..",
+	".ZFZ......C..RF...TF....R......RF.AF..",
+	".F.....R..Z..RRRRRRRRRRRRM.hhh.R....FF",
+	".......RCC.F.....FFFFF..MM..h..R......",
+	".......R...........F...F.M.....R.....F",
+	"~~~~~~~B~~~~~~~~~~~~ww~~~~~~~~~B~~~~~~",
+	".......R.........h......F....F.R....h.",
+	"..ff...R.....h..hhhh...FFFF....R.h..h.",
+	"..f.F..R.........h..h..........R.F..hh",
+	".FFFF..R...................F...R....h.",
+	"...FF..RRRRRRRRRRRRRRRRRRRRRRRRRRRR..F",
+	"...F......F..VF.....T.........F...R...",
+	"...........F....F........F...FFFF.R...",
+	"...hF......F..F.........MMM.MFFF.FR...",
+	"...h..h..FFFFF......FhF......FFF..RRRR",
+	"..................F...........F......R",
 ]
 
 const LEVELS := [
-	"1111111111111111111111111111",
-	"1111111111111111111111111111",
-	"1111111111111111111111111111",
-	"1111111111111111111111111111",
-	"1111111111111111111111111111",
-	"1111111111111111111111111111",
-	"1111111111111111111111111111",
-	"1111111111111111111111111111",
-	"0000000100000000000000011000",
-	"1111111111111111111111111111",
-	"1111111111111111111111111111",
-	"1111111111111111111111111111",
-	"1111111111111111111111111111",
-	"1111111111111111111111111111",
-	"1111111111111111111111111111",
-	"1111111111111111111111111111",
+	"11111111111111111111111111111111111111",
+	"11111111111111111111111111111111111111",
+	"11111111111111111111111111111111111111",
+	"11111111111111111111111111111111111111",
+	"11111111111111111111111111111111111111",
+	"11111111111111111111111111111111111111",
+	"11111111111111111111111111111111111111",
+	"11111111111111111111111111111111111111",
+	"11111111111111111111111111111111111111",
+	"00000001000000000000110000000001000000",
+	"11111111111111111111111111111111111111",
+	"11111111111111111111111111111111111111",
+	"11111111111111111111111111111111111111",
+	"11111111111111111111111111111111111111",
+	"11111111111111111111111111111111111111",
+	"11111111111111111111111111111111111111",
+	"11111111111111111111111111111111111111",
+	"11111111111111111111111111111111111111",
+	"11111111111111111111111111111111111111",
+	"11111111111111111111111111111111111111",
 ]
 
-const GOAL := [Vector2i(26, 14), Vector2i(27, 14), Vector2i(27, 15)]
+const GOAL := [Vector2i(36, 18), Vector2i(37, 18), Vector2i(37, 19)]
 const VISIT_GRANNY := Vector2i(3, 2)
-const VISIT_HUNTER := Vector2i(24, 4)
+const VISIT_HUNTER := Vector2i(27, 2)
+const SHOP_VENDOR := Vector2i(13, 15)
 
 const C_TIA := Color(1.0, 0.62, 0.45)
 const C_BALTO := Color(0.62, 0.78, 1.0)
@@ -110,27 +119,32 @@ const UNITS := [
 	# 敌方
 	# 村口追进来的
 	{"id": "church2", "pos": Vector2i(11, 3)},
-	{"id": "church4", "pos": Vector2i(3, 10)},
-	# 南岸大路
-	{"id": "church3", "pos": Vector2i(9, 10)},
-	{"id": "archer2", "pos": Vector2i(13, 10)},
-	{"id": "church5", "pos": Vector2i(18, 11)},
-	{"id": "mage2", "pos": Vector2i(15, 12)},
+	{"id": "church7", "pos": Vector2i(10, 7)},
+	# 南岸大路上的关卡
+	{"id": "church3", "pos": Vector2i(9, 12)},
+	{"id": "church4", "pos": Vector2i(4, 12)},
+	{"id": "archer2", "pos": Vector2i(14, 12)},
+	{"id": "church5", "pos": Vector2i(19, 14)},
+	{"id": "mage2", "pos": Vector2i(20, 15)},
+	{"id": "archer4", "pos": Vector2i(25, 16)},
+	{"id": "church9", "pos": Vector2i(28, 13)},
 	# 北岸小道
-	{"id": "archer1", "pos": Vector2i(14, 2)},
-	{"id": "church6", "pos": Vector2i(21, 5)},
-	{"id": "archer3", "pos": Vector2i(22, 10)},
+	{"id": "archer1", "pos": Vector2i(15, 2)},
+	{"id": "church6", "pos": Vector2i(23, 6)},
+	{"id": "church8", "pos": Vector2i(25, 2), "hold": true},
+	{"id": "archer3", "pos": Vector2i(28, 7)},
 	# 撤离点前守着的骑士
-	{"id": "knight1", "pos": Vector2i(24, 12), "hold": true},
-	{"id": "knight2", "pos": Vector2i(25, 13), "hold": true},
+	{"id": "knight1", "pos": Vector2i(33, 16), "hold": true},
+	{"id": "knight2", "pos": Vector2i(35, 15), "hold": true},
+	{"id": "knight3", "pos": Vector2i(32, 18), "hold": true},
 	# 教会魔道士：火焰打魔防，守备高的骑士也挡不住
-	{"id": "mage1", "pos": Vector2i(18, 3)},
+	{"id": "mage1", "pos": Vector2i(18, 5)},
 	# 诺雅：随军的见习修女，给教会兵治疗；缇娅可说得
 	{"id": "noya", "name": "诺雅", "class": "修女", "faction": "enemy", "level": 2,
 		"hp": 16, "pwr": 3, "skl": 4, "spd": 6, "dfn": 1, "mov": 5,
 		"weapons": ["heal_staff"], "items": ["vulnerary"],
 		"growths": {"hp": 45, "pwr": 40, "skl": 40, "spd": 50, "dfn": 15},
-		"pos": Vector2i(12, 6), "color": Color(0.92, 0.90, 0.84),
+		"pos": Vector2i(20, 7), "color": Color(0.92, 0.90, 0.84),
 		"hair": "hood", "hair_color": Color(0.78, 0.66, 0.40), "armor": Color(0.90, 0.88, 0.82)},
 ]
 
@@ -165,6 +179,18 @@ func extra_deploy_slots() -> Array:
 
 func templates() -> Dictionary:
 	return {"church": _CHURCH, "knight": _KNIGHT, "archer": _ARCHER, "mage": _MAGE}
+
+
+## 第 6 回合：东边又来一队教会兵堵撤离的路
+const LATE_WAVE := [
+	{"id": "church_r1", "pos": Vector2i(37, 13)},
+	{"id": "church_r2", "pos": Vector2i(37, 14)},
+]
+
+
+## 流动商人：路边的道具店
+func shops() -> Dictionary:
+	return {SHOP_VENDOR: ["vulnerary", "elixir", "javelin", "hand_axe"]}
 
 
 func extra_slots() -> Array:
@@ -208,6 +234,11 @@ func on_turn_start(t: int) -> void:
 		Audio.play_sfx("reinforce")
 		battle.show_banner(tr("审判官来袭！"), Color(1.0, 0.85, 0.5))
 		await battle.play_dialogue(_turn3_silas())
+	elif t == 6 and not flags.get("late_wave", false):
+		flags["late_wave"] = true
+		battle.spawn_units(LATE_WAVE)
+		Audio.play_sfx("reinforce")
+		battle.show_banner(tr("敌方增援！"), Color(1.0, 0.5, 0.3))
 
 
 func on_before_combat(att, def) -> void:

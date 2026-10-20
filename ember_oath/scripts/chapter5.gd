@@ -11,52 +11,61 @@ const VICTORY_SUB := "渡口一别。下一次见面，是在王都。"
 const DEFEAT_SUB := "渡船靠岸时，岸上已经没有人了……"
 const BG := ""
 
-const VISIT_FARM := Vector2i(3, 3)
-const VISIT_CABIN := Vector2i(20, 4)
+const VISIT_FARM := Vector2i(4, 3)
+const VISIT_CABIN := Vector2i(26, 3)
+const SHOP_VENDOR := Vector2i(20, 17)
 const HOLD_TURNS := 6             # 撑过 6 个回合，第 7 回合开始时渡船到
 
-## 24×18。渡口是河南岸半岛上的旧关卡：北面一道石墙，大桥正对关门；西段墙塌了，正对着浅滩。
-## 墙内石板场院、仓房，栈桥在半岛南端。北面山道口的堡垒上坐镇着追捕队长巴雷特，西边农庄、东边林中小屋可访问。
+## 30×22。渡口是河南岸半岛上的旧关卡：北面一道石墙，大桥正对关门；西段墙塌了，正对着浅滩。墙内石板场院里有家杂货铺。
+## 北面三条路汇过来：西北大路、东北大路、正中山道（山道口的堡垒上坐镇着追捕队长巴雷特）。西边农庄、东边林中小屋可访问。
 const MAP := [
-	"MMM..MMMMM...MMMMMM..MMM",
-	"MMF..FMMMF.T..FMMMF..FMM",
-	"........h..R..h.........",
-	"F..H.D.F.h.R.F..F.MM..F.",
-	"..ffff..F..R..F.....H..F",
-	"..ffff.....R...hh.......",
-	".F....RRRRRR.....FF.....",
-	"F...h......Rh........FF.",
-	".F....F..F.R...F...hh...",
-	"...........R............",
-	"~~~~~ww~~~~B~~~~~~~~~~~~",
-	"~~~~#ZZ####G########~~~~",
-	"~~~.F....ISSSI...DDF.~~~",
-	"~~~..DD..SSSSS.F.....~~~",
-	"~~~~~....ssssss....~~~~~",
-	"~~~~~~~~~~~BB~~~~~~~~~~~",
-	"~~~~~~~~~~~BB~~~~~~~~~~~",
-	"~~~~~~~~~~~~~~~~~~~~~~~~",
+	"MMMMMMMMMMMMMM...MMMMMMMMMMMMM",
+	".M.MMMMM.M.....T.....FMMMMMM..",
+	".....M.h...F.FFR...F.....F....",
+	".F.DHD....FFF..R..FFF..h..H...",
+	"..........FFFF.R.FFFF.F.......",
+	"RRRRRRRRR.F.F..R..FFF.RRRRRRRR",
+	"F.......R....FFR.F.F..R...F...",
+	"..ffff..R......R......R.FFFFF.",
+	"..ffffF.R......R......R.h.....",
+	".Fffff..RRRRRRRRRRRRRRR....F..",
+	"FFF.h...Rh.F...R...........FF.",
+	"FFFF....R.hhh..R..hhhF..FFF.F.",
+	"FFF.....R..h.h.R...h...F.hFFF.",
+	".F....F.RF.....R....F......F..",
+	"~~~~~~~~ww~~~~~B~~~~~~~~~~~~~~",
+	"~~~~~~~#ZZ#####G#######~~~~~~~",
+	"~~~~~~.F....ISSSSSI..DD.~~~~~~",
+	"~~~~~~..DD..SSSSSSS.V...~~~~~~",
+	"~~~~~~.....sssssssss..F.~~~~~~",
+	"~~~~~~~~.......BB.....~~~~~~~~",
+	"~~~~~~~~~~~~~~~BB~~~~~~~~~~~~~",
+	"~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~",
 ]
 
 const LEVELS := [
-	"111111111111111111111111",
-	"111111111111111111111111",
-	"111111111111111111111111",
-	"111111111111111111111111",
-	"111111111111111111111111",
-	"111111111111111111111111",
-	"111111111111111111111111",
-	"111111111111111111111111",
-	"111111111111111111111111",
-	"111111111111111111111111",
-	"000001100001000000000000",
-	"000011111111111111110000",
-	"000111111111111111111000",
-	"000111111111111111111000",
-	"000001111111111111100000",
-	"000000000001100000000000",
-	"000000000001100000000000",
-	"000000000000000000000000",
+	"111111111111111111111111111111",
+	"111111111111111111111111111111",
+	"111111111111111111111111111111",
+	"111111111111111111111111111111",
+	"111111111111111111111111111111",
+	"111111111111111111111111111111",
+	"111111111111111111111111111111",
+	"111111111111111111111111111111",
+	"111111111111111111111111111111",
+	"111111111111111111111111111111",
+	"111111111111111111111111111111",
+	"111111111111111111111111111111",
+	"111111111111111111111111111111",
+	"111111111111111111111111111111",
+	"000000001100000100000000000000",
+	"000000011111111111111110000000",
+	"000000111111111111111111000000",
+	"000000111111111111111111000000",
+	"000000111111111111111111000000",
+	"000000001111111111111100000000",
+	"000000000000000110000000000000",
+	"000000000000000000000000000000",
 ]
 
 const C_TIA := Color(1.0, 0.62, 0.45)
@@ -100,40 +109,43 @@ const UNITS := [
 		"hp": 26, "pwr": 8, "skl": 9, "spd": 10, "dfn": 5, "mov": 5,
 		"weapons": ["iron_sword"], "items": ["vulnerary"],
 		"growths": {"hp": 75, "pwr": 45, "skl": 55, "spd": 60, "dfn": 35},
-		"pos": Vector2i(11, 13), "color": Color(0.85, 0.45, 0.35),
+		"pos": Vector2i(15, 16), "color": Color(0.85, 0.45, 0.35),
 		"hair": "ponytail", "hair_color": Color(0.80, 0.22, 0.18), "armor": Color(0.62, 0.45, 0.32)},
-	{"id": "nina", "pos": Vector2i(12, 13), "name": "妮娜", "class": "弓箭手", "faction": "player", "level": 4,
+	{"id": "nina", "pos": Vector2i(16, 17), "name": "妮娜", "class": "弓箭手", "faction": "player", "level": 4,
 		"hp": 20, "pwr": 6, "skl": 9, "spd": 8, "dfn": 3, "mov": 5, "weapons": ["iron_bow"],
 		"growths": {"hp": 55, "pwr": 45, "skl": 55, "spd": 50, "dfn": 15}},
-	{"id": "kain", "pos": Vector2i(10, 12), "name": "凯因", "class": "佣兵", "faction": "player", "level": 5,
+	{"id": "kain", "pos": Vector2i(14, 16), "name": "凯因", "class": "佣兵", "faction": "player", "level": 5,
 		"hp": 24, "pwr": 7, "skl": 10, "spd": 11, "dfn": 4, "mov": 5, "weapons": ["iron_sword"],
 		"growths": {"hp": 70, "pwr": 40, "skl": 60, "spd": 65, "dfn": 25}},
-	{"id": "noya", "pos": Vector2i(12, 12), "name": "诺雅", "class": "修女", "faction": "player", "level": 3,
+	{"id": "noya", "pos": Vector2i(14, 17), "name": "诺雅", "class": "修女", "faction": "player", "level": 3,
 		"hp": 17, "pwr": 4, "skl": 5, "spd": 7, "dfn": 1, "mov": 5, "weapons": ["heal_staff"],
 		"growths": {"hp": 45, "pwr": 40, "skl": 40, "spd": 50, "dfn": 15}},
-	# 敌方先头部队
-	{"id": "church1", "pos": Vector2i(10, 4)},
-	{"id": "church2", "pos": Vector2i(12, 5)},
-	{"id": "merc3", "pos": Vector2i(4, 6)},
-	{"id": "merc1", "pos": Vector2i(7, 5)},
-	{"id": "merc2", "pos": Vector2i(15, 6)},
-	{"id": "archer1", "pos": Vector2i(14, 2)},
-	{"id": "knight1", "pos": Vector2i(19, 6)},
-	{"id": "mage1", "pos": Vector2i(9, 3)},
+	# 敌方先头部队：三条路上各一队
+	{"id": "church1", "pos": Vector2i(14, 6)},
+	{"id": "church2", "pos": Vector2i(16, 8)},
+	{"id": "archer1", "pos": Vector2i(14, 3)},
+	{"id": "mage1", "pos": Vector2i(16, 4)},
+	{"id": "merc3", "pos": Vector2i(4, 5)},
+	{"id": "merc1", "pos": Vector2i(8, 7)},
+	{"id": "church3", "pos": Vector2i(2, 5)},
+	{"id": "merc2", "pos": Vector2i(22, 7)},
+	{"id": "knight1", "pos": Vector2i(25, 5)},
+	{"id": "merc4", "pos": Vector2i(27, 6)},
+	{"id": "archer2", "pos": Vector2i(20, 10)},
 	# 追捕队长巴雷特：重甲，坐镇北面山道口不动
 	{"id": "barrett", "name": "巴雷特", "class": "追捕队长", "faction": "enemy", "level": 8,
 		"hp": 34, "pwr": 10, "skl": 6, "spd": 3, "dfn": 11, "mov": 4,
 		"weapons": ["steel_lance"], "boss": true, "stationary": true,
-		"pos": Vector2i(11, 1), "color": Color(0.70, 0.66, 0.60),
+		"pos": Vector2i(15, 1), "color": Color(0.70, 0.66, 0.60),
 		"hair": "short", "hair_color": Color(0.30, 0.25, 0.20), "armor": Color(0.62, 0.60, 0.58), "scar": true},
 ]
 
 ## 按回合涌来的追兵
 const WAVES := {
-	2: [{"id": "merc_r0", "pos": Vector2i(0, 5)}, {"id": "church_r0", "pos": Vector2i(23, 5)}],
-	3: [{"id": "merc_r1", "pos": Vector2i(10, 0)}, {"id": "church_r1", "pos": Vector2i(12, 0)}],
-	4: [{"id": "archer_r1", "pos": Vector2i(3, 0)}, {"id": "mage_r1", "pos": Vector2i(20, 0)}],
-	5: [{"id": "merc_r2", "pos": Vector2i(0, 9)}, {"id": "knight_r1", "pos": Vector2i(23, 9)}],
+	2: [{"id": "merc_r0", "pos": Vector2i(0, 5)}, {"id": "church_r0", "pos": Vector2i(29, 5)}],
+	3: [{"id": "merc_r1", "pos": Vector2i(14, 0)}, {"id": "church_r1", "pos": Vector2i(16, 0)}, {"id": "knight_r2", "pos": Vector2i(29, 4)}],
+	4: [{"id": "archer_r1", "pos": Vector2i(0, 6)}, {"id": "mage_r1", "pos": Vector2i(29, 6)}],
+	5: [{"id": "merc_r2", "pos": Vector2i(0, 11)}, {"id": "knight_r1", "pos": Vector2i(29, 11)}, {"id": "church_r2", "pos": Vector2i(15, 0)}],
 }
 
 
@@ -151,7 +163,7 @@ func deploy_limit() -> int:
 
 
 func extra_deploy_slots() -> Array:
-	return [Vector2i(11, 12), Vector2i(9, 13), Vector2i(13, 13)]
+	return [Vector2i(13, 17), Vector2i(17, 17), Vector2i(16, 16)]
 
 
 func templates() -> Dictionary:
@@ -162,8 +174,13 @@ func lose_ids() -> Array:
 	return ["tia"]
 
 
+## 关卡场院里的杂货铺：守关时补给
+func shops() -> Dictionary:
+	return {SHOP_VENDOR: ["vulnerary", "iron_sword", "iron_bow", "heal_staff", "javelin"]}
+
+
 func extra_slots() -> Array:
-	return [Vector2i(13, 13), Vector2i(9, 13), Vector2i(14, 12), Vector2i(10, 13)]
+	return [Vector2i(13, 17), Vector2i(17, 17), Vector2i(16, 16), Vector2i(13, 16)]
 
 
 ## 哈洛、托比留在村里照顾巴尔托（第 23 章回归）

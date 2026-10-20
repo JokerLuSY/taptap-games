@@ -10,36 +10,45 @@ const VICTORY_SUB := "铁笼车往圣都去了。其余的人，消失在夜色�
 const DEFEAT_SUB := "白垣镇的城门，再也没有打开……"
 const BG := ""
 
-## 26×18。城墙围起来的白垣镇：北门（我方进城处，第 3 回合落闸）、南门（撤离点，守门骑士队长在门洞里）、东门（增援）。
-## 南北大街、东西大街在中央广场交汇；西北钟楼院子里躲着小雀；东北是教会仓库（押运车、两只宝箱）；两户人家可访问。
+## 34×24。城墙围起来的白垣镇：北门（我方进城处，第 3 回合落闸）、南门（撤离点，守门骑士队长在门洞里）、东门（增援）。
+## 一条运河把城分成北城、南城（三座桥）：北城有广场、西北钟楼院子（小雀躲在这儿）、东北教会仓库（押运车、两只宝箱）；
+## 南城集市里有武器店、道具店；两户人家可访问。
 const MAP := [
-	"############GG############",
-	"#..###......SS...#######.#",
-	"#.ISSSI...D.SS.D.#QSASQ#.#",
-	"#fSSSSSDD.D.SS.D.#SSSSS#.#",
-	"#fSSSSS.D...SS...#ISSSI#.#",
-	"#DD.........SS..D###G###.#",
-	"#...DD.F.SSSSSSSS......F.#",
-	"#........SWSSSSIS.FF.....#",
-	"#SSSSSSSSSSSSSSSSSSSSSSSS#",
-	"#SSSSSSSSSSSSSSSSSSSSSSSSG",
-	"#........SISSSSIS.....SSS#",
-	"#.DD...F.SSSSSSSS..DD....#",
-	"#F.H.DD.....SS..DD...HDD.#",
-	"#.........D.SS.....W.....#",
-	"#...F...DD..SS.D....F..F.#",
-	"#DD...D...SSSSSS.DD..DD..#",
-	"#.........SSSSSS.........#",
-	"############GG############",
+	"################GG################",
+	"#########.......SS..F...########F#",
+	"#.ISSSSI..DD..FFSS..DD..#QSAASQ#.#",
+	"#fSSSSSS..D..DD.SS..D.F.#SSSSSS#.#",
+	"#fSSSSSS........SS....D.#ISSSSI#.#",
+	"#...F...........SS...FF.###G####.#",
+	"#SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS#",
+	"#...............SS.F..........SSS#",
+	"#.DD....D...ISSSSSSSSI..DDF...SSS#",
+	"#....DD..D..SWSSSSSSSSFF...D..SSS#",
+	"#.D........FSSSSSSSSSSD...D...SSS#",
+	"#...FFS.........SS.........S..SSSG",
+	"#~~~~~B~~~~~~~~~BB~~~~~~~~~B~~SSS#",
+	"#.....S..F.F....SS.........S..SSS#",
+	"#.DD....D.F.SSSSSSSSSS..D..D..SSS#",
+	"#....D...D.YSSSSSSSSSSV..D..D.SSS#",
+	"#...........ISSSSSSSSI.D.F....SSS#",
+	"#...............SSF....F......SSS#",
+	"#SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS#",
+	"#..F........FF..SS.......FF......#",
+	"#.DFH....D...D..SS..D...D....HD..#",
+	"#F...DD...D.....SS...D...D..D....#",
+	"#....F..........SSF............FF#",
+	"################GG################",
 ]
 
 const LEVELS := []                # 全图同一高度
 
-const GOAL := [Vector2i(12, 17), Vector2i(13, 17)]
-const NORTH_GATE := [Vector2i(12, 0), Vector2i(13, 0)]
-const CHESTS := {Vector2i(18, 2): "hero_crest", Vector2i(22, 2): "elixir"}
-const VISIT_OLD := Vector2i(3, 12)
-const VISIT_WIDOW := Vector2i(21, 12)
+const GOAL := [Vector2i(16, 23), Vector2i(17, 23)]
+const NORTH_GATE := [Vector2i(16, 0), Vector2i(17, 0)]
+const CHESTS := {Vector2i(25, 2): "hero_crest", Vector2i(30, 2): "elixir"}
+const VISIT_OLD := Vector2i(4, 20)
+const VISIT_WIDOW := Vector2i(29, 20)
+const SHOP_ARMORY := Vector2i(11, 15)
+const SHOP_VENDOR := Vector2i(22, 15)
 const SPARROW_LEAVES := 6         # 第 6 回合开始时还没收留，小雀就自己翻墙跑了
 
 const C_TIA := Color(1.0, 0.62, 0.45)
@@ -76,18 +85,18 @@ const UNITS := [
 		"hp": 30, "pwr": 10, "skl": 12, "spd": 13, "dfn": 7, "mov": 5,
 		"weapons": ["iron_sword"], "items": ["vulnerary"],
 		"growths": {"hp": 75, "pwr": 45, "skl": 55, "spd": 60, "dfn": 35},
-		"pos": Vector2i(12, 1), "color": Color(0.85, 0.45, 0.35),
+		"pos": Vector2i(16, 1), "color": Color(0.85, 0.45, 0.35),
 		"hair": "ponytail", "hair_color": Color(0.80, 0.22, 0.18), "armor": Color(0.62, 0.45, 0.32)},
-	{"id": "nina", "pos": Vector2i(13, 1), "name": "妮娜", "class": "弓箭手", "faction": "player", "level": 6,
+	{"id": "nina", "pos": Vector2i(17, 1), "name": "妮娜", "class": "弓箭手", "faction": "player", "level": 6,
 		"hp": 22, "pwr": 7, "skl": 11, "spd": 9, "dfn": 4, "mov": 5, "weapons": ["iron_bow"],
 		"growths": {"hp": 55, "pwr": 45, "skl": 55, "spd": 50, "dfn": 15}},
-	{"id": "kain", "pos": Vector2i(12, 2), "name": "凯因", "class": "佣兵", "faction": "player", "level": 7,
+	{"id": "kain", "pos": Vector2i(16, 2), "name": "凯因", "class": "佣兵", "faction": "player", "level": 7,
 		"hp": 27, "pwr": 9, "skl": 12, "spd": 13, "dfn": 5, "mov": 5, "weapons": ["iron_sword"],
 		"growths": {"hp": 70, "pwr": 40, "skl": 60, "spd": 65, "dfn": 25}},
-	{"id": "noya", "pos": Vector2i(13, 2), "name": "诺雅", "class": "修女", "faction": "player", "level": 5,
+	{"id": "noya", "pos": Vector2i(17, 2), "name": "诺雅", "class": "修女", "faction": "player", "level": 5,
 		"hp": 19, "pwr": 5, "skl": 6, "spd": 8, "dfn": 2, "mov": 5, "weapons": ["heal_staff"],
 		"growths": {"hp": 45, "pwr": 40, "skl": 40, "spd": 50, "dfn": 15}},
-	{"id": "cyril", "pos": Vector2i(11, 1), "name": "西里尔", "class": "魔道士", "faction": "player", "level": 7,
+	{"id": "cyril", "pos": Vector2i(15, 1), "name": "西里尔", "class": "魔道士", "faction": "player", "level": 7,
 		"hp": 24, "pwr": 8, "skl": 7, "spd": 8, "dfn": 3, "res": 8, "mov": 5, "weapons": ["fire"],
 		"growths": {"hp": 50, "pwr": 55, "skl": 45, "spd": 50, "dfn": 15, "res": 45}},
 	# 小雀：中立（绿色），躲在钟楼院子里。缇娅和她对话就入队
@@ -98,30 +107,37 @@ const UNITS := [
 		"pos": Vector2i(4, 3), "color": Color(0.55, 0.70, 0.45),
 		"hair": "short", "hair_color": Color(0.62, 0.38, 0.22), "armor": Color(0.40, 0.58, 0.44)},
 	# 敌方：满城搜捕的教会兵
-	{"id": "church1", "pos": Vector2i(6, 4)},
-	{"id": "church2", "pos": Vector2i(9, 9)},
-	{"id": "church3", "pos": Vector2i(16, 8)},
-	{"id": "church4", "pos": Vector2i(20, 6), "hold": true},
-	{"id": "church5", "pos": Vector2i(12, 12)},
-	{"id": "knight1", "pos": Vector2i(18, 9)},
-	{"id": "knight2", "pos": Vector2i(14, 15)},
-	{"id": "archer1", "pos": Vector2i(19, 4), "hold": true},
-	{"id": "archer2", "pos": Vector2i(8, 12)},
-	{"id": "archer3", "pos": Vector2i(11, 15)},
-	{"id": "mage1", "pos": Vector2i(14, 10)},
-	{"id": "mage2", "pos": Vector2i(21, 3), "hold": true},
+	{"id": "church1", "pos": Vector2i(6, 5)},
+	{"id": "church2", "pos": Vector2i(10, 6)},
+	{"id": "church3", "pos": Vector2i(19, 9)},
+	{"id": "church4", "pos": Vector2i(27, 6), "hold": true},
+	{"id": "church5", "pos": Vector2i(16, 11)},
+	{"id": "church6", "pos": Vector2i(6, 13)},
+	{"id": "church7", "pos": Vector2i(27, 13)},
+	{"id": "church8", "pos": Vector2i(14, 18)},
+	{"id": "knight1", "pos": Vector2i(22, 9)},
+	{"id": "knight2", "pos": Vector2i(19, 19)},
+	{"id": "knight3", "pos": Vector2i(31, 15)},
+	{"id": "archer1", "pos": Vector2i(26, 3), "hold": true},
+	{"id": "archer2", "pos": Vector2i(9, 10)},
+	{"id": "archer3", "pos": Vector2i(15, 20)},
+	{"id": "archer4", "pos": Vector2i(20, 16)},
+	{"id": "mage1", "pos": Vector2i(14, 14)},
+	{"id": "mage2", "pos": Vector2i(29, 3), "hold": true},
+	{"id": "mage3", "pos": Vector2i(18, 21)},
 	# 南门守将罗伦兹：站在门洞里不动（门洞守备高，回合开始回血）
 	{"id": "lorenz", "name": "罗伦兹", "class": "骑士", "faction": "enemy", "level": 10,
 		"hp": 34, "pwr": 11, "skl": 9, "spd": 8, "dfn": 10, "res": 4, "mov": 7,
 		"weapons": ["silver_lance"], "boss": true, "stationary": true,
-		"pos": Vector2i(13, 17), "color": Color(0.84, 0.82, 0.88),
+		"pos": Vector2i(17, 23), "color": Color(0.84, 0.82, 0.88),
 		"hair": "short", "hair_color": Color(0.70, 0.62, 0.40), "armor": Color(0.90, 0.88, 0.94)},
 ]
 
 ## 第 3 回合北门落闸、东门冲进骑士；第 5 回合东门再来教会兵
 const WAVES := {
-	3: [{"id": "knight_r1", "pos": Vector2i(24, 9)}, {"id": "knight_r2", "pos": Vector2i(24, 8)}],
-	5: [{"id": "church_r1", "pos": Vector2i(24, 10)}, {"id": "church_r2", "pos": Vector2i(23, 9)}],
+	3: [{"id": "knight_r1", "pos": Vector2i(32, 11)}, {"id": "knight_r2", "pos": Vector2i(32, 10)}],
+	5: [{"id": "church_r1", "pos": Vector2i(32, 12)}, {"id": "church_r2", "pos": Vector2i(31, 11)}],
+	7: [{"id": "knight_r3", "pos": Vector2i(32, 11)}, {"id": "archer_r1", "pos": Vector2i(32, 12)}],
 }
 
 
@@ -138,7 +154,7 @@ func deploy_limit() -> int:
 
 
 func extra_deploy_slots() -> Array:
-	return [Vector2i(14, 1), Vector2i(11, 2), Vector2i(14, 2)]
+	return [Vector2i(18, 1), Vector2i(15, 2), Vector2i(18, 2)]
 
 
 func templates() -> Dictionary:
@@ -150,7 +166,13 @@ func lose_ids() -> Array:
 
 
 func extra_slots() -> Array:
-	return [Vector2i(14, 1), Vector2i(11, 2), Vector2i(14, 2), Vector2i(10, 1)]
+	return [Vector2i(18, 1), Vector2i(15, 2), Vector2i(18, 2), Vector2i(14, 1)]
+
+
+## 南城集市的武器店、道具店
+func shops() -> Dictionary:
+	return {SHOP_ARMORY: ["iron_sword", "steel_sword", "iron_lance", "steel_lance", "iron_axe", "steel_bow", "fire", "thunder"],
+		SHOP_VENDOR: ["vulnerary", "elixir", "heal_staff", "mend_staff"]}
 
 
 func goal_tiles() -> Array:
