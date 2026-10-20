@@ -62,10 +62,13 @@ func _draw() -> void:
 	var c0: Color = MOODS[mood][0]
 	var c1: Color = MOODS[mood][1]
 	var hi: Color = MOODS[mood][2]
+	# 宽屏时卡片被居中（position.x = 左右留白），底色和暗角往两边铺满整屏
+	var pad := position.x
+	var full_w := 1280.0 + pad * 2.0
 	# 竖向渐变底
 	for i in 24:
 		var y := i * 30.0
-		draw_rect(Rect2(0, y, 1280, 31), c0.lerp(c1, float(i) / 23.0))
+		draw_rect(Rect2(-pad, y, full_w, 31), c0.lerp(c1, float(i) / 23.0))
 	var rng := RandomNumberGenerator.new()
 	rng.seed = _seed
 	match mood:
@@ -95,9 +98,8 @@ func _draw() -> void:
 			for k in 26:
 				var x := 40.0 + k * 48.0
 				draw_rect(Rect2(x, 120, 6, 600), Color(0.05, 0.04, 0.06, 0.8))
-			draw_rect(Rect2(0, 120, 1280, 8), Color(0.05, 0.04, 0.06, 0.8))
+			draw_rect(Rect2(-pad, 120, full_w, 8), Color(0.05, 0.04, 0.06, 0.8))
 			draw_circle(Vector2(640, 300), 260, Color(hi, 0.06 + 0.03 * sin(_t * 2.0)))
 	# 暗角
-	draw_rect(Rect2(0, 0, 1280, 720), Color(0, 0, 0, 0.0))
 	for i in 10:
-		draw_rect(Rect2(-i * 6, -i * 6, 1280 + i * 12, 720 + i * 12), Color(0, 0, 0, 0.06), false, 40.0)
+		draw_rect(Rect2(-pad - i * 6, -i * 6, full_w + i * 12, 720 + i * 12), Color(0, 0, 0, 0.06), false, 40.0)

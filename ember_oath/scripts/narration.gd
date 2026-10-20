@@ -53,6 +53,7 @@ func _ready() -> void:
 	skip.pressed.connect(_go_battle)
 	add_child(skip)
 
+	SafeArea.fit_scene(self)        # 宽屏手机：画面居中，底色铺满
 	_show()
 
 

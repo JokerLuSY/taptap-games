@@ -55,6 +55,8 @@ const POST := Rect2(176, 64, 16, 16)                # TilesetHouse：木桩（�
 var board: Board
 var burning := false                # 第二章：树换枯树、焦土更暗
 var snow := false                   # 雪地：草地换积雪、树换雪松、石头盖雪、道路换泥路
+## 地图比屏幕小时（宽屏手机上的第一章），四周画一圈装饰用的树林盖住空档：border = 左右各几格、上下各几格
+var border := Vector2i.ZERO
 var _tex := {}
 
 
@@ -75,6 +77,7 @@ func _ready() -> void:
 func _draw() -> void:
 	if board == null or board.rows.is_empty():
 		return
+	_draw_border()
 	for y in board.height:
 		for x in board.width:
 			_draw_ground(Vector2i(x, y))
@@ -403,6 +406,37 @@ func _blit(sheet: String, src: Rect2, dst: Rect2, mod := Color.WHITE) -> void:
 	var tex: Texture2D = _tex.get(sheet)
 	if tex != null:
 		draw_texture_rect_region(tex, dst, src, mod)
+
+
+## 地图外圈：草地 + 树林，压暗一点，看得出是地图边界外（不能走、不能点）
+func _draw_border() -> void:
+	if border == Vector2i.ZERO:
+		return
+	var grass: Array = GRASS_SNOW if snow else (GRASS_DARK if burning else GRASS)
+	var cells: Array = []
+	for y in range(-border.y, board.height + border.y):
+		for x in range(-border.x, board.width + border.x):
+			var p := Vector2i(x, y)
+			if board.in_bounds(p):
+				continue
+			cells.append(p)
+			for dy in 2:
+				for dx in 2:
+					var sub := Vector2i(dx, dy)
+					var g: Vector2i = grass[_hash(p * 2 + sub) % grass.size()]
+					_blit("TilesetFloor", Rect2(g, Vector2(16, 16)), Rect2(Vector2(p) * TILE + Vector2(sub) * SUB, Vector2(SUB, SUB)))
+	for p in cells:
+		var h := _hash(p)
+		if h % 4 == 0:
+			continue
+		if snow:
+			_stand("TilesetNature", TREES_SNOW[h % TREES_SNOW.size()], p, 2.0)
+		elif burning:
+			_stand("TilesetNature", DEAD_TREE, p, 2.0)
+		else:
+			_stand("TilesetNature", TREES[h % TREES.size()], p, 2.0)
+	for p in cells:
+		draw_rect(Rect2(Vector2(p) * TILE, Vector2(TILE, TILE)), Color(0.02, 0.03, 0.06, 0.32))
 
 
 func _hash(p: Vector2i) -> int:

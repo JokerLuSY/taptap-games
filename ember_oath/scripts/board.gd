@@ -71,6 +71,7 @@ func load_map(map_rows: Array, map_levels: Array = [], _bg_path := "") -> void:
 	update_origin()
 	if MapTiles.available():
 		_build_tile_layers()
+		update_origin()                  # 图块层建好后再算一次外圈装饰
 	queue_redraw()
 
 
@@ -136,6 +137,7 @@ func _build_tile_layers() -> void:
 	add_child(atmosphere)
 	if theme == "snow":
 		var flakes := CPUParticles2D.new()
+		flakes.local_coords = true        # 跟着地图卷动
 		flakes.name = "Snowfall"
 		flakes.z_index = 7
 		flakes.amount = clampi(width * height / 3, 60, 160)
@@ -155,6 +157,7 @@ func _build_tile_layers() -> void:
 		add_child(flakes)
 	if burn:
 		var embers := CPUParticles2D.new()
+		embers.local_coords = true
 		embers.name = "Embers"
 		embers.z_index = 7
 		embers.amount = clampi(width * height / 4, 40, 120)
@@ -182,6 +185,14 @@ func _build_tile_layers() -> void:
 func update_origin() -> void:
 	origin = ((view_size - Vector2(width * TILE, height * TILE)) / 2.0).max(Vector2.ZERO).floor()
 	position = origin - scroll
+	# 地图比屏幕小（宽屏手机上的第一章）：四周画一圈装饰树林盖住空档，氛围层也跟着铺开
+	var b := Vector2i(ceili(origin.x / TILE), ceili(origin.y / TILE))
+	if tiles != null and tiles.border != b:
+		tiles.border = b
+		tiles.queue_redraw()
+	if atmosphere != null:
+		atmosphere.position = -Vector2(b) * TILE
+		atmosphere.size = Vector2(width + b.x * 2, height + b.y * 2) * TILE
 
 
 func max_scroll() -> Vector2:

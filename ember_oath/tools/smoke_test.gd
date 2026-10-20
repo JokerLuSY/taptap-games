@@ -599,6 +599,7 @@ func _run() -> void:
 
 	await _check_tutorial()
 	await _check_campaign_chapters()
+	await _check_wide_screen()
 	await _check_autoplay()
 
 	print("========================================")
@@ -1017,6 +1018,98 @@ func _check_campaign_chapters() -> void:
 
 ## 自动试玩：我方也交给 EnemyAI 操作，把第 2–5 章各打几个回合。
 ## 只验证流程（敌方回合、治疗、增援、撤离 / 守关判定）不卡死、不报错；胜负结果打印出来供调难度参考。
+## 宽屏手机（比 16:9 宽，例如 20:9）：地图、信息窗铺满整屏，战斗特写和标题居中且两边不露黑框
+func _check_wide_screen() -> void:
+	_mark("宽屏")
+	if DisplayServer.get_name() == "headless":
+		return
+	# 先在 16:9 下把各套战斗背景截一张，人工看效果
+	var gallery := CombatScene.new()
+	add_child(gallery)
+	await _frames(2)
+	for spec in [["hills", "", false, "h"], ["river", "", false, "B"], ["town", "", false, "S"], ["castle", "", false, "T"], ["snow", "snow", false, "."], ["scorch", "", true, "."]]:
+		gallery.theme = spec[1]
+		gallery.burning = spec[2]
+		gallery.tint = Color.WHITE
+		gallery._fit_wide()
+		gallery._rebuild_bg(CombatScene.GROUND_COLORS["."], spec[3])
+		gallery._set_cam(0.0)
+		gallery.visible = true
+		gallery._root.modulate.a = 1.0
+		await _frames(3)
+		_check(gallery.bg_set_for(spec[3]) == spec[0], "战斗背景图鉴应为 " + spec[0])
+		_shot("20_combat_bg_%s.png" % spec[0])
+	gallery.queue_free()
+	await _frames(2)
+	var win := get_window()
+	var old_size := win.size
+	var old_mode := win.mode
+	win.mode = Window.MODE_WINDOWED
+	win.size = Vector2i(int(old_size.y * 1600.0 / 720.0), old_size.y)
+	await _frames(6)
+	var screen := SafeArea.screen()
+	_check(screen.x > 1500.0 and is_equal_approx(screen.y, 720.0), "宽屏测试前提：可见宽度应约 1600，实际 %s" % screen)
+	_check(SafeArea.pad_x() > 100.0, "宽屏时 1280 设计画面左右应各留出约 160，实际 %s" % SafeArea.pad_x())
+	CampaignSave.clear()
+	Campaign.reset()
+	load("res://scripts/battle.gd").queue_chapter(null)
+	await _new_battle()
+	await _skip_story()
+	_check(is_equal_approx(battle.map_clip.size.x, screen.x), "宽屏时地图区应铺满整屏宽，实际 %s / %s" % [battle.map_clip.size.x, screen.x])
+	_check(is_equal_approx(battle.board.view_size.x, screen.x), "宽屏时地图视口应按整屏宽卷动")
+	_check(is_equal_approx(battle.hud.size.x, screen.x), "宽屏时信息窗层应铺满整屏宽")
+	battle.hud.side = "right"
+	battle.hud.refresh()
+	var goal: Control = battle.hud.goal_win
+	_check(absf(goal.position.x + goal.size.x - (screen.x - SafeArea.MARGIN_X)) < 2.0, "宽屏时右侧信息窗应贴着右安全边，右缘 %s" % (goal.position.x + goal.size.x))
+	await _frames(4)
+	_shot("19_wide_map.png")
+	# 战斗特写：整体居中，背景层和底部面板铺到屏幕两边
+	var tia = battle.get_unit("tia")
+	var foe: Unit = null
+	for e in battle.units:
+		if not e.is_player() and e.is_alive():
+			foe = e
+			break
+	if tia != null and foe != null:
+		foe.grid_pos = tia.grid_pos + Vector2i(1, 0)
+		foe.position = foe.tile_center()
+		battle.do_combat(tia, foe, 0)
+		var t := 0.0
+		while not battle.combat_scene.active and t < 5.0:
+			await get_tree().create_timer(0.05).timeout
+			t += 0.05
+		await get_tree().create_timer(0.6).timeout
+		var cs: CombatScene = battle.combat_scene
+		_check(is_equal_approx(cs.offset.x, SafeArea.pad_x()), "宽屏时战斗特写应整体居中，offset %s" % cs.offset.x)
+		var covered := true
+		for spr in cs._layers:
+			if is_instance_valid(spr):
+				var r: Rect2 = spr.get_rect()
+				var left: float = cs.offset.x + spr.position.x + r.position.x * spr.scale.x
+				var right: float = left + r.size.x * spr.scale.x
+				if left > 1.0 or right < screen.x - 1.0:
+					covered = false
+		_check(covered, "宽屏时战斗背景各层应盖住整屏宽")
+		_shot("19b_wide_combat.png")
+		var ok: bool = await _wait_cond(func() -> bool: return not battle.combat_scene.active, 20.0)
+		_check(ok, "宽屏战斗应能正常结束")
+	battle.queue_free()
+	await _frames(3)
+	battle = null
+	var title = load("res://scenes/title.tscn").instantiate()
+	add_child(title)
+	await _frames(3)
+	_check(is_equal_approx(title.position.x, SafeArea.pad_x()), "宽屏时标题应居中，x=%s" % title.position.x)
+	_shot("19c_wide_title.png")
+	title.queue_free()
+	win.size = old_size
+	win.mode = old_mode
+	await _frames(6)
+	CampaignSave.clear()
+	Campaign.reset()
+
+
 func _check_autoplay() -> void:
 	for spec in [[2, 3], [3, 4], [4, 5], [5, 7], [6, 4], [7, 4]]:
 		var idx: int = spec[0]
@@ -1433,32 +1526,30 @@ func _check_infra() -> void:
 	_check(scene._layered_bg_paths("H") == grass_paths and scene._layered_bg_paths("W") == grass_paths, "H / W 应与平原共用草地套")
 	var forest_paths: Array = scene._layered_bg_paths("F")
 	_check(forest_paths.size() == 4 and str(forest_paths[0]).ends_with("sky_forest.png") and str(forest_paths[3]).ends_with("ground_strip_forest.png"), "森林 F 应为四层 forest 图，实际 %s" % str(forest_paths))
-	var scorch_paths: Array = scene._layered_bg_paths("f")
-	_check(scorch_paths.size() == 4 and str(scorch_paths[0]).ends_with("sky_scorch.png") and str(scorch_paths[3]).ends_with("ground_strip_scorch.png"), "焦土 f 应为四层 scorch 图，实际 %s" % str(scorch_paths))
-	_check(scene._layered_bg_paths("B") == scorch_paths, "B 应与焦土 f 共用 scorch 套")
-	for plain in [".", "H", "W"]:
-		scene._rebuild_bg(CombatScene.GROUND_COLORS[plain], plain)
-		_check_layered_stage(scene, "grass")
-	scene._rebuild_bg(CombatScene.GROUND_COLORS["F"], "F")
-	_check_layered_stage(scene, "forest")
-	for scorched in ["f", "B"]:
-		scene._rebuild_bg(CombatScene.GROUND_COLORS[scorched], scorched)
-		_check_layered_stage(scene, "scorch")
 	_check(scene._usable_layered_paths(["res://art/combat/bg/missing_layer.png"]).is_empty(), "任一层缺失时应放弃分层套")
 	_check(scene._usable_layered_paths(grass_paths.slice(0, 3) + ["res://art/combat/bg/missing_layer.png"]).is_empty(), "四层里缺一层时应整套回退")
 	_check(CombatScene.DEFAULT_BG_SET == "grass", "未登记地形的缺省套应为 grass")
-	var explicit := {".": "grass", "H": "grass", "W": "grass", "F": "forest", "f": "scorch", "B": "scorch"}
-	_check(CombatScene.TERRAIN_BG == explicit, "显式地形映射应只保留平原/民居/水井、森林、焦土/木桥")
-	var unregistered: Array[String] = ["R", "M", "X", "g", "~", "s", "C", "E", "Z", "=", "?"]
-	for ch in GameData.TERRAIN.keys():
-		var key := str(ch)
-		if not explicit.has(key) and not unregistered.has(key):
-			unregistered.append(key)
-	for plain_char in unregistered:
-		_check(not CombatScene.TERRAIN_BG.has(plain_char), "缺省用例不应写进显式表: " + plain_char)
-		_check(scene._layered_bg_paths(plain_char) == grass_paths, "未登记地形应默认 grass 四层: " + plain_char)
-		scene._rebuild_bg(CombatScene.GROUND_COLORS.get(plain_char, CombatScene.GROUND_COLORS["."]), plain_char)
-		_check_layered_stage(scene, "grass")
+	# 战斗背景随地形变化：每一套都要四层齐全，并能铺满舞台
+	for set_name in CombatScene.BG_SETS:
+		_check(scene._usable_layered_paths(CombatScene.BG_SETS[set_name]).size() == 4, "战斗背景套应四层齐全: " + set_name)
+	var by_terrain := {".": "grass", "R": "grass", "f": "grass", "F": "forest", "M": "hills", "h": "hills", "g": "hills",
+		"B": "river", "w": "river", "s": "river", "S": "town", "G": "town", "#": "town", "T": "castle", "K": "castle", "I": "castle"}
+	for ch in by_terrain:
+		_check(scene.bg_set_for(ch) == by_terrain[ch], "地形 %s 的战斗背景应为 %s，实际 %s" % [ch, by_terrain[ch], scene.bg_set_for(ch)])
+	for ch in ["R", "F", "M", "B", "T", "S"]:
+		scene._rebuild_bg(CombatScene.GROUND_COLORS.get(ch, CombatScene.GROUND_COLORS["."]), ch)
+		_check_layered_stage(scene, scene.bg_set_for(ch))
+	# 随章节变化：雪地章野外全换雪景、火场章换焦土；城镇 / 城堡内不受影响
+	scene.theme = "snow"
+	_check(scene.bg_set_for(".") == "snow" and scene.bg_set_for("F") == "snow" and scene.bg_set_for("h") == "snow", "雪地章的野外战斗背景应为雪景")
+	_check(scene.bg_set_for("T") == "castle" and scene.bg_set_for("S") == "town", "雪地章的城堡 / 城镇仍用室内套")
+	scene._rebuild_bg(CombatScene.GROUND_COLORS["."], ".")
+	_check_layered_stage(scene, "snow")
+	scene.theme = ""
+	scene.burning = true
+	_check(scene.bg_set_for(".") == "scorch" and scene.bg_set_for("C") == "scorch" and scene.bg_set_for("F") == "scorch", "火场章的战斗背景应为焦土")
+	scene.burning = false
+	_check(Chapter2.new().combat_tint() != Color.WHITE and Chapter3.new().combat_tint() == Color.WHITE, "章节色调：第二章火场之夜偏暗，第三章白天原色")
 	var fx := Polygon2D.new()
 	scene._add_fx(fx)
 	_check(fx.z_index == CombatScene.Z_FX and fx.z_index > CombatScene.Z_FIGHTER, "斩击特效应画在角色之上")
@@ -1938,7 +2029,8 @@ func _check_layered_stage(scene: CombatScene, tag: String) -> void:
 			_check(spr.texture_filter == CanvasItem.TEXTURE_FILTER_LINEAR, tag + " 分层应为 LINEAR")
 			_check(spr.z_index == CombatScene.Z_BG and spr.z_index < CombatScene.Z_FIGHTER, tag + " 分层应压在角色下面")
 			_check(not spr.centered, tag + " 分层应左上对齐")
-			var cover := Rect2(spr.position, spr.texture.get_size() * spr.scale)
+			var r := spr.get_rect()          # 宽屏时左右用镜像平铺延伸，按 region 算覆盖范围
+			var cover := Rect2(spr.position + r.position * spr.scale, r.size * spr.scale)
 			_check(cover.has_point(Vector2(1, 1)) and cover.has_point(Vector2(1279, 719)), tag + " 视差层应盖满屏幕, 实际 %s" % cover)
 		else:
 			_check(false, tag + " 分层舞台不应混入 " + c.get_class())

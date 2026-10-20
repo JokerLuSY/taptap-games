@@ -36,7 +36,7 @@ var _tween: Tween
 func _init() -> void:
 	name = "MapHud"
 	position = Vector2.ZERO
-	size = Vector2(1280, 720)
+	size = SafeArea.screen()
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	goal_win = _window(Color(0.85, 0.72, 0.38))
 	goal_win.name = "GoalWindow"
@@ -210,4 +210,4 @@ func _layout_hint() -> void:
 	var safe := SafeArea.rect()
 	hint_win.reset_size()
 	var hs := hint_win.get_combined_minimum_size()
-	hint_win.position = Vector2(640.0 - hs.x / 2.0, safe.end.y - hs.y)
+	hint_win.position = Vector2(size.x / 2.0 - hs.x / 2.0, safe.end.y - hs.y)

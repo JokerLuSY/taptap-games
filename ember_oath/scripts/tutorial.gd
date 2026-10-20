@@ -177,6 +177,7 @@ func ask() -> bool:
 	no.custom_minimum_size = Vector2(200, 56)
 	_ask.add_child(p)
 	add_child(_ask)
+	SafeArea.widen(_ask)  # 宽屏：遮罩盖满整屏
 	p.reset_size()
 	p.position = (Vector2(1280, 720) - p.get_combined_minimum_size()) / 2.0
 	await answered
@@ -424,6 +425,7 @@ func open_browser() -> void:
 	var close := _button(right, tr("关闭"), close_browser)
 	close.name = "TutorialClose"
 	add_child(_browser)
+	SafeArea.widen(_browser)  # 宽屏：遮罩盖满整屏
 
 
 func close_browser() -> void:

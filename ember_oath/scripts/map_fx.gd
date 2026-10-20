@@ -84,6 +84,7 @@ func _add_flame(p: Vector2i, h: int) -> void:
 	add_child(glow)
 	_glows.append([glow, float(h % 10) * 0.7])
 	var fire := CPUParticles2D.new()
+	fire.local_coords = true          # 粒子跟着地图走，拖动地图时火苗不会留在原地
 	fire.material = add
 	fire.z_index = 8
 	if ResourceLoader.exists(DIR + "Fire.png"):
@@ -117,6 +118,7 @@ func _add_flame(p: Vector2i, h: int) -> void:
 	fire.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	add_child(fire)
 	var smoke := CPUParticles2D.new()
+	smoke.local_coords = true
 	smoke.amount = 5
 	smoke.lifetime = 2.6
 	smoke.preprocess = 2.6

@@ -42,17 +42,70 @@ const BG_SETS := {
 		"res://art/combat/bg/mid_scorch.png",
 		"res://art/combat/bg/ground_strip_scorch.png",
 	],
+	# 以下五套由 tools/pixelart/combat_bg.py 生成
+	"snow": [
+		"res://art/combat/bg/sky_snow.png",
+		"res://art/combat/bg/mountains_snow.png",
+		"res://art/combat/bg/mid_snow.png",
+		"res://art/combat/bg/ground_strip_snow.png",
+	],
+	"town": [
+		"res://art/combat/bg/sky_town.png",
+		"res://art/combat/bg/mountains_town.png",
+		"res://art/combat/bg/mid_town.png",
+		"res://art/combat/bg/ground_strip_town.png",
+	],
+	"castle": [
+		"res://art/combat/bg/sky_castle.png",
+		"res://art/combat/bg/mountains_castle.png",
+		"res://art/combat/bg/mid_castle.png",
+		"res://art/combat/bg/ground_strip_castle.png",
+	],
+	"hills": [
+		"res://art/combat/bg/sky_hills.png",
+		"res://art/combat/bg/mountains_hills.png",
+		"res://art/combat/bg/mid_hills.png",
+		"res://art/combat/bg/ground_strip_hills.png",
+	],
+	"river": [
+		"res://art/combat/bg/sky_river.png",
+		"res://art/combat/bg/mountains_river.png",
+		"res://art/combat/bg/mid_river.png",
+		"res://art/combat/bg/ground_strip_river.png",
+	],
 }
-## terrain_char → 套名。表里没有的字符（道路等）默认 grass，不再铺纯色扁底。
+## terrain_char → 套名。表里没有的字符（平原、道路、农田等）默认 grass。
 const DEFAULT_BG_SET := "grass"
 const TERRAIN_BG := {
 	".": "grass",
 	"H": "grass",
 	"W": "grass",
 	"F": "forest",
-	"f": "scorch",
-	"B": "scorch",
+	# 山地、高地、丘陵、崖壁 → 山岭
+	"M": "hills",
+	"X": "hills",
+	"g": "hills",
+	"h": "hills",
+	# 桥、浅滩、沙滩、河 → 河岸
+	"B": "river",
+	"w": "river",
+	"s": "river",
+	"~": "river",
+	# 城镇：石地、民宅、城门、城墙、商店、宝箱
+	"S": "town",
+	"D": "town",
+	"G": "town",
+	"#": "town",
+	"V": "town",
+	"Y": "town",
+	"Q": "town",
+	# 城堡内：堡垒、王座、石柱
+	"T": "castle",
+	"K": "castle",
+	"I": "castle",
 }
+## 整章换背景的主题：雪地章所有野外地形都换雪景，火场章换焦土；城镇 / 城堡内不受影响
+const INDOOR_SETS := ["town", "castle"]
 ## 视差：镜头横移 cam_x 时，各层（远→近）跟着移动的比例；整套放大一点留出移动余量
 const PARALLAX := [0.0, 0.12, 0.35, 0.65]
 const BG_ZOOM := 1.08
@@ -198,6 +251,12 @@ var _ambient: Node2D                # 环境粒子（不随震屏）
 var _ui: Node2D                     # 底部面板（不震）
 var _flash_rect: ColorRect
 var _layers: Array = []
+var _pad := 0.0                     # 宽屏：特写整体居中后左右各空出的宽度（设计坐标）
+## 由 battle 在交战前设置：章节主题（"snow"）、是不是火场、章节色调（清晨 / 夜里 / 黄昏）
+var theme := ""
+var burning := false
+var tint := Color.WHITE
+var _bg_ext := 0.0                  # 背景层在贴图坐标里向左右各多铺的宽度（镜像平铺）
 var _cam_x := 0.0
 var _att_node: CombatFighter = null
 var _def_node: CombatFighter = null
@@ -241,8 +300,9 @@ func play(att: Unit, def: Unit, wi: int, events: Array, terrain_char: String, fc
 	_fc = fc
 	_cam.scale = Vector2.ONE
 	_cam.position = Vector2.ZERO
+	_fit_wide()
 	_rebuild_bg(GROUND_COLORS.get(terrain_char, GROUND_COLORS["."]), terrain_char)
-	_build_ambient(str(TERRAIN_BG.get(terrain_char, DEFAULT_BG_SET)))
+	_build_ambient(bg_set_for(terrain_char))
 	_setup_units(wi)
 	_build_panels(wi)
 	_update_bars(0.0)
@@ -355,8 +415,20 @@ func _add_fx(node: CanvasItem) -> void:
 
 
 ## 当前地形对应的分层路径。未登记字符默认 grass。任一层资源缺失时返回空数组（那时才回退色块）。
-func _layered_bg_paths(terrain_char: String) -> Array:
+## 战斗背景套 = 地形 + 章节主题
+func bg_set_for(terrain_char: String) -> String:
 	var set_name := str(TERRAIN_BG.get(terrain_char, DEFAULT_BG_SET))
+	if set_name in INDOOR_SETS:
+		return set_name
+	if theme == "snow":
+		return "snow"
+	if burning:
+		return "scorch"
+	return set_name
+
+
+func _layered_bg_paths(terrain_char: String) -> Array:
+	var set_name := bg_set_for(terrain_char)
 	if not BG_SETS.has(set_name):
 		set_name = DEFAULT_BG_SET
 	if not BG_SETS.has(set_name):
@@ -391,11 +463,26 @@ func _build_layered_bg(paths: Array) -> bool:
 		spr.centered = false
 		spr.scale = Vector2(BG_ZOOM, BG_ZOOM)
 		spr.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+		# 宽屏：左右用镜像平铺接出去，接缝对称看不出来
+		spr.texture_repeat = CanvasItem.TEXTURE_REPEAT_MIRROR
+		spr.region_enabled = true
+		spr.region_rect = Rect2(-_bg_ext, 0, tex.get_width() + _bg_ext * 2.0, tex.get_height())
+		spr.modulate = tint                 # 章节色调：清晨偏暖、夜里偏蓝、黄昏偏橙
 		_stage.add_child(spr)
 		_layers.append(spr)
 	_pin_stage_background()
 	_set_cam(_cam_x)
 	return true
+
+
+## 宽屏手机：特写按 1280×720 设计，整体居中；闪光、压暗、底部面板、背景层往两边铺满
+func _fit_wide() -> void:
+	_pad = SafeArea.pad_x()
+	offset.x = _pad
+	_flash_rect.position.x = -_pad
+	_flash_rect.size.x = 1280.0 + _pad * 2.0
+	# 背景层放大了 BG_ZOOM，镜头还会横移，留一点余量
+	_bg_ext = ceilf((_pad + 80.0) / BG_ZOOM)
 
 
 ## 镜头横移：近景移得多、远景移得少
@@ -406,7 +493,7 @@ func _set_cam(x: float) -> void:
 		if not is_instance_valid(spr):
 			continue
 		var f: float = PARALLAX[mini(i, PARALLAX.size() - 1)]
-		spr.position = Vector2(640.0 * (1.0 - BG_ZOOM) - x * f, FEET_Y * (1.0 - BG_ZOOM))
+		spr.position = Vector2(640.0 * (1.0 - BG_ZOOM) - x * f - _bg_ext * BG_ZOOM, FEET_Y * (1.0 - BG_ZOOM))
 
 
 func _pan_cam(x: float, time: float) -> void:
@@ -442,6 +529,27 @@ func _build_ambient(set_name: String) -> void:
 			p.gravity = Vector2(10, -6)
 			p.color = Color(1.0, 0.55, 0.18, 0.9)
 			p.amount = 40
+		"snow":
+			p.position = Vector2(640, -20)
+			p.emission_rect_extents = Vector2(700, 10)
+			p.direction = Vector2(-0.3, 1)
+			p.spread = 20.0
+			p.initial_velocity_min = 30.0
+			p.initial_velocity_max = 60.0
+			p.gravity = Vector2(-6, 10)
+			p.color = Color(1, 1, 1, 0.9)
+			p.amount = 60
+		"castle":
+			# 室内：火把光下的浮尘，慢慢往上飘
+			p.position = Vector2(640, 360)
+			p.emission_rect_extents = Vector2(700, 200)
+			p.direction = Vector2(0, -1)
+			p.spread = 60.0
+			p.initial_velocity_min = 4.0
+			p.initial_velocity_max = 10.0
+			p.gravity = Vector2(0, -1)
+			p.color = Color(1.0, 0.85, 0.55, 0.5)
+			p.amount = 18
 		"forest":
 			p.position = Vector2(640, -20)
 			p.emission_rect_extents = Vector2(700, 10)
@@ -465,6 +573,7 @@ func _build_ambient(set_name: String) -> void:
 			p.gravity = Vector2(0, -2)
 			p.color = Color(1.0, 0.97, 0.8, 0.7)
 			p.amount = 20
+	p.emission_rect_extents.x += _pad   # 宽屏两侧也有环境粒子
 	_ambient.add_child(p)
 
 
@@ -542,13 +651,16 @@ func _make_panel(x: float, u: Unit, wpn: String, stats: Array, times: int) -> Di
 	var base := Color(0.14, 0.25, 0.52) if u.is_player() else Color(0.50, 0.15, 0.15)
 	var bg := ColorRect.new()
 	bg.color = Color(base.r, base.g, base.b, 0.94)
-	bg.position = Vector2(x, PANEL_Y)
-	bg.size = Vector2(640, 720 - PANEL_Y)
+	# 宽屏：左面板往左、右面板往右铺到屏幕边
+	var ext_l := _pad if x < 1.0 else 0.0
+	var ext_r := _pad if x >= 640.0 else 0.0
+	bg.position = Vector2(x - ext_l, PANEL_Y)
+	bg.size = Vector2(640 + ext_l + ext_r, 720 - PANEL_Y)
 	_ui.add_child(bg)
 	var edge := ColorRect.new()
 	edge.color = base.lightened(0.45)
-	edge.position = Vector2(x, PANEL_Y)
-	edge.size = Vector2(640, 3)
+	edge.position = Vector2(x - ext_l, PANEL_Y)
+	edge.size = Vector2(640 + ext_l + ext_r, 3)
 	_ui.add_child(edge)
 	var sep := ColorRect.new()
 	sep.color = Color(0, 0, 0, 0.35)
@@ -686,8 +798,8 @@ var _dim: ColorRect
 func _dim_bg(alpha: float, time: float) -> void:
 	if _dim == null or not is_instance_valid(_dim):
 		_dim = ColorRect.new()
-		_dim.size = Vector2(1600, 1000)
-		_dim.position = Vector2(-160, -140)
+		_dim.size = Vector2(1600 + _pad * 2.0, 1000)
+		_dim.position = Vector2(-160 - _pad, -140)
 		_dim.color = Color(0.02, 0.0, 0.04, 0.0)
 		_dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_dim.z_index = (Z_BG + Z_FIGHTER) / 2

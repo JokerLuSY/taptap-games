@@ -103,6 +103,20 @@ func is_won() -> bool:
 	return true
 
 
+## 战斗特写背景的章节色调（白色 = 原色）。按章节 id 查，章节脚本也可以自己覆盖。
+const COMBAT_TINTS := {
+	"ch1": Color(1.0, 0.94, 0.86),      # 清晨
+	"ch2": Color(0.86, 0.66, 0.6),      # 火场之夜
+	"ch4": Color(0.64, 0.7, 0.92),      # 夜里，白色火把
+	"ch5": Color(1.0, 0.82, 0.68),      # 黄昏的渡口
+	"ch6": Color(0.78, 0.84, 1.0),      # 雪夜
+}
+
+
+func combat_tint() -> Color:
+	return COMBAT_TINTS.get(chapter_id(), Color.WHITE)
+
+
 func supports() -> Dictionary:
 	return Supports.PAIRS
 

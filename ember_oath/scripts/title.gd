@@ -142,6 +142,7 @@ func _ready() -> void:
 	if not GameLocale.locale_changed.is_connected(_apply_locale):
 		GameLocale.locale_changed.connect(_apply_locale)
 	_apply_locale(GameLocale.code)
+	SafeArea.fit_scene(self)        # 宽屏手机：画面居中，底色铺满
 
 
 func _label(size: int, color: Color, pos: Vector2, box: Vector2) -> Label:

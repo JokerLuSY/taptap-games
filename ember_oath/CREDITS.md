@@ -19,6 +19,8 @@
   `python -P -E tools/pixelart/fe_combat.py art/combat/fe scripts/combat_sets.gd`
 - 第 2–5 章新角色的战斗特写数据在 `tools/pixelart/fe_combat_art_ch2.py`（同一条命令一起生成），复用第一章的骨架姿势，
   新增部件：披风层（艾德里克、塞拉斯）、盾牌层（巴雷特）、治疗杖武器（诺雅）、细剑 / 阔刃剑刃宽。
+- 战斗背景（原创）：`art/combat/bg/` 里雪地 / 城镇 / 城堡内 / 山岭 / 河岸五套（sky / mountains / mid / ground_strip 四层）
+  由 `python -P -E tools/pixelart/combat_bg.py art/combat/bg` 生成（320×180 逐像素绘制，最近邻放大 4 倍）；草地 / 森林 / 焦土三套是原有正稿
 - 检查：`godot --path . res://tools/combat_gallery.tscn` 输出对阵截图和每套条带的全部动作总表 `tools/shots/sheet_<条带>.png`
 - 刀光特效 `art/cc0/ninja_adventure/fx/SlashCurved.png` 来自 Ninja Adventure（CC0，原包 `FX/Attack/SlashCurved`）
 

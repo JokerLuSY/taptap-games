@@ -118,17 +118,18 @@ var _map_menu_tile := NO_TILE        # 空地上按下的格子：松手且没�
 
 func _build_board() -> void:
 	# 地图铺满整屏；比屏幕小的地图居中，四周是深色底
+	var screen := SafeArea.screen()
 	var bg := ColorRect.new()
 	bg.name = "MapBackdrop"
 	bg.color = Color(0.05, 0.06, 0.09)
-	bg.size = Vector2(1280, 720)
+	bg.size = screen
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bg.z_index = -100                  # 地面层 MapTiles 是 z -2，底色要压在它下面
 	add_child(bg)
 	map_clip = Control.new()
 	map_clip.name = "MapClip"
 	map_clip.position = Vector2.ZERO
-	map_clip.size = Vector2(1280, 720)
+	map_clip.size = screen               # 宽屏手机上铺满整屏，右边不留黑框
 	map_clip.clip_contents = true
 	map_clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(map_clip)
@@ -141,6 +142,34 @@ func _build_board() -> void:
 	cursor = MapCursor.new()
 	cursor.set_grid(Vector2i(4, 3))
 	board.add_child(cursor)
+	if not get_viewport().size_changed.is_connected(_on_screen_resized):
+		get_viewport().size_changed.connect(_on_screen_resized)
+
+
+## 画面尺寸变了（宽屏手机、窗口缩放）：地图区、信息窗、横幅、结算层跟着铺满，全屏小窗重新居中
+func _on_screen_resized() -> void:
+	var screen := SafeArea.screen()
+	var bg := get_node_or_null("MapBackdrop") as ColorRect
+	if bg != null:
+		bg.size = screen
+	if map_clip != null:
+		map_clip.size = screen
+	if board != null:
+		board.view_size = screen
+		board.update_origin()
+		board.set_scroll(board.scroll)
+	if hud != null:
+		hud.size = screen
+		hud.refresh()
+	for l in [banner_label, toast_label, end_title, end_sub]:
+		if l != null:
+			l.size.x = screen.x
+	_layout_end_buttons()
+	if prep != null and is_instance_valid(prep):
+		SafeArea.fit_right(prep)
+	for c in [shop_window, tutorial]:
+		if c != null and is_instance_valid(c):
+			SafeArea.fit(c)
 
 
 ## 开场生成：章节 UNITS 里的我方单位优先取战役名单里的存档（等级、能力、道具随队继承），
@@ -267,7 +296,7 @@ func _build_ui() -> void:
 	banner_label = Label.new()
 	banner_label.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 	banner_label.position = Vector2(0, 290)
-	banner_label.size = Vector2(1280, 90)
+	banner_label.size = Vector2(SafeArea.screen().x, 90)
 	banner_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	banner_label.add_theme_font_size_override("font_size", 56)
 	banner_label.modulate.a = 0.0
@@ -276,7 +305,7 @@ func _build_ui() -> void:
 	toast_label = Label.new()
 	toast_label.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 	toast_label.position = Vector2(0, 100)
-	toast_label.size = Vector2(1280, 36)
+	toast_label.size = Vector2(SafeArea.screen().x, 36)
 	toast_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	toast_label.add_theme_font_size_override("font_size", 24)
 	toast_label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.5))
@@ -303,6 +332,7 @@ func _build_ui() -> void:
 	_build_end_overlay()
 	tutorial = Tutorial.new()
 	ui.add_child(tutorial)
+	SafeArea.fit(tutorial)
 	tutorial.setup(self)
 	dialogue = DialogueBox.new()
 	ui.add_child(dialogue)
@@ -398,14 +428,14 @@ func _build_end_overlay() -> void:
 	end_title = Label.new()
 	end_title.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 	end_title.position = Vector2(0, 210)
-	end_title.size = Vector2(1280, 90)
+	end_title.size = Vector2(SafeArea.screen().x, 90)
 	end_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	end_title.add_theme_font_size_override("font_size", 64)
 	end_overlay.add_child(end_title)
 	end_sub = Label.new()
 	end_sub.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 	end_sub.position = Vector2(0, 330)
-	end_sub.size = Vector2(1280, 80)
+	end_sub.size = Vector2(SafeArea.screen().x, 80)
 	end_sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	end_sub.add_theme_font_size_override("font_size", 26)
 	end_sub.add_theme_color_override("font_color", Color(0.8, 0.78, 0.72))
@@ -983,6 +1013,7 @@ func _step_dust(u: Unit) -> void:
 	if not is_instance_valid(u):
 		return
 	var p := CPUParticles2D.new()
+	p.local_coords = true             # 扬尘跟着地图卷动
 	p.one_shot = true
 	p.emitting = false
 	p.amount = 6
@@ -1285,6 +1316,7 @@ func open_shop(u: Unit) -> void:
 	state = S.COMBAT
 	shop_window = ShopWindow.new()
 	ui.add_child(shop_window)
+	SafeArea.fit(shop_window)
 	shop_window.open(self, u, "weapon" if board.tile_at(u.grid_pos) == "Y" else "item", chapter.shops().get(u.grid_pos, []))
 
 
@@ -1453,6 +1485,7 @@ func _run_prep() -> void:
 	prep = PrepScreen.new()
 	prep.name = "PrepScreen"
 	ui.add_child(prep)
+	SafeArea.fit_right(prep)
 	hud.forced_side = "left"
 	_update_hover_info()
 	prep.setup(self)
@@ -1832,6 +1865,9 @@ func do_combat(att: Unit, def: Unit, wi: int) -> void:
 	var fc := Combat.forecast(att, def, wi, board)
 	var events := Combat.resolve(att, def, wi, board)
 	var dwi: int = def.counter_weapon(GameData.dist(att.grid_pos, def.grid_pos))
+	combat_scene.theme = board.theme
+	combat_scene.burning = board.is_burning()
+	combat_scene.tint = chapter.combat_tint()
 	await combat_scene.play(att, def, wi, events, board.tile_at(def.grid_pos), fc)
 	var a_n := 0
 	var d_n := 0
@@ -2007,7 +2043,7 @@ func _layout_end_buttons() -> void:
 	for b in shown:
 		b.custom_minimum_size = Vector2(w, h)
 		b.size = Vector2(w, h)
-		b.position = Vector2((1280.0 - w) * 0.5, y)
+		b.position = Vector2((SafeArea.screen().x - w) * 0.5, y)
 		y += h + gap
 
 
@@ -2073,6 +2109,7 @@ func play_prologue() -> void:
 		return
 	var wm := WorldMap.new()
 	ui.add_child(wm)
+	SafeArea.fit(wm)
 	ui.move_child(wm, dialogue.get_index())
 	wm.setup(str(pr.get("place", "")), str(pr.get("from", "")), tr(chapter.CHAPTER_TITLE))
 	await wm.intro()
@@ -2086,6 +2123,7 @@ func play_scenes(scenes: Array) -> void:
 	for sc in scenes:
 		var card := SceneCard.new()
 		ui.add_child(card)
+		SafeArea.fit(card)
 		ui.move_child(card, dialogue.get_index())
 		card.setup(tr(str(sc.get("title", ""))), str(sc.get("mood", "night")))
 		await card.intro()
