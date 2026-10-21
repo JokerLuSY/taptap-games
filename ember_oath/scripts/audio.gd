@@ -21,22 +21,30 @@ const SFX := {
 	"levelup": "res://audio/levelup.wav",
 	"victory": "res://audio/victory.wav",
 	"defeat": "res://audio/defeat.wav",
-	# TODO(M3): 觉醒 stinger / 火焰一声 / 转职一声仍是静音占位 wav。
-	# 正式芯片音效到位后替换 awaken_stinger.wav、sfx_fire.wav、sfx_promote.wav。
+	"hit": "res://audio/hit.wav",
+	# 以下由 tools/generate_audio.py extra 合成
 	"awaken": "res://audio/awaken_stinger.wav",
 	"fire": "res://audio/sfx_fire.wav",
 	"promote": "res://audio/sfx_promote.wav",
 }
 
-## TODO(M3): 火焰环境 loop 仍是静音占位。地图与战斗 BGM 继续复用第一章。
 const LOOPS := {
 	"fire": "res://audio/fire_loop.wav",
 }
 
+## map = 第一篇地图；map2 / map3 = 第二、三篇；boss = 首领战特写；story = 剧情场景；finale = 终章
 const MUSIC := {
 	"map": "res://audio/bgm_map.wav",
+	"map2": "res://audio/bgm_map2.wav",
+	"map3": "res://audio/bgm_map3.wav",
 	"combat": "res://audio/bgm_combat.wav",
+	"boss": "res://audio/bgm_boss.wav",
+	"story": "res://audio/bgm_story.wav",
+	"finale": "res://audio/bgm_finale.wav",
 }
+
+## 当前章节的地图曲：play_music("map") 时实际放哪一首（战斗特写结束、剧情结束都回到它）
+var map_track := "map"
 
 const POOL_SIZE := 10
 const SETTINGS_PATH := "user://settings.cfg"
@@ -73,6 +81,8 @@ func _ready() -> void:
 		var s: AudioStream = load(MUSIC[k])
 		if s is AudioStreamWAV:
 			s.loop_mode = AudioStreamWAV.LOOP_FORWARD
+			s.loop_begin = 0
+			s.loop_end = int(s.get_length() * s.mix_rate)
 		_streams[k] = s
 	for k in LOOPS:
 		var loop_stream: AudioStream = load(LOOPS[k])
@@ -146,6 +156,8 @@ func _save_volumes() -> void:
 
 
 func play_music(music_name: String) -> void:
+	if music_name == "map":
+		music_name = map_track
 	if _current_music == music_name and _music_player.playing:
 		return
 	if not _streams.has(music_name):

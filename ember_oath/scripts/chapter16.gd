@@ -634,7 +634,7 @@ func _edmund_gerard() -> Array:
 
 func _edmund_death() -> Array:
 	var lines: Array = [
-		_l("", C_NARR, "银枪落地。埃德蒙单膝跪倒，身上的灰烬像雪一样往下落。"),
+		_fx(_l("", C_NARR, "银枪落地。埃德蒙单膝跪倒，身上的灰烬像雪一样往下落。"), "silence,sfx:miss"),
 		_l("艾德里克", C_EDRIC, "父亲！"),
 	]
 	if flags.get("seven_killed", false):
@@ -644,13 +644,13 @@ func _edmund_death() -> Array:
 	else:
 		lines.append(_l("", C_NARR, "就在这时，七号动了。快得连影子都跟不上。"))
 	lines.append(_l("七号", C_SEVEN, "……命令：排除菲恩家的继承人。"))
-	lines.append(_l("", C_NARR, "灰烬之爪刺向艾德里克的胸口——"))
-	lines.append(_l("", C_NARR, "——被一只手挡住了。"))
+	lines.append(_fx(_l("", C_NARR, "灰烬之爪刺向艾德里克的胸口——"), "sfx:lance"))
+	lines.append(_fx(_l("", C_NARR, "——被一只手挡住了。"), "flash,shake,sfx:crit"))
 	lines.append(_l("埃德蒙", C_EDMUND, "……别碰……我的儿子。"))
 	lines.append(_l("七号", C_SEVEN, "……！"))
-	lines.append(_l("", C_NARR, "爪子穿过了埃德蒙的胸膛。面具人怔了一瞬，抽回手，退进了黑暗里。"))
+	lines.append(_fx(_l("", C_NARR, "爪子穿过了埃德蒙的胸膛。面具人怔了一瞬，抽回手，退进了黑暗里。"), "flash_red,sfx:hit"))
 	lines.append(_l("艾德里克", C_EDRIC, "父亲……父亲！您认得我了？！"))
-	lines.append(_l("埃德蒙", C_EDMUND, "艾德里克……长大了啊。……听好，我没有……多少时间了。"))
+	lines.append(_fx(_l("埃德蒙", C_EDMUND, "艾德里克……长大了啊。……听好，我没有……多少时间了。"), "music:story"))
 	lines.append(_l("埃德蒙", C_EDMUND, "八百年前……失控的不是巫女……是初代大司祭。"))
 	lines.append(_l("埃德蒙", C_EDMUND, "教会……篡改了历史。圣器……不是用来封印火的……"))
 	if _here("tia"):

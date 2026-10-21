@@ -91,6 +91,7 @@ func _ready() -> void:
 		support_points = sp.duplicate() if sp is Dictionary else {}
 		_build_units()
 	_build_ui()
+	Audio.map_track = chapter.music()
 	Audio.play_music("map")
 	if not get_tree().root.go_back_requested.is_connected(_on_android_back):
 		get_tree().root.go_back_requested.connect(_on_android_back)
@@ -102,6 +103,7 @@ func _ready() -> void:
 
 func _exit_tree() -> void:
 	Audio.stop_loop()
+	Audio.map_track = "map"
 	# 竞技场打到一半回标题时 run_arena 不会走到收尾，这里兜底关掉单挑开关
 	Combat.no_support = false
 
@@ -383,6 +385,7 @@ func _build_ui() -> void:
 	SafeArea.fit(tutorial)  # setup 会把位置归零、建底色，所以居中放在它后面
 	dialogue = DialogueBox.new()
 	ui.add_child(dialogue)
+	dialogue.cue.connect(_on_cue)
 	combat_scene = CombatScene.new()
 	add_child(combat_scene)
 	system_menu = load("res://scripts/system_menu.gd").new()
@@ -2575,14 +2578,19 @@ func play_prologue() -> void:
 	Campaign.flags["places_seen"] = seen
 	wm.setup(str(pr.get("place", "")), str(pr.get("from", "")), tr(chapter.CHAPTER_TITLE), seen)
 	SafeArea.fit(wm)  # setup 会把位置归零、建底色，所以居中放在它后面
+	Audio.play_music("story")
 	await wm.intro()
 	await play_dialogue(pr.get("lines", []))
 	await wm.outro()
 	wm.queue_free()
+	if state != S.OVER:
+		Audio.play_music("map")
 
 
 ## 剧情场景：全屏氛围底 + 地点标题，台词走对话框
 func play_scenes(scenes: Array) -> void:
+	if not scenes.is_empty():
+		Audio.play_music("finale" if chapter.is_final() and state == S.OVER else "story")
 	for sc in scenes:
 		var card := SceneCard.new()
 		ui.add_child(card)
@@ -2593,6 +2601,52 @@ func play_scenes(scenes: Array) -> void:
 		await play_dialogue(sc.get("lines", []))
 		await card.outro()
 		card.queue_free()
+	if not scenes.is_empty() and state != S.OVER:
+		Audio.play_music("map")
+
+
+## 剧情演出：闪白 / 闪红 / 震屏 / 换音乐 / 音效
+func _on_cue(fx: String) -> void:
+	for part in fx.split(","):
+		var p := part.strip_edges()
+		if p == "flash":
+			_screen_flash(Color(1, 1, 1, 0.85))
+		elif p == "flash_red":
+			_screen_flash(Color(1.0, 0.15, 0.1, 0.65))
+		elif p == "shake":
+			_shake_screen()
+		elif p == "silence":
+			Audio.stop_music()
+		elif p.begins_with("music:"):
+			Audio.play_music(p.substr(6))
+		elif p.begins_with("sfx:"):
+			Audio.play_sfx(p.substr(4))
+
+
+func _screen_flash(c: Color) -> void:
+	var r := ColorRect.new()
+	r.name = "CueFlash"
+	r.color = c
+	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	r.position = Vector2.ZERO
+	r.size = SafeArea.screen()
+	ui.add_child(r)
+	var t := create_tween()
+	t.tween_property(r, "color:a", 0.0, 0.55).set_ease(Tween.EASE_OUT)
+	t.finished.connect(r.queue_free)
+
+
+func _shake_screen() -> void:
+	var t := create_tween()
+	for i in 8:
+		t.tween_property(ui, "offset", Vector2(randf_range(-10, 10), randf_range(-6, 6)), 0.035)
+	t.tween_property(ui, "offset", Vector2.ZERO, 0.05)
+	if map_clip != null:
+		var home := map_clip.position
+		var t2 := create_tween()
+		for i in 8:
+			t2.tween_property(map_clip, "position", home + Vector2(randf_range(-10, 10), randf_range(-6, 6)), 0.035)
+		t2.tween_property(map_clip, "position", home, 0.05)
 
 
 func play_dialogue(lines: Array) -> void:

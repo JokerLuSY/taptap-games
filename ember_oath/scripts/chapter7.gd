@@ -421,7 +421,7 @@ func _post_battle() -> Array:
 	var lines: Array = [
 		_l("", C_NARR, "南门洞开。门外的大道上，一个人也没有。"),
 		_l("缇娅", C_TIA, "出来了……！大家快——"),
-		_l("", C_NARR, "道路两侧的树林里，一排排白色的火把同时亮了起来。"),
+		_fx(_l("", C_NARR, "道路两侧的树林里，一排排白色的火把同时亮了起来。"), "silence,flash,sfx:reinforce"),
 		_l("塞拉斯", C_SILAS, "好久不见，炎之巫女。"),
 		_l("缇娅", C_TIA, "……审判官塞拉斯！"),
 		_l("塞拉斯", C_SILAS, "笼子从你们走进北门那一刻就关上了。我只留了一道门——让你们以为，自己还能飞出去。"),
@@ -442,7 +442,7 @@ func _post_battle() -> Array:
 		lines.append(_l("缇娅", C_TIA, "诺雅！"))
 		lines.append(_l("诺雅", C_NOYA, "我说过的，我会站在你这边。……哪怕对面是审判官大人。"))
 		lines.append(_l("塞拉斯", C_SILAS, "……诺雅。连你也选了她吗。"))
-	lines.append(_l("", C_NARR, "那一夜，白垣镇的南门外，一辆铁笼车缓缓驶向圣都。"))
+	lines.append(_fx(_l("", C_NARR, "那一夜，白垣镇的南门外，一辆铁笼车缓缓驶向圣都。"), "music:story"))
 	if noya_in:
 		lines.append(_l("", C_NARR, "笼子里坐着两个人。一个红发的少女，一个穿白衣的见习修女。"))
 	else:

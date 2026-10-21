@@ -155,6 +155,20 @@ func win_condition() -> String:
 	return tr("击败所有敌人")
 
 
+## 地图曲：第一篇 map、第二篇 map2、第三篇 map3，终章 finale（章节可覆盖）
+func music() -> String:
+	if battle == null:
+		return "map"
+	var n: int = battle.chapter_number()
+	if n >= Campaign.chapter_count():
+		return "finale"
+	if n >= 23:
+		return "map3"
+	if n >= 8:
+		return "map2"
+	return "map"
+
+
 ## 目标进度（目标窗里接在胜利条件后面）：坚守章节显示还剩几回合，全灭章节显示剩几个敌人；"" = 不显示
 func progress_text() -> String:
 	if battle == null:
@@ -396,6 +410,12 @@ func import_flags(data: Dictionary) -> void:
 func _l(n: String, c: Color, t: String) -> Dictionary:
 	# 名字保留中文键，对话框显示时再 tr()，立绘表才能对上。
 	return {"name": n, "color": c, "text": tr(t)}
+
+
+## 给一句台词加演出（见 DialogueBox.cue）：_fx(_l(...), "flash,sfx:crit")
+func _fx(line: Dictionary, fx: String) -> Dictionary:
+	line["fx"] = fx
+	return line
 
 
 ## 合并模板：只写 id 和 pos 的单位按 id 前缀套模板；const 字典只读，逐键拷贝到新字典

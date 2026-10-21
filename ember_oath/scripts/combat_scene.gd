@@ -150,7 +150,7 @@ const FIGHTER_BY_ID := {
 	"benedict": "noya",
 	"kira": "pegasus",
 	"rock": "barrett",
-	"edmund": "balto",
+	"edmund": "knight",   # 和地图小人一致（巴尔托的条带只给巴尔托本人）
 	"seven": "seven",
 	# ---- 第三篇 ----
 	"orion": "orion",
@@ -166,7 +166,7 @@ const FIGHTER_BY_ID := {
 	"morgan": "morgan",
 }
 const FIGHTER_BY_PREFIX := [["mage", "mage"], ["bandit", "bandit"], ["archer", "archer"], ["church", "church"], ["knight", "knight"], ["merc", "merc"], ["soldier", "church"], ["armor", "barrett"], ["pegasus", "pegasus"], ["puppet", "puppet"], ["pirate", "bandit"], ["darkmage", "mage"], ["graycloak", "scout"], ["cleric", "noya"], ["sniper", "archer"], ["paladin", "knight"], ["general", "barrett"], ["sage", "mage"], ["brodden", "merc"], ["thief", "sparrow"], ["fighter", "harlo"], ["myrm", "scout"]]
-const FIGHTER_BY_WEAPON := {"sword": "scout", "lance": "balto", "axe": "bandit", "bow": "archer", "staff": "noya", "anima": "mage", "light": "mage", "dark": "mage"}
+const FIGHTER_BY_WEAPON := {"sword": "scout", "lance": "church", "axe": "bandit", "bow": "archer", "staff": "noya", "anima": "mage", "light": "mage", "dark": "mage"}
 const MAGIC_TYPES := ["anima", "light", "dark"]
 ## 魔法打到身上的特效：[特效名, 放大倍数, 染色]；必杀再叠 crit 那组
 const SPELL_FX := {
@@ -343,7 +343,7 @@ func play(att: Unit, def: Unit, wi: int, events: Array, terrain_char: String, fc
 	_update_bars(0.0)
 	visible = true
 	_root.modulate.a = 1.0
-	Audio.play_music("combat")
+	Audio.play_music("boss" if att.is_boss or def.is_boss else "combat")
 	# 开场：白闪 + 双方跑进场，镜头从右往中间收
 	_flash_rect.color.a = 0.6
 	create_tween().tween_property(_flash_rect, "color:a", 0.0, 0.22)
@@ -623,6 +623,12 @@ static func fighter_key_for(u: Unit) -> String:
 	for rule in FIGHTER_BY_PREFIX:
 		if u.unit_id.begins_with(rule[0]):
 			return rule[1]
+	# 章节里给首领指定了地图小人（def["sprite"]）且有同名战斗条带：两边用同一套
+	if u.sprite_sheet != "" and CombatSets.SETS.has(u.sprite_sheet):
+		return u.sprite_sheet
+	var by_class := str(Unit.SHEET_BY_CLASS.get(u.class_label, ""))
+	if by_class != "" and CombatSets.SETS.has(by_class):
+		return by_class
 	return str(FIGHTER_BY_WEAPON.get(u.weapon_kind(), "scout"))
 
 

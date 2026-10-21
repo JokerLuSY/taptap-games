@@ -3,6 +3,8 @@ extends Control
 ## 底部对话框：打字机效果，点击 / 回车推进
 
 signal all_finished
+## 台词带了 "fx"（演出标记）时，显示这一句的同时发出：flash / flash_red / shake / silence / music:<名> / sfx:<名>，逗号分隔
+signal cue(fx: String)
 
 ## 说话人 -> 像素立绘（res://art/portraits/px/<key>.png，64×64，框里 ×2 显示）。
 ## 立绘由 tools/pixelart/fe_portraits.py 生成；杂兵、路人共用职业 / 身份立绘。
@@ -161,6 +163,9 @@ func play(lines: Array) -> void:
 func _show_line() -> void:
 	var line: Dictionary = _lines[_idx]
 	Audio.play_sfx("talk")
+	var fx := str(line.get("fx", ""))
+	if fx != "":
+		cue.emit(fx)
 	var speaker: String = line.get("name", "")
 	_name_label.text = tr(speaker)
 	_name_label.visible = speaker != ""

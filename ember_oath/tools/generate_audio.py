@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """《炎烬之誓》程序生成音效与 BGM (WAV, 无第三方素材)
-用法: python ember_oath/tools/generate_audio.py
+用法: python ember_oath/tools/generate_audio.py          全部重新生成
+      python ember_oath/tools/generate_audio.py extra    只生成后补的音效和配乐（不动最早那批）
 """
 import math
 import os
@@ -225,8 +226,163 @@ def bgm_combat():
     write_wav("bgm_combat.wav", mix(lead_track, bass_track))
 
 
+# ---------------- 后补：剧情音效 ----------------
+
+def arp(chords, step, vol=0.12, shape="tri", per_chord=8):
+    """分解和弦伴奏：每个和弦按 根-三-五-三 循环 per_chord 个音"""
+    notes = []
+    for ch in chords:
+        pat = [ch[0], ch[1], ch[2], ch[1]]
+        for i in range(per_chord):
+            notes.append((pat[i % 4], step))
+    return sequence(notes, vol, shape, 0.004)
+
+
+def bass_line(roots, beat, vol=0.24, per_chord=4):
+    notes = []
+    for r in roots:
+        for i in range(per_chord):
+            notes.append((r if i % 2 == 0 else r + 12, beat))
+    return sequence(notes, vol, "tri", 0.01)
+
+
+def loop_fade(samples, sec=0.03):
+    """首尾各淡 sec 秒，循环接缝不爆音"""
+    n = int(SR * sec)
+    out = list(samples)
+    for i in range(min(n, len(out) // 2)):
+        k = i / n
+        out[i] *= k
+        out[-1 - i] *= k
+    return out
+
+
+def sfx_extra():
+    random.seed(77)
+    # 觉醒：低频轰鸣 + 上扬扫频 + 高处三和弦长鸣
+    boom = tone(55, 1.2, 0.55, 3, "square")
+    rise = sweep(180, 1400, 0.7, 0.30, 2)
+    shimmer = mix(off(tone(659.25, 1.4, 0.18, 2.5), 0.55), off(tone(830.6, 1.4, 0.16, 2.5), 0.62), off(tone(987.8, 1.5, 0.16, 2.2), 0.69))
+    write_wav("awaken_stinger.wav", mix(boom, rise, shimmer, off(noise(0.5, 0.25, 6, 3), 0.55)))
+    # 火焰一声：噼啪噪声 + 往下沉的低音
+    write_wav("sfx_fire.wav", mix(noise(0.45, 0.42, 7, 3), sweep(320, 110, 0.4, 0.30, 6), off(noise(0.08, 0.30, 30, 1), 0.12)))
+    # 转职：六音上行琶音 + 明亮长和弦
+    pr = []
+    t = 0.0
+    for m in [67, 71, 74, 79, 83, 86]:
+        pr = mix(pr, off(seq_note(m, 0.22, 0.22, "square"), t))
+        t += 0.07
+    chord = mix(off(seq_note(79, 0.9, 0.16, "tri", release=0.5), t), off(seq_note(83, 0.9, 0.14, "tri", release=0.5), t), off(seq_note(86, 0.9, 0.14, "tri", release=0.5), t))
+    write_wav("sfx_promote.wav", mix(pr, chord))
+    # 受击（剧情里挨刀、地图上的简易交锋）：闷响 + 短噪声
+    write_wav("hit.wav", mix(tone(150, 0.14, 0.50, 22, "square"), noise(0.08, 0.38, 28, 2)))
+    # 火焰环境 loop：低沉的燃烧声 + 随机爆裂，3 秒
+    base = noise(3.0, 0.10, 0.0, 10)
+    pops = []
+    for i in range(14):
+        pops = mix(pops, off(noise(0.04, random.uniform(0.12, 0.25), 40, 1), random.uniform(0.0, 2.9)))
+    write_wav("fire_loop.wav", loop_fade(mix(base, pops), 0.05))
+
+
+# ---------------- 后补：配乐 ----------------
+
+def bgm_part2():
+    """第二篇·寻父之旅: G 大调, 112bpm, 16 小节 A-B 两段 (约 34s)"""
+    e = 0.268
+    a = [(79, e), (83, e), (86, 2 * e), (84, e), (83, e), (81, 2 * e),
+         (79, e), (81, e), (83, e), (79, e), (76, 4 * e),
+         (74, e), (76, e), (79, 2 * e), (81, e), (83, e), (84, 2 * e),
+         (83, e), (81, e), (79, e), (81, e), (79, 4 * e)]
+    b = [(84, 2 * e), (83, e), (81, e), (79, 2 * e), (76, 2 * e),
+         (77, e), (79, e), (81, 2 * e), (74, 4 * e),
+         (76, e), (79, e), (83, 2 * e), (81, e), (79, e), (78, 2 * e),
+         (79, 2 * e), (74, e), (71, e), (79, 4 * e)]
+    lead = sequence(a + b, 0.19, "square", 0.012)
+    chords = [(55, 59, 62), (52, 55, 59), (48, 52, 55), (50, 54, 57)] * 2 + [(48, 52, 55), (50, 54, 57), (52, 55, 59), (47, 50, 54), (48, 52, 55), (50, 54, 57), (55, 59, 62), (55, 59, 62)]
+    roots = [43, 40, 36, 38] * 2 + [36, 38, 40, 35, 36, 38, 43, 43]
+    write_wav("bgm_map2.wav", loop_fade(mix(lead, arp(chords, e / 2, 0.08, "tri", 8), bass_line(roots, e * 2, 0.22, 2))))
+
+
+def bgm_part3():
+    """第三篇·不灭之火: e 小调, 104bpm, 沉着而坚定 (约 37s)"""
+    e = 0.288
+    a = [(76, 2 * e), (79, e), (81, e), (83, 3 * e), (81, e),
+         (79, e), (78, e), (76, e), (74, e), (76, 4 * e),
+         (72, 2 * e), (74, e), (76, e), (79, 3 * e), (78, e),
+         (76, e), (74, e), (71, e), (74, e), (76, 4 * e)]
+    b = [(83, 2 * e), (84, e), (83, e), (81, 2 * e), (79, 2 * e),
+         (81, e), (79, e), (78, e), (79, e), (81, 4 * e),
+         (79, 2 * e), (78, e), (76, e), (75, 2 * e), (78, 2 * e),
+         (76, 6 * e), (None, 2 * e)]
+    lead = sequence(a + b, 0.18, "square", 0.012)
+    chords = [(52, 55, 59), (48, 52, 55), (50, 54, 57), (52, 55, 59), (48, 52, 55), (45, 48, 52), (47, 51, 54), (52, 55, 59),
+              (48, 52, 55), (50, 54, 57), (45, 48, 52), (47, 51, 54), (48, 52, 55), (47, 51, 54), (52, 55, 59), (52, 55, 59)]
+    roots = [40, 36, 38, 40, 36, 33, 35, 40, 36, 38, 33, 35, 36, 35, 40, 40]
+    write_wav("bgm_map3.wav", loop_fade(mix(lead, arp(chords, e / 2, 0.08, "tri", 8), bass_line(roots, e * 2, 0.22, 2))))
+
+
+def bgm_boss():
+    """首领战: c 小调, 150bpm, 低音八分音符推着走 (约 13s)"""
+    e = 0.2
+    lead = [(72, e), (75, e), (79, 2 * e), (78, e), (79, e), (80, 2 * e),
+            (79, e), (77, e), (75, e), (74, e), (75, 4 * e),
+            (72, e), (75, e), (79, 2 * e), (82, e), (80, e), (79, 2 * e),
+            (77, e), (75, e), (74, e), (71, e), (72, 4 * e),
+            (84, 2 * e), (82, e), (80, e), (79, 2 * e), (75, 2 * e),
+            (77, 2 * e), (79, e), (77, e), (74, 4 * e),
+            (75, e), (77, e), (79, e), (80, e), (82, 2 * e), (79, 2 * e),
+            (78, 2 * e), (79, 2 * e), (72, 4 * e)]
+    bass = []
+    for r in [48, 48, 44, 43, 48, 48, 44, 43, 44, 46, 43, 43, 44, 46, 43, 48]:
+        bass += [(r, e), (r + 12, e), (r, e), (r + 7, e)]
+    perc = []
+    for i in range(64):
+        perc = mix(perc, off(noise(0.03, 0.10 if i % 2 else 0.18, 60, 1), i * e))
+    write_wav("bgm_boss.wav", loop_fade(mix(sequence(lead, 0.20, "square", 0.008), sequence(bass, 0.26, "tri", 0.006), perc)))
+
+
+def bgm_story():
+    """剧情: a 小调, 72bpm, 慢而安静 (约 27s)"""
+    e = 0.417
+    lead = [(76, 2 * e), (74, e), (72, e), (71, 2 * e), (69, 2 * e),
+            (72, 2 * e), (71, e), (69, e), (68, 4 * e),
+            (69, 2 * e), (71, e), (72, e), (74, 2 * e), (76, 2 * e),
+            (77, 2 * e), (76, e), (74, e), (76, 4 * e)]
+    chords = [(57, 60, 64), (53, 57, 60), (50, 53, 57), (52, 56, 59), (57, 60, 64), (55, 59, 62), (53, 57, 60), (52, 56, 59)]
+    roots = [45, 41, 38, 40, 45, 43, 41, 40]
+    write_wav("bgm_story.wav", loop_fade(mix(sequence(lead, 0.16, "tri", 0.02), arp(chords, e / 2, 0.07, "sine", 8), bass_line(roots, e * 2, 0.18, 2))))
+
+
+def bgm_finale():
+    """终章: D 大调, 120bpm, 号角式主题 (约 32s)"""
+    e = 0.25
+    a = [(74, e), (78, e), (81, 2 * e), (86, 3 * e), (85, e),
+         (83, e), (81, e), (79, e), (78, e), (76, 4 * e),
+         (74, e), (76, e), (78, 2 * e), (79, 2 * e), (81, 2 * e),
+         (83, 2 * e), (85, 2 * e), (86, 4 * e)]
+    b = [(81, 2 * e), (78, e), (81, e), (83, 2 * e), (79, 2 * e),
+         (81, 2 * e), (78, e), (76, e), (74, 4 * e),
+         (79, 2 * e), (78, e), (76, e), (78, 2 * e), (81, 2 * e),
+         (79, 2 * e), (76, 2 * e), (74, 4 * e)]
+    chords = [(50, 54, 57), (55, 59, 62), (52, 55, 59), (57, 61, 64), (50, 54, 57), (55, 59, 62), (57, 61, 64), (50, 54, 57)] * 2
+    roots = [38, 43, 40, 45, 38, 43, 45, 38] * 2
+    write_wav("bgm_finale.wav", loop_fade(mix(sequence(a + b, 0.20, "square", 0.01), arp(chords, e / 2, 0.08, "tri", 8), bass_line(roots, e * 2, 0.24, 2))))
+
+
+def extra():
+    sfx_extra()
+    bgm_part2()
+    bgm_part3()
+    bgm_boss()
+    bgm_story()
+    bgm_finale()
+
+
 if __name__ == "__main__":
-    sfx()
-    bgm_map()
-    bgm_combat()
+    import sys
+    if "extra" not in sys.argv[1:]:
+        sfx()
+        bgm_map()
+        bgm_combat()
+    extra()
     print("DONE")

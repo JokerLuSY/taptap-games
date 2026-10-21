@@ -45,6 +45,7 @@ func _run() -> void:
 		await _check_qa2_batch_a()
 		await _check_qa2_batch_b()
 		await _check_qa2_batch_c()
+		await _check_qa2_batch_d()
 		print("SMOKE TEST: ALL PASS" if _failures.is_empty() else "SMOKE TEST: %d FAILURES" % _failures.size())
 		for f_ in _failures:
 			print("  FAIL: " + f_)
@@ -655,6 +656,7 @@ func _run() -> void:
 	await _check_qa2_batch_a()
 	await _check_qa2_batch_b()
 	await _check_qa2_batch_c()
+	await _check_qa2_batch_d()
 	await _check_wide_screen()
 	await _check_part3()
 	await _check_autoplay()
@@ -1129,6 +1131,59 @@ func _mouse(pos: Vector2, down: bool) -> void:
 	ev.pressed = down
 	ev.position = pos
 	battle._unhandled_input(ev)
+
+
+func _check_qa2_batch_d() -> void:
+	_mark("QA2 D 批：美术映射 / 音效 / 配乐 / 演出")
+	# 没登记的拿枪单位不再借巴尔托的条带；按职业挑
+	var probe := Unit.new()
+	probe.unit_id = "bernard_probe"
+	probe.class_label = "骑士"
+	probe.weapons = ["iron_lance"]
+	_check(CombatScene.fighter_key_for(probe) == "knight", "没登记的骑士应按职业用 knight，实际 %s" % CombatScene.fighter_key_for(probe))
+	probe.class_label = "无名职业"
+	_check(CombatScene.fighter_key_for(probe) != "balto", "没登记的拿枪单位不应借巴尔托的条带")
+	probe.free()
+	var ed := Unit.new()
+	ed.setup({"id": "edmund", "class": "圣骑士", "faction": "enemy", "weapons": ["silver_lance"]})
+	_check(CombatScene.fighter_key_for(ed) == ed.sprite_sheet, "埃德蒙的战斗条带应和地图小人一致：%s / %s" % [CombatScene.fighter_key_for(ed), ed.sprite_sheet])
+	ed.free()
+	var fal := Unit.new()
+	fal.setup({"id": "falcon9", "class": "隼骑士", "faction": "enemy", "weapons": ["steel_lance"]})
+	_check(fal.sprite_sheet == "pegasus", "隼骑士没登记 id 时地图小人按职业用 pegasus，实际 %s" % fal.sprite_sheet)
+	fal.free()
+	# 音效、配乐都有，而且不是静音占位
+	for k in ["hit", "awaken", "fire", "promote"]:
+		_check(Audio.SFX.has(k), "音效表应有 " + k)
+	for f in ["awaken_stinger", "sfx_fire", "sfx_promote", "fire_loop", "hit"]:
+		var fa := FileAccess.open("res://audio/%s.wav" % f, FileAccess.READ)
+		_check(fa != null and fa.get_length() > 5000, "%s.wav 应是合成好的音效，不是静音占位" % f)
+	for k in ["map2", "map3", "boss", "story", "finale"]:
+		_check(Audio.MUSIC.has(k) and Audio._streams.get(k) != null, "配乐应有 " + k)
+	# 各篇地图曲
+	CampaignSave.clear()
+	Campaign.reset()
+	load("res://scripts/battle.gd").queue_chapter(load("res://scripts/chapter8.gd"))
+	await _new_battle()
+	_check(battle.chapter.music() == "map2" and Audio.map_track == "map2", "第二篇用 map2，实际 %s" % Audio.map_track)
+	await _skip_story()
+	# 台词带演出标记：闪一下
+	battle.state = battle.S.STORY
+	battle.dialogue.play([{"name": "", "text": "测试", "fx": "flash,shake"}])
+	await _frames(2)
+	var flashed := false
+	for c in battle.ui.get_children():
+		if c.name.begins_with("CueFlash"):
+			flashed = true
+	_check(flashed, "带 flash 标记的台词应闪一下屏幕")
+	battle.dialogue.skip_all()
+	battle.state = battle.S.IDLE
+	battle.queue_free()
+	await _frames(3)
+	battle = null
+	_check(Audio.map_track == "map", "离开战斗后地图曲复位")
+	CampaignSave.clear()
+	Campaign.reset()
 
 
 func _check_qa2_batch_c() -> void:

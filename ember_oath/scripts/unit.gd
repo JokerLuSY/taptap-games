@@ -208,20 +208,29 @@ func setup(def: Dictionary) -> void:
 	scar = def.get("scar", false)
 	position = tile_center()
 	_phase = float((grid_pos.x * 7 + grid_pos.y * 13) % 10) / 10.0 * TAU
-	_setup_sprite(str(def.get("sprite", SPRITE_BY_CLASS.get(str(def.get("class", "")), _sprite_for_id(unit_id)))))
+	_setup_sprite(str(def.get("sprite", SPRITE_BY_CLASS.get(str(def.get("class", "")), _sprite_for_id(unit_id, str(def.get("class", "")))))))
 
 
 ## 按职业换形态（与炎龙融合的莫尔甘）
 const SPRITE_BY_CLASS := {"炎龙": "dragon"}
+## id、前缀都没登记的单位（各章的首领、临时杂兵）按职业挑一套通用小人；地图和战斗特写共用这张表
+const SHEET_BY_CLASS := {
+	"骑士": "knight", "圣骑士": "knight", "领主骑士": "knight", "重甲兵": "barrett", "将军": "barrett",
+	"天马骑士": "pegasus", "隼骑士": "pegasus", "魔道士": "mage", "贤者": "mage", "暗法师": "mage", "德鲁伊": "mage",
+	"修女": "noya", "司祭": "noya", "修士": "noya", "弓箭手": "archer", "狙击手": "archer", "佣兵": "merc", "勇者": "merc",
+	"剑士": "scout", "剑圣": "scout", "刺客": "scout", "盗贼": "sparrow", "山贼": "bandit", "山贼头目": "boss",
+	"海盗": "bandit", "战士": "harlo", "勇士": "harlo", "狂战士": "bandit", "枪兵": "church", "枪斗士": "church",
+	"灰烬傀儡": "puppet",
+}
 
 
-static func _sprite_for_id(id: String) -> String:
+static func _sprite_for_id(id: String, cls := "") -> String:
 	if SPRITE_BY_ID.has(id):
 		return SPRITE_BY_ID[id]
 	for rule in SPRITE_BY_PREFIX:
 		if id.begins_with(rule[0]):
 			return rule[1]
-	return ""
+	return str(SHEET_BY_CLASS.get(cls, ""))
 
 
 ## 有像素帧就挂一个 Sprite2D 子节点；缺图时保留程序 Q 版
