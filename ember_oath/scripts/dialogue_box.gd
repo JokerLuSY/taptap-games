@@ -45,6 +45,9 @@ var _tex_cache := {}
 
 var _name_label: Label
 var _text_label: Label
+## 跳过整段对话：点一次变成「再点一次跳过」，第二次才真的跳（防误触）
+var skip_btn: Button
+var _skip_armed := false
 var _portrait_frame: Panel
 var _portrait: TextureRect
 
@@ -129,6 +132,18 @@ func _ready() -> void:
 	hint.add_theme_color_override("font_color", Color(0.85, 0.75, 0.45))
 	add_child(hint)
 
+	skip_btn = Button.new()
+	skip_btn.name = "SkipButton"
+	skip_btn.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	skip_btn.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	skip_btn.offset_left = -210
+	skip_btn.offset_right = 0
+	skip_btn.offset_top = -(SafeArea.MIN_HIT + 10)
+	skip_btn.offset_bottom = -10
+	skip_btn.add_theme_font_size_override("font_size", 20)
+	skip_btn.focus_mode = Control.FOCUS_NONE
+	add_child(skip_btn)
+
 
 ## lines: [{name, text, color}]
 func play(lines: Array) -> void:
@@ -136,6 +151,9 @@ func play(lines: Array) -> void:
 	_idx = 0
 	_active = true
 	visible = true
+	_skip_armed = false
+	skip_btn.text = tr("跳过 ▶▶")
+	skip_btn.visible = lines.size() >= 3
 	set_process_input(true)
 	_show_line()
 
@@ -178,6 +196,12 @@ func _input(event: InputEvent) -> void:
 	if not PointerInput.is_primary_press(event) and not event.is_action_pressed("ui_accept"):
 		return
 	get_viewport().set_input_as_handled()
+	if PointerInput.is_primary_press(event) and skip_btn.visible and skip_btn.get_global_rect().has_point(PointerInput.viewport_position(event)):
+		press_skip()
+		return
+	if _skip_armed:
+		_skip_armed = false
+		skip_btn.text = tr("跳过 ▶▶")
 	if _typing:
 		if _tween != null and _tween.is_valid():
 			_tween.kill()
@@ -250,6 +274,17 @@ func advance() -> void:
 		_finish()
 	else:
 		_show_line()
+
+
+## 跳过按钮：第一次只确认，第二次结束整段对话
+func press_skip() -> void:
+	if not _skip_armed:
+		_skip_armed = true
+		skip_btn.text = tr("再点一次跳过")
+		Audio.play_sfx("cursor")
+		return
+	Audio.play_sfx("cancel")
+	skip_all()
 
 
 ## 测试 / 跳过用：立即结束当前对话

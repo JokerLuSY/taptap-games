@@ -51,12 +51,21 @@ const TIPS := {
 		"和相邻的同伴【交换】物品：点一件，再点对方的一格就换过去。交换不算行动，换完还能攻击或待机，但不能再撤销移动。"],
 	"steal": ["偷窃",
 		"盗贼走到身上带着道具的敌人旁边，速度不比对方慢，就能【偷窃】：偷走最值钱的一件道具（武器偷不了）。光标停在敌人身上能看到它带着什么。"],
+	"arena": ["竞技场",
+		"大战之前的出击准备里会开竞技场：付押金和同等级的对手单挑，赢了拿回 1.5 倍押金和经验，输了只丢押金、不会阵亡。每次出击准备最多打 3 场。"],
+	"door": ["牢门",
+		"关着的牢门挡路，飞行单位也飞不过去。盗贼、刺客，或者背包里有钥匙的人走到门边，菜单里选【开门】。"],
+	"promote": ["转职",
+		"Lv10 以上的基础职业可以用对应的转职道具（英雄之证、骑士勋章……）升为上级职业：能力一次性提升、能用更多武器，等级从 1 重新开始。在【道具】里使用。"],
+	"controls": ["操作技巧",
+		"按住单位不放能直接看能力画面；选中单位后可以拖动地图找落脚点。走错了别慌：系统菜单里有【重来本回合】。切到后台会自动存档，对话框右上角能跳过整段对话。"],
 	"flying": ["飞行单位",
 		"天马骑士能飞过河流、山地、崖壁，每格只花 1 点移动力，但站在森林、堡垒上也吃不到地形加成。弓箭对飞行单位威力 ×3。"],
 }
 ## 地图菜单【教程】里的顺序
 const ORDER := ["basics", "forecast", "triangle", "terrain", "exp", "item", "visit", "talk", "reinforce", "boss",
-	"prep", "shop", "durability", "rescue", "support", "magic", "npc", "chest", "steal", "flying", "trade"]
+	"prep", "shop", "durability", "rescue", "support", "magic", "npc", "chest", "steal", "flying", "trade",
+	"promote", "door", "arena", "controls"]
 
 var battle = null
 var asking := false                 # 开场正在问要不要教程
@@ -298,7 +307,13 @@ func on_event(n: String, d = null) -> void:
 			else:
 				tip("forecast")
 		"levelup":
-			tip("exp")
+			var lu = d
+			if lu is Unit and lu.level >= 10 and str(GameData.class_data(lu.class_label).get("promote", "")) != "":
+				tip("promote")
+			else:
+				tip("exp")
+		"arena":
+			tip("arena")
 		"menu_opts":
 			var labels: Array = d
 			if tr("访问") in labels:
@@ -313,6 +328,8 @@ func on_event(n: String, d = null) -> void:
 				tip("chest")
 			elif tr("偷窃") in labels:
 				tip("steal")
+			elif tr("开门") in labels:
+				tip("door")
 			elif tr("交换") in labels:
 				tip("trade")
 			elif tr("武器店") in labels or tr("道具店") in labels:
@@ -343,6 +360,8 @@ func on_event(n: String, d = null) -> void:
 					break
 			if battle.chapter.chapter_id() != "ch1" and battle.turn == 1:
 				tip("durability")
+			elif battle.turn == 2:
+				tip("controls")
 		"weapon_broke":
 			tip("durability")
 
@@ -363,7 +382,13 @@ func _show(title: String, text: String, ok: bool, skip: bool) -> void:
 	_panel.visible = true
 	_panel.reset_size()
 	var ps := _panel.get_combined_minimum_size()
-	_panel.position = Vector2(640.0 - ps.x / 2.0, SafeArea.MARGIN_Y + 92.0)
+	# 默认放在回合横幅（y 290–380）下面，不和它叠在一起；分步引导要点的格子在下半屏时改放上面，别挡住它
+	var y := 392.0
+	if guided and _step >= 0 and _step < _steps.size() and battle != null:
+		var p = _steps[_step]["tile"].call()
+		if p != null and battle.tile_screen_pos(p).y > 360.0:
+			y = SafeArea.MARGIN_Y + 92.0
+	_panel.position = Vector2(640.0 - ps.x / 2.0, clampf(y, SafeArea.MARGIN_Y, 720.0 - SafeArea.MARGIN_Y - ps.y))
 
 
 func _hide() -> void:

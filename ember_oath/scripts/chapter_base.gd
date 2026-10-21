@@ -155,6 +155,22 @@ func win_condition() -> String:
 	return tr("击败所有敌人")
 
 
+## 目标进度（目标窗里接在胜利条件后面）：坚守章节显示还剩几回合，全灭章节显示剩几个敌人；"" = 不显示
+func progress_text() -> String:
+	if battle == null:
+		return ""
+	var hold = get_script().get_script_constant_map().get("HOLD_TURNS")
+	if hold != null:
+		return tr("还剩 %d 回合") % maxi(1, int(hold) - battle.turn + 1)
+	if win_condition() == tr("击败所有敌人"):
+		var n := 0
+		for u in battle.units:
+			if not u.is_player() and not u.is_npc() and u.is_alive() and not u.get_meta("ally", false):
+				n += 1
+		return tr("剩余 %d 人") % n
+	return ""
+
+
 func lose_condition() -> String:
 	return tr("缇娅或巴尔托阵亡")
 

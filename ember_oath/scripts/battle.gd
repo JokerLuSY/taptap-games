@@ -115,7 +115,14 @@ var _dragging := false
 var _pressing := false
 const DRAG_START := 16.0
 const NO_TILE := Vector2i(-9999, -9999)
-var _map_menu_tile := NO_TILE        # 空地上按下的格子：松手且没拖动时弹地图菜单
+## 按下时的格子：松手且没拖动、没触发长按，才算在这格「点了一下」（这样选中单位后也能拖地图找目的地）
+var _press_tile := NO_TILE
+var _press_id := 0
+var _long_fired := false
+const LONG_PRESS_TIME := 0.5         # 长按多久打开能力画面
+## 升级面板等「点一下就继续」的停顿
+var _tap_wait := false
+var _tap_skip := false
 
 
 func _build_board() -> void:
@@ -380,6 +387,7 @@ func _build_ui() -> void:
 	add_child(combat_scene)
 	system_menu = load("res://scripts/system_menu.gd").new()
 	system_menu.title_requested.connect(_on_system_title)
+	system_menu.restart_requested.connect(_on_restart_turn)
 	add_child(system_menu)
 
 
@@ -456,6 +464,7 @@ func _build_levelup_panel() -> void:
 	levelup_label.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 	levelup_label.add_theme_font_size_override("font_size", 24)
 	levelup_panel.add_child(levelup_label)
+	levelup_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE   # 点面板也算「点一下继续」
 	ui.add_child(levelup_panel)
 
 
@@ -632,7 +641,8 @@ func enemy_phase() -> void:
 	show_banner(tr("敌方回合"), Color(1.0, 0.45, 0.4))
 	tut("enemy_phase")
 	_terrain_heal(false)
-	await get_tree().create_timer(0.9).timeout
+	var sp: float = GameSettings.enemy_speed()
+	await get_tree().create_timer(0.9 * sp).timeout
 	for e in units.duplicate():
 		if state == S.OVER:
 			return
@@ -643,20 +653,24 @@ func enemy_phase() -> void:
 			return
 		var act: Dictionary = EnemyAI.choose(e, board, players)
 		var mv: Vector2i = act["move_to"]
+		if mv == e.grid_pos and act.get("target") == null and act.get("heal") == null:
+			# 原地不动、也不出手的敌人：不拉镜头、不停顿
+			e.has_acted = true
+			e.queue_redraw()
+			continue
 		# 先把光标滑到行动的敌人身上，亮一下它的移动范围，让玩家看清是谁在动
 		cursor.set_grid(e.grid_pos)
 		board.ensure_visible(e.grid_pos)
 		var erange := board.move_range(e)
-		if mv != e.grid_pos or act.get("target") != null or act.get("heal") != null:
-			board.show_move(erange, {})
-			await get_tree().create_timer(ENEMY_FOCUS_TIME).timeout
-			board.clear_highlights()
-			if state == S.OVER:
-				return
+		board.show_move(erange, {})
+		await get_tree().create_timer(ENEMY_FOCUS_TIME * sp).timeout
+		board.clear_highlights()
+		if state == S.OVER:
+			return
 		if mv != e.grid_pos:
 			board.ensure_visible(mv, 1)
 			var path := board.find_path(e, mv, erange)
-			await _animate_move(e, path)
+			await _animate_move(e, path, STEP_TIME * sp)
 			e.grid_pos = mv
 			e.position = e.tile_center()
 		if act.get("target") != null:
@@ -667,7 +681,7 @@ func enemy_phase() -> void:
 			await do_heal(e, act["heal"])
 		e.has_acted = true
 		e.queue_redraw()
-		await get_tree().create_timer(ENEMY_GAP_TIME).timeout
+		await get_tree().create_timer(ENEMY_GAP_TIME * sp).timeout
 	await _ally_phase()
 	if state == S.OVER:
 		return
@@ -682,7 +696,8 @@ func _ally_phase() -> void:
 	state = S.ENEMY
 	Audio.play_sfx("phase", 0.85)
 	show_banner(tr("友军回合"), Color(0.45, 0.9, 0.5))
-	await get_tree().create_timer(0.7).timeout
+	var sp: float = GameSettings.enemy_speed()
+	await get_tree().create_timer(0.7 * sp).timeout
 	for n in allies:
 		if state == S.OVER:
 			return
@@ -708,7 +723,7 @@ func _ally_phase() -> void:
 		if mv != n.grid_pos:
 			var nrange := board.move_range(n)
 			board.ensure_visible(mv, 1)
-			await _animate_move(n, board.find_path(n, mv, nrange))
+			await _animate_move(n, board.find_path(n, mv, nrange), STEP_TIME * sp)
 			n.grid_pos = mv
 			n.position = n.tile_center()
 		if act.get("target") != null:
@@ -719,7 +734,7 @@ func _ally_phase() -> void:
 			await do_heal(n, act["heal"])
 		n.has_acted = true
 		n.queue_redraw()
-		await get_tree().create_timer(ENEMY_GAP_TIME).timeout
+		await get_tree().create_timer(ENEMY_GAP_TIME * sp).timeout
 
 
 # ==================== 输入 ====================
@@ -734,19 +749,25 @@ func _unhandled_input(event: InputEvent) -> void:
 			_handle_system_back()
 		get_viewport().set_input_as_handled()
 		return
+	if _tap_wait and (PointerInput.is_primary_press(event) or event.is_action_pressed("ui_accept")):
+		_tap_skip = true
+		get_viewport().set_input_as_handled()
+		return
 	if state == S.STORY or state == S.COMBAT or state == S.ENEMY or state == S.OVER:
+		_press_tile = NO_TILE
 		return
 	if PointerInput.is_primary_release(event):
-		# 松手时没拖动过地图，才算在空地上「点了一下」
+		# 松手时没拖动过地图、也没触发长按，才算「点了一下」
 		var dragged := _dragging
 		_scroll_input(event)
-		var p0 := _map_menu_tile
-		_map_menu_tile = NO_TILE
-		if not dragged and p0 != NO_TILE and state == S.IDLE:
-			open_map_menu(p0)
+		var tap := _press_tile
+		_press_tile = NO_TILE
+		if dragged or _long_fired or tap == NO_TILE:
+			_long_fired = false
+			return
+		tap_tile(tap)
 		return
 	if _scroll_input(event):
-		_map_menu_tile = NO_TILE
 		return
 	if PointerInput.is_pointer_move(event):
 		var p := board.tile_at_viewport(PointerInput.viewport_position(event))
@@ -754,13 +775,12 @@ func _unhandled_input(event: InputEvent) -> void:
 			cursor.set_grid(p)
 			_on_cursor_moved()
 	elif PointerInput.is_primary_press(event):
-		var p := board.tile_at_viewport(PointerInput.viewport_position(event))
-		# 空闲时点空地：松手后弹地图菜单（敌人威胁范围亮着时先只清掉范围）
-		var arm := state == S.IDLE and board.in_bounds(p) and board.unit_at(p) == null \
-			and board.move_tiles.is_empty() and board.atk_tiles.is_empty()
-		click_tile(p)
-		_map_menu_tile = p if arm else NO_TILE
+		_press_tile = board.tile_at_viewport(PointerInput.viewport_position(event))
+		_long_fired = false
+		_press_id += 1
+		_long_press_check(_press_id, _press_tile)
 	elif PointerInput.is_secondary_press(event):
+		_press_tile = NO_TILE
 		cancel()
 	elif event.is_action_pressed("ui_accept"):
 		if state == S.IDLE and board.unit_at(cursor.grid_pos) == null and board.move_tiles.is_empty() and board.atk_tiles.is_empty():
@@ -779,7 +799,42 @@ func _unhandled_input(event: InputEvent) -> void:
 		toggle_danger()
 
 
-## 大地图卷动：滚轮（Shift = 横向）、按住拖动平移。点击照常在按下时生效，拖过阈值后才开始平移。
+## 在格子上点了一下（松手时调用）。空闲时点空地弹地图菜单（敌人威胁范围亮着时先只清掉范围）
+func tap_tile(p: Vector2i) -> void:
+	var arm := state == S.IDLE and board.in_bounds(p) and board.unit_at(p) == null \
+		and board.move_tiles.is_empty() and board.atk_tiles.is_empty()
+	click_tile(p)
+	if arm and state == S.IDLE:
+		open_map_menu(p)
+
+
+## 按住不放：打开那一格单位的能力画面（不选中、不移动）
+func _long_press_check(id: int, p: Vector2i) -> void:
+	await get_tree().create_timer(LONG_PRESS_TIME).timeout
+	if id != _press_id or _press_tile != p or _dragging:
+		return
+	if not (state == S.IDLE or state == S.MOVE_SEL or state == S.TARGET_SEL):
+		return
+	var u := board.unit_at(p) if board.in_bounds(p) else null
+	if u == null or not u.on_map():
+		return
+	_long_fired = true
+	open_unit_status(u)
+
+
+## 停一会儿，点一下屏幕可以提前结束
+func _wait_or_tap(sec: float) -> void:
+	_tap_wait = true
+	_tap_skip = false
+	var t := 0.0
+	while t < sec and not _tap_skip and is_inside_tree():
+		await get_tree().process_frame
+		t += get_process_delta_time()
+	_tap_wait = false
+	_tap_skip = false
+
+
+## 大地图卷动：滚轮（Shift = 横向）、按住拖动平移。点击在松手时生效，拖过阈值后开始平移、这次就不算点击。
 ## 返回 true 表示事件已被卷动吃掉
 func _scroll_input(event: InputEvent) -> bool:
 	if board == null or not board.can_scroll():
@@ -951,6 +1006,8 @@ func _on_menu_pressed() -> void:
 func open_system_menu() -> void:
 	if system_menu == null or system_menu.is_open():
 		return
+	system_menu.can_restart = pending_chapter == null and state != S.OVER and state != S.PREP \
+		and CampaignSave.can_restart_turn(chapter.chapter_id())
 	system_menu.open()
 
 
@@ -961,7 +1018,29 @@ func close_system_menu() -> void:
 
 func _on_system_title() -> void:
 	close_system_menu()
+	suspend_save()
 	get_tree().change_scene_to_file("res://scenes/title.tscn")
+
+
+## 重来本回合：读回本回合开始的检查点，重新进这一章
+func _on_restart_turn() -> void:
+	close_system_menu()
+	get_tree().paused = false
+	CampaignSave.request_restart_turn()
+	get_tree().change_scene_to_file("res://scenes/battle.tscn")
+
+
+## 中断存档：只在我方回合空闲时写（此刻场上状态是完整的），继续游戏就回到这里
+func suspend_save() -> void:
+	if pending_chapter != null or state != S.IDLE or units.is_empty():
+		return
+	CampaignSave.write_checkpoint(self, true)
+
+
+func _notification(what: int) -> void:
+	# 手机切到后台 / 来电 / 关窗：系统可能直接杀掉进程，先存一份
+	if what == NOTIFICATION_APPLICATION_PAUSED or what == NOTIFICATION_WM_CLOSE_REQUEST or what == NOTIFICATION_APPLICATION_FOCUS_OUT:
+		suspend_save()
 
 
 func _resume_idle() -> void:
@@ -1311,6 +1390,19 @@ func _close_map_menu() -> void:
 
 
 func _on_map_end_turn() -> void:
+	var left := units.filter(func(x) -> bool: return x.is_player() and x.is_alive() and x.on_map() and not x.has_acted).size()
+	if left > 0:
+		# 还有人没行动：再确认一次（误触最容易丢掉一整个回合）
+		_fill_menu([
+			{"label": tr("还有 %d 人未行动，结束回合") % left, "enabled": true, "cb": _on_map_end_turn_confirm},
+			{"label": tr("返回"), "enabled": true, "cb": _close_map_menu},
+		])
+		_place_menu_at(cursor.grid_pos)
+		return
+	_on_map_end_turn_confirm()
+
+
+func _on_map_end_turn_confirm() -> void:
 	_close_map_menu()
 	on_end_turn()
 
@@ -2093,15 +2185,19 @@ func find_targets(u: Unit, wi: int) -> Array:
 func _show_forecast(att: Unit, def: Unit, wi: int) -> void:
 	_forecast_target = def
 	var f: Dictionary = Combat.forecast(att, def, wi, board)
-	forecast_att.text = _forecast_text(att, att.weapon(wi), f["a_dmg"], f["a_hit"], f["a_times"], f["a_crit"])
-	if f["d_can"]:
-		var dwi: int = def.counter_weapon(GameData.dist(att.grid_pos, def.grid_pos))
-		forecast_def.text = _forecast_text(def, def.weapon(dwi), f["d_dmg"], f["d_hit"], f["d_times"], f["d_crit"])
-	else:
-		forecast_def.text = _forecast_text(def, def.weapon(), 0, 0, 0, 0) + "\n" + tr("（无法反击）")
-	forecast_panel.visible = true
+	var dwi: int = def.counter_weapon(GameData.dist(att.grid_pos, def.grid_pos)) if f["d_can"] else -1
 	var aw: Dictionary = att.weapon(wi)
-	var dw: Dictionary = def.weapon()
+	var dw: Dictionary = def.weapon(dwi) if dwi >= 0 else def.weapon()
+	var tri := GameData.triangle_dir(str(aw.get("type", "")), str(dw.get("type", "")))
+	# 全部命中时双方剩多少血（火纹式预览）
+	var a_left: int = maxi(0, att.hp - (f["d_dmg"] * f["d_times"] if f["d_can"] else 0))
+	var d_left: int = maxi(0, def.hp - f["a_dmg"] * f["a_times"])
+	forecast_att.text = _forecast_text(att, aw, f["a_dmg"], f["a_hit"], f["a_times"], f["a_crit"], a_left, tri, Combat.effective_mt(aw, def) > int(aw.get("mt", 0)))
+	if f["d_can"]:
+		forecast_def.text = _forecast_text(def, dw, f["d_dmg"], f["d_hit"], f["d_times"], f["d_crit"], d_left, -tri, Combat.effective_mt(dw, att) > int(dw.get("mt", 0)))
+	else:
+		forecast_def.text = _forecast_text(def, def.weapon(), 0, 0, 0, 0, d_left, 0, false) + "\n" + tr("（无法反击）")
+	forecast_panel.visible = true
 	tut("forecast", {"triangle": GameData.triangle_dir(str(aw.get("type", "")), str(dw.get("type", ""))), "magic": aw.get("magic", false) or dw.get("magic", false)})
 	# 停在目标的另一侧，不挡住交战双方
 	forecast_panel.reset_size()
@@ -2115,11 +2211,22 @@ func _show_forecast(att: Unit, def: Unit, wi: int) -> void:
 		hud.terrain_win.visible = false
 
 
-func _forecast_text(u: Unit, w: Dictionary, dmg: int, hit: int, times: int, crit: int) -> String:
+## left：全部命中后剩的 HP；tri：武器克制（1 有利 / -1 不利）；eff：特效武器
+func _forecast_text(u: Unit, w: Dictionary, dmg: int, hit: int, times: int, crit: int, left := -1, tri := 0, eff := false) -> String:
 	var wname := tr(str(w.get("name", "")))
 	var s := tr("%s  Lv%d %s") % [tr(u.display_name), u.level, tr(u.class_label)]
 	s += "\nHP %d/%d" % [u.hp, u.max_hp]
+	if left >= 0 and left != u.hp:
+		s += "  → %d" % left
+		if left == 0:
+			s += "  " + tr("击破")
 	s += "\n" + wname
+	if tri > 0:
+		s += "  ▲" + tr("克制")
+	elif tri < 0:
+		s += "  ▼" + tr("被克")
+	if eff:
+		s += "  " + tr("特效")
 	s += "\n" + (tr("攻击 %d") % dmg)
 	if times == 2:
 		s += "×2"
@@ -2157,7 +2264,10 @@ func do_combat(att: Unit, def: Unit, wi: int) -> void:
 	combat_scene.theme = board.theme
 	combat_scene.burning = board.is_burning()
 	combat_scene.tint = chapter.combat_tint()
-	await combat_scene.play(att, def, wi, events, board.tile_at(def.grid_pos), fc)
+	if GameSettings.battle_anim:
+		await combat_scene.play(att, def, wi, events, board.tile_at(def.grid_pos), fc)
+	else:
+		await _map_combat(att, def, wi, dwi, events)
 	var a_n := 0
 	var d_n := 0
 	for ev in events:
@@ -2187,6 +2297,7 @@ func do_combat(att: Unit, def: Unit, wi: int) -> void:
 		var dxp: int = Combat.xp_gain(def, att, not att.is_alive())
 		await _give_xp(def, dxp)
 	await chapter.on_after_combat(att, def, not def.is_alive())
+	update_topbar()
 	if await check_end_conditions():
 		return
 	att.has_acted = true
@@ -2195,6 +2306,38 @@ func do_combat(att: Unit, def: Unit, wi: int) -> void:
 		_finish_action(att)
 	else:
 		state = S.ENEMY
+
+
+## 战斗动画关闭时：在地图上冲一下、飘伤害数字（伤害照常按事件结算）
+func _map_combat(att: Unit, def: Unit, wi: int, dwi: int, events: Array) -> void:
+	var sp: float = 1.0 if att.is_player() else GameSettings.enemy_speed()
+	sp = maxf(sp, 0.6)
+	for ev in events:
+		var a: Unit = att if ev["side"] == "a" else def
+		var v: Unit = def if a == att else att
+		if not a.is_alive() or not v.is_alive():
+			break
+		var home := a.position
+		var dir := (v.position - a.position).normalized()
+		a.face(v.grid_pos - a.grid_pos)
+		var t := create_tween()
+		t.tween_property(a, "position", home + dir * 16.0, 0.09 * sp)
+		t.tween_property(a, "position", home, 0.12 * sp)
+		await get_tree().create_timer(0.09 * sp).timeout
+		if ev["landed"]:
+			v.take_damage(ev["dmg"])
+			var w: Dictionary = a.weapon(wi if a == att else dwi)
+			var wt := str(w.get("type", "sword"))
+			Audio.play_sfx("crit" if ev["crit"] else (wt if wt in ["sword", "lance", "axe", "bow"] else "sword"))
+			_float_text(v, (tr("必杀") + " " if ev["crit"] else "") + "-%d" % ev["dmg"], Color(1.0, 0.85, 0.3) if ev["crit"] else Color(1.0, 0.5, 0.42))
+			var fl := create_tween()
+			fl.tween_property(v, "modulate", Color(1.8, 0.7, 0.7), 0.05)
+			fl.tween_property(v, "modulate", Color.WHITE, 0.18)
+		else:
+			Audio.play_sfx("miss")
+			_float_text(v, tr("未命中"), Color(0.8, 0.88, 1.0))
+		await t.finished
+		await get_tree().create_timer(0.22 * sp).timeout
 
 
 ## 我方用了 n 次第 idx 把武器：扣耐久（坏了提示）、涨武器经验（升级提示）
@@ -2235,7 +2378,7 @@ func _give_xp(u: Unit, n: int) -> void:
 			lines.append("%s +1" % names[k])
 	levelup_label.text = "\n".join(PackedStringArray(lines))
 	levelup_panel.visible = true
-	await get_tree().create_timer(1.5).timeout
+	await _wait_or_tap(2.0)
 	levelup_panel.visible = false
 
 
@@ -2395,6 +2538,9 @@ func _refresh_objectives() -> void:
 	if lbl_win == null or lbl_lose == null:
 		return
 	lbl_win.text = tr("胜利") + "  " + chapter.win_condition()
+	var prog: String = chapter.progress_text()
+	if prog != "":
+		lbl_win.text += tr("（%s）") % prog
 	lbl_lose.text = tr("败北") + "  " + chapter.lose_condition()
 	# 中文句子里没有空格，按词折行折不开，改为按字折行；英文仍按词折行
 	var wrap := TextServer.AUTOWRAP_ARBITRARY if TranslationServer.get_locale().begins_with("zh") else TextServer.AUTOWRAP_WORD_SMART
@@ -2510,8 +2656,7 @@ func update_topbar() -> void:
 	var phase := tr("敌方回合") if state == S.ENEMY else tr("我方回合")
 	lbl_turn.text = tr("第 %d 回合 · %s") % [turn, phase]
 	lbl_gold.text = tr("金钱 %d G") % gold
-	if hud != null:
-		hud.refresh()
+	_refresh_objectives()   # 目标进度（剩余回合 / 敌人）跟着刷新，里面会重排信息窗
 
 
 ## 竞技场（出击准备里）：付押金单挑同等级对手。返回 "win" / "lose" / "draw"，钱不够或打不了返回 ""

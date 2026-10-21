@@ -6,8 +6,8 @@ extends Control
 
 signal done
 
-const PANEL_SIZE := Vector2(320, 624)
-const PANEL_POS := Vector2(1280 - 64 - 320, 48)
+const PANEL_SIZE := Vector2(380, 624)
+const PANEL_POS := Vector2(1280 - 64 - 380, 48)
 
 var battle = null
 var _panel: Panel
@@ -79,7 +79,7 @@ func _button(text: String, cb: Callable, enabled := true, h := 44.0) -> Button:
 	b.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 	b.text = text
 	b.disabled = not enabled
-	b.custom_minimum_size = Vector2(PANEL_SIZE.x - 40, h)
+	b.custom_minimum_size = Vector2(PANEL_SIZE.x - 40, maxf(h, SafeArea.MIN_HIT))
 	b.pressed.connect(cb)
 	_body.add_child(b)
 	return b
@@ -93,7 +93,7 @@ func _row(buttons: Array) -> void:
 		b.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 		b.text = spec[0]
 		b.disabled = not spec[2]
-		b.custom_minimum_size = Vector2((PANEL_SIZE.x - 40 - 6 * (buttons.size() - 1)) / buttons.size(), 40)
+		b.custom_minimum_size = Vector2((PANEL_SIZE.x - 40 - 6 * (buttons.size() - 1)) / buttons.size(), SafeArea.MIN_HIT)
 		b.pressed.connect(spec[1])
 		h.add_child(b)
 	_body.add_child(h)
@@ -175,6 +175,7 @@ var _arena_busy := false
 func show_arena() -> void:
 	_mode = "arena"
 	_clear()
+	battle.tut("arena")
 	_title(tr("竞技场"))
 	_text(tr("付押金和同等级的对手单挑：赢了拿回 1.5 倍押金和经验，输了没收押金（不会阵亡）。每次出击准备最多 %d 场。") % Arena.MAX_FIGHTS, 15, Color(0.85, 0.85, 0.7))
 	_text(tr("金钱 %d G") % battle.gold + "   " + tr("剩余 %d 场") % (Arena.MAX_FIGHTS - battle.arena_fights), 17, Color(1.0, 0.9, 0.55))
@@ -182,8 +183,19 @@ func show_arena() -> void:
 		var uu: Unit = u
 		var cost := Arena.wager(u)
 		var can: bool = battle.gold >= cost and int(Arena.pick_weapon(u)[0]) >= 0 and battle.arena_fights < Arena.MAX_FIGHTS
-		_button("%s   %s %d G" % [_unit_line(u), tr("押金"), cost], func() -> void: _fight(uu), can, 40.0)
+		_button("%s   %s %d G" % [_unit_line(u), tr("押金"), cost], func() -> void: _confirm_fight(uu), can, 40.0)
 	_button(tr("返回"), show_menu)
+
+
+## 付钱之前再确认一次
+func _confirm_fight(u: Unit) -> void:
+	_mode = "arena_confirm"
+	_clear()
+	_title(tr("竞技场"))
+	_text(tr("%s 出战，押金 %d G。") % [tr(u.display_name), Arena.wager(u)], 18)
+	_text(tr("金钱 %d G") % battle.gold, 17, Color(1.0, 0.9, 0.55))
+	_button(tr("开始比试"), func() -> void: _fight(u))
+	_button(tr("返回"), show_arena)
 
 
 func _fight(u: Unit) -> void:

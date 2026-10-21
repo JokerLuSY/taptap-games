@@ -49,12 +49,17 @@ func open(b, u: Unit) -> void:
 
 
 ## 松手时才关：按下和松开都被这个窗口吃掉，不会漏到地图上变成一次点击
+var _pressed_here := false   # 长按打开时，那根手指的松开不能把画面立刻关掉
+
+
 func _gui_input(event: InputEvent) -> void:
 	if PointerInput.is_primary_press(event):
+		_pressed_here = true
 		accept_event()
 	elif PointerInput.is_primary_release(event):
 		accept_event()
-		close()
+		if _pressed_here:
+			close()
 
 
 func close() -> void:

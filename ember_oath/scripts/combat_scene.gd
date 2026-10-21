@@ -1,7 +1,7 @@
 class_name CombatScene
 extends CanvasLayer
 ## 战斗特写演出：GBA 火纹式横版对砍。角色是原创像素条带（CombatFighter，tools/pixelart/fe_combat.py 生成），
-## 背景按地形换四层远景并做视差；底部双方面板显示 HIT / DMG / CRT 和 HP。点击 / 回车可跳过。
+## 背景按地形换四层远景并做视差；底部双方面板显示命中 / 伤害 / 必杀和 HP。点击 / 回车可跳过。
 
 signal finished
 
@@ -728,7 +728,7 @@ func _make_panel(x: float, u: Unit, wpn: String, stats: Array, times: int) -> Di
 			tick.position = fill.position + Vector2((HP_BAR_W - 4) * i / float(mhp), 0)
 			tick.size = Vector2(1, 12)
 			_ui.add_child(tick)
-	var keys := ["HIT", "DMG", "CRT"]
+	var keys := [tr("命中"), tr("伤害"), tr("必杀")]
 	for i in 3:
 		var k := _label(Vector2(x + 410, PANEL_Y + 14 + i * 40), 22)
 		k.text = keys[i]

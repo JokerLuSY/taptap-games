@@ -1,15 +1,25 @@
 extends CanvasLayer
 ## 暂停 / 系统菜单。PROCESS_MODE_ALWAYS，打开时暂停场景树。
 ## 继续关闭菜单；回到标题由宿主听 title_requested（标题画面隐藏该按钮）。
+## 重来本回合由宿主听 restart_requested；两者都会丢掉本回合的进度，所以要点第二次确认。
+## 战斗动画、敌方回合速度两个开关存在 GameSettings。
 
 signal title_requested
+signal restart_requested
 
 var show_title_button := true
+## 宿主设：本回合有没有可以回去的检查点
+var can_restart := false
 
 var _open := false
+var _armed := ""          # 正在等第二次确认的按钮："title" / "restart"
+var _panel: PanelContainer
 var _title_label: Label
 var _resume_btn: Button
+var _restart_btn: Button
 var _title_btn: Button
+var _anim_btn: Button
+var _speed_btn: Button
 var _bgm_label: Label
 var _sfx_label: Label
 var _bgm_slider: HSlider
@@ -39,7 +49,11 @@ func open() -> void:
 		return
 	_open = true
 	visible = true
+	_armed = ""
 	_apply_locale("")
+	# 宽屏：面板水平居中
+	_panel.reset_size()
+	_panel.position.x = floorf((SafeArea.screen().x - _panel.size.x) / 2.0)
 	_bgm_slider.set_value_no_signal(Audio.bgm_percent)
 	_sfx_slider.set_value_no_signal(Audio.sfx_percent)
 	get_tree().paused = true
@@ -72,7 +86,8 @@ func _build() -> void:
 	add_child(dim)
 
 	var panel := PanelContainer.new()
-	panel.position = Vector2(390, 120)
+	_panel = panel
+	panel.position = Vector2(390, 56)
 	panel.custom_minimum_size = Vector2(500, 0)
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color(0.08, 0.10, 0.16, 0.97)
@@ -100,10 +115,30 @@ func _build() -> void:
 	_resume_btn.pressed.connect(close)
 	vb.add_child(_resume_btn)
 
+	_restart_btn = _button("RestartButton")
+	_restart_btn.pressed.connect(_on_restart)
+	vb.add_child(_restart_btn)
+
 	_title_btn = _button("TitleButton")
 	_title_btn.pressed.connect(_on_title)
 	_title_btn.visible = show_title_button
 	vb.add_child(_title_btn)
+
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 12)
+	vb.add_child(row)
+	_anim_btn = _button("AnimButton")
+	_anim_btn.custom_minimum_size.x = 220
+	_anim_btn.pressed.connect(func() -> void:
+		GameSettings.set_battle_anim(not GameSettings.battle_anim)
+		_apply_locale(""))
+	row.add_child(_anim_btn)
+	_speed_btn = _button("SpeedButton")
+	_speed_btn.custom_minimum_size.x = 220
+	_speed_btn.pressed.connect(func() -> void:
+		GameSettings.set_fast_enemy(not GameSettings.fast_enemy)
+		_apply_locale(""))
+	row.add_child(_speed_btn)
 
 	_bgm_label = _small_label()
 	vb.add_child(_bgm_label)
@@ -150,12 +185,29 @@ func _apply_locale(_code: String) -> void:
 		return
 	_title_label.text = tr("系统")
 	_resume_btn.text = tr("继续")
-	_title_btn.text = tr("回到标题")
+	_restart_btn.text = tr("再点一次：本回合的行动作废") if _armed == "restart" else tr("重来本回合")
+	_title_btn.text = tr("再点一次回到标题") if _armed == "title" else tr("回到标题")
+	_anim_btn.text = tr("战斗动画：开") if GameSettings.battle_anim else tr("战斗动画：关")
+	_speed_btn.text = tr("敌方回合：快速") if GameSettings.fast_enemy else tr("敌方回合：普通")
 	_bgm_label.text = tr("音乐")
 	_sfx_label.text = tr("音效")
 	_title_btn.visible = show_title_button
+	_restart_btn.visible = show_title_button and can_restart
 
 
 func _on_title() -> void:
+	if _armed != "title":
+		_armed = "title"
+		_apply_locale("")
+		return
 	close()
 	title_requested.emit()
+
+
+func _on_restart() -> void:
+	if _armed != "restart":
+		_armed = "restart"
+		_apply_locale("")
+		return
+	close()
+	restart_requested.emit()

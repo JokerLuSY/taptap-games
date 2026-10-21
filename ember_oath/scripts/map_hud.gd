@@ -7,9 +7,9 @@ extends Control
 ## - 提示条：底部居中的一行操作提示
 ## 所有窗都不吃鼠标，点击照样落到地图上。
 
-const W_GOAL := 330.0
-const W_UNIT := 360.0
-const W_TERRAIN := 220.0
+const W_GOAL := 360.0
+const W_UNIT := 390.0
+const W_TERRAIN := 240.0
 const GAP := 8.0
 
 var goal_win: PanelContainer
@@ -44,7 +44,7 @@ func _init() -> void:
 	gv.add_theme_constant_override("separation", 2)
 	gv.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	goal_win.add_child(gv)
-	lbl_chapter = _label(gv, 15, Color(1.0, 0.86, 0.5))
+	lbl_chapter = _label(gv, 17, Color(1.0, 0.86, 0.5))
 	lbl_chapter.name = "ChapterLabel"
 	lbl_chapter.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	lbl_chapter.clip_text = true
@@ -52,15 +52,15 @@ func _init() -> void:
 	row.add_theme_constant_override("separation", 16)
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	gv.add_child(row)
-	lbl_turn = _label(row, 18, Color(0.92, 0.94, 1.0))
+	lbl_turn = _label(row, 20, Color(0.92, 0.94, 1.0))
 	lbl_turn.name = "TurnLabel"
-	lbl_gold = _label(row, 18, Color(1.0, 0.9, 0.55))
+	lbl_gold = _label(row, 20, Color(1.0, 0.9, 0.55))
 	lbl_gold.name = "GoldLabel"
-	lbl_win = _label(gv, 15, Color(0.96, 0.86, 0.45))
+	lbl_win = _label(gv, 17, Color(0.96, 0.86, 0.45))
 	lbl_win.name = "WinCondition"
 	lbl_win.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	lbl_win.custom_minimum_size = Vector2(W_GOAL - 24, 0)
-	lbl_lose = _label(gv, 15, Color(0.95, 0.62, 0.48))
+	lbl_lose = _label(gv, 17, Color(0.95, 0.62, 0.48))
 	lbl_lose.name = "LoseCondition"
 	lbl_lose.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	lbl_lose.custom_minimum_size = Vector2(W_GOAL - 24, 0)
@@ -92,7 +92,7 @@ func _init() -> void:
 	portrait.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	portrait.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	portrait_frame.add_child(portrait)
-	unit_label = _label(uh, 15, Color(0.94, 0.95, 1.0))
+	unit_label = _label(uh, 17, Color(0.94, 0.95, 1.0))
 	unit_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	unit_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	unit_label.custom_minimum_size = Vector2(W_UNIT - 24 - 68 - 10, 0)   # 换行宽度固定，首次布局时不会被撑成一字一行
@@ -101,11 +101,11 @@ func _init() -> void:
 	terrain_win = _window(Color(0.6, 0.8, 0.5))
 	terrain_win.name = "TerrainWindow"
 	terrain_win.custom_minimum_size = Vector2(W_TERRAIN, 0)
-	terrain_label = _label(terrain_win, 16, Color(0.94, 0.95, 1.0))
+	terrain_label = _label(terrain_win, 18, Color(0.94, 0.95, 1.0))
 
 	hint_win = _window(Color(0.4, 0.45, 0.6), 0.7)
 	hint_win.name = "HintWindow"
-	hint_label = _label(hint_win, 16, Color(0.8, 0.85, 0.95))
+	hint_label = _label(hint_win, 18, Color(0.8, 0.85, 0.95))
 	hint_win.visible = false
 
 	for w in [goal_win, unit_win, terrain_win, hint_win]:

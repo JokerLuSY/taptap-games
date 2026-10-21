@@ -43,6 +43,7 @@ func _run() -> void:
 		await _check_part2_systems()
 		await _check_qa_fixes()
 		await _check_qa2_batch_a()
+		await _check_qa2_batch_b()
 		print("SMOKE TEST: ALL PASS" if _failures.is_empty() else "SMOKE TEST: %d FAILURES" % _failures.size())
 		for f_ in _failures:
 			print("  FAIL: " + f_)
@@ -131,7 +132,13 @@ func _run() -> void:
 	click.pressed = true
 	click.position = vp
 	battle._unhandled_input(click)
-	_check(battle.selected == tia, "鼠标主指针应按在缇娅格上并选中她")
+	_check(battle.selected == null, "按下还不算点击（松手才生效，方便拖地图）")
+	var click_up := InputEventMouseButton.new()
+	click_up.button_index = MOUSE_BUTTON_LEFT
+	click_up.pressed = false
+	click_up.position = vp
+	battle._unhandled_input(click_up)
+	_check(battle.selected == tia, "鼠标主指针在缇娅格上按下再松开应选中她")
 	battle.cancel()
 	await _frames(2)
 	ProjectSettings.set_setting("input_devices/pointing/emulate_mouse_from_touch", false)
@@ -140,7 +147,12 @@ func _run() -> void:
 	touch.pressed = true
 	touch.position = vp
 	battle._unhandled_input(touch)
-	_check(battle.selected == tia, "关闭鼠标模拟后，单指触摸应同样选中缇娅")
+	var touch_up := InputEventScreenTouch.new()
+	touch_up.index = 0
+	touch_up.pressed = false
+	touch_up.position = vp
+	battle._unhandled_input(touch_up)
+	_check(battle.selected == tia, "关闭鼠标模拟后，单指点一下应同样选中缇娅")
 	battle.cancel()
 	ProjectSettings.set_setting("input_devices/pointing/emulate_mouse_from_touch", true)
 	await _frames(2)
@@ -237,7 +249,7 @@ func _run() -> void:
 	_check(a_hp.text == str(tia.hp), "攻方面板 HP 应为 %d, 实际 %s" % [tia.hp, a_hp.text])
 	_check(d_hp.text == str(bandit.hp), "命中当帧守方面板 HP 应已更新为 %d, 实际 %s" % [bandit.hp, d_hp.text])
 	_check(_ui_has_text(cs._ui, str(fc["a_hit"])), "面板应显示缇娅命中率 %d" % fc["a_hit"])
-	_check(_ui_has_text(cs._ui, "HIT") and _ui_has_text(cs._ui, "CRT"), "面板应有 HIT / DMG / CRT 栏")
+	_check(_ui_has_text(cs._ui, tr("命中")) and _ui_has_text(cs._ui, tr("伤害")) and _ui_has_text(cs._ui, tr("必杀")), "面板应有命中 / 伤害 / 必杀栏")
 	Combat.force_crit = false
 	var ok: bool = await _wait_cond(func() -> bool: return battle.state == battle.S.IDLE, 15.0)
 	_check(ok, "战斗应结束并回到 IDLE")
@@ -640,6 +652,7 @@ func _run() -> void:
 	await _check_part2_systems()
 	await _check_qa_fixes()
 	await _check_qa2_batch_a()
+	await _check_qa2_batch_b()
 	await _check_wide_screen()
 	await _check_part3()
 	await _check_autoplay()
@@ -1107,6 +1120,135 @@ func _check_part2_entry() -> void:
 
 
 ## QA 第一批修复：剧情必需的绿色友军自动归队、加雷斯绿色时倒下也败北、飞行不过牢门、阵亡的人不会被复制
+func _mouse(pos: Vector2, down: bool) -> void:
+	var ev := InputEventMouseButton.new()
+	ev.button_index = MOUSE_BUTTON_LEFT
+	ev.pressed = down
+	ev.position = pos
+	battle._unhandled_input(ev)
+
+
+func _check_qa2_batch_b() -> void:
+	_mark("QA2 B 批：松手点击 / 长按 / 跳过对话 / 重来本回合 / 存档 / 设置 / 预报")
+	CampaignSave.clear()
+	Campaign.reset()
+	load("res://scripts/battle.gd").queue_chapter(null)
+	await _new_battle()
+	await _skip_story()
+	var tia: Unit = battle.get_unit("tia")
+	var foe: Unit = null
+	for e in battle.units:
+		if not e.is_player() and e.is_alive() and e.on_map():
+			foe = e
+			break
+	# 长按敌人：直接打开能力画面；那根手指松开时画面不关
+	var fp: Vector2 = battle.board.get_global_transform_with_canvas() * foe.position
+	_mouse(fp, true)
+	await get_tree().create_timer(battle.LONG_PRESS_TIME + 0.2).timeout
+	_check(battle.unit_status != null and is_instance_valid(battle.unit_status), "长按敌人应打开能力画面")
+	_mouse(fp, false)
+	await _frames(2)
+	_check(battle.unit_status != null and is_instance_valid(battle.unit_status), "长按打开后，松手不应立刻关掉能力画面")
+	_check(battle._previewed == null and battle.board.atk_tiles.is_empty(), "长按不应再算一次点击")
+	if battle.unit_status != null:
+		battle.unit_status.close()
+	await _frames(2)
+	# 选中单位后拖动地图：松手不算点到别处
+	battle.click_tile(tia.grid_pos)
+	_check(battle.state == battle.S.MOVE_SEL, "选中缇娅进入移动选择")
+	battle._press_tile = tia.grid_pos + Vector2i(1, 0)
+	battle._dragging = true
+	_mouse(fp, false)
+	_check(battle.state == battle.S.MOVE_SEL and battle.selected == tia, "拖动后松手不应移动或取消")
+	battle._dragging = false
+	battle.cancel()
+	await _frames(2)
+	# 战斗预报：战后 HP、击破标记
+	var txt: String = battle._forecast_text(tia, tia.weapon(0), 5, 80, 1, 3, 0, 1, false)
+	_check("→ 0" in txt and "击破" in txt and "▲" in txt, "预报应显示战后 HP、击破和克制：%s" % txt)
+	# 目标进度
+	_check("剩余" in battle.chapter.progress_text(), "第一章目标窗应显示剩余敌人，实际 %s" % battle.chapter.progress_text())
+	_check("（" in battle.lbl_win.text, "胜利条件后面应接上进度")
+	# 回合结束：还有人没动时先确认
+	battle.open_map_menu(Vector2i(0, 0))
+	battle._on_map_end_turn()
+	_check(battle.state == battle.S.MAP_MENU, "还有人没行动时，回合结束应先确认而不是直接进敌方回合")
+	battle._close_map_menu()
+	# 对话跳过：点两次才跳
+	battle.state = battle.S.STORY
+	battle.dialogue.play([{"name": "缇娅", "text": "一"}, {"name": "缇娅", "text": "二"}, {"name": "缇娅", "text": "三"}])
+	_check(battle.dialogue.skip_btn.visible, "三句以上的对话应显示跳过按钮")
+	battle.dialogue.press_skip()
+	_check(battle.dialogue._active, "第一次点跳过只确认，不跳")
+	battle.dialogue.press_skip()
+	_check(not battle.dialogue._active, "第二次点跳过应结束整段对话")
+	battle.state = battle.S.IDLE
+	# 存档：原子写入 + 备份；中断存档带回合开始快照；重来本回合读快照
+	var start_pos: Vector2i = tia.grid_pos
+	CampaignSave.write_checkpoint(battle)
+	CampaignSave.write_checkpoint(battle)
+	_check(FileAccess.file_exists("user://save.cfg") and FileAccess.file_exists("user://save.cfg.bak") and not FileAccess.file_exists("user://save.cfg.tmp"), "存档应写成主档 + 备份，临时文件已改名")
+	tia.grid_pos = start_pos + Vector2i(0, 1)
+	tia.has_acted = true
+	battle.suspend_save()
+	var sus: Dictionary = CampaignSave.read()
+	_check(bool(sus.get("suspend", false)), "空闲时应能写中断存档")
+	var moved := false
+	for raw in sus.get("units", []):
+		if str(raw.get("id", "")) == "tia":
+			moved = int(raw["pos"][1]) == start_pos.y + 1 and bool(raw.get("has_acted", false))
+	_check(moved, "中断存档应记下缇娅走过、行动过")
+	_check(CampaignSave.can_restart_turn(battle.chapter.chapter_id()), "有回合开始快照时可以重来本回合")
+	CampaignSave.request_restart_turn()
+	_check(CampaignSave.take_pending_load(), "重来本回合应请求读档")
+	var ts: Dictionary = CampaignSave.read()
+	var back := false
+	for raw in ts.get("units", []):
+		if str(raw.get("id", "")) == "tia":
+			back = int(raw["pos"][1]) == start_pos.y and not bool(raw.get("has_acted", false))
+	_check(back and not bool(ts.get("suspend", false)), "重来本回合应读回回合开始的快照")
+	tia.grid_pos = start_pos
+	tia.has_acted = false
+	# 主档损坏：读备份
+	var f := FileAccess.open("user://save.cfg", FileAccess.WRITE)
+	f.store_string("garbage")
+	f.close()
+	_check(not CampaignSave.read().is_empty(), "主档损坏时应读到备份")
+	# 系统菜单：重来本回合按钮、确认两次
+	battle.open_system_menu()
+	var rb := battle.system_menu.find_child("RestartButton", true, false) as Button
+	_check(rb != null and rb.visible, "我方回合里系统菜单应有【重来本回合】")
+	var tb := battle.system_menu.find_child("TitleButton", true, false) as Button
+	if tb != null:
+		var before: String = tb.text
+		battle.system_menu._on_title()
+		_check(battle.system_menu.is_open() and tb.text != before, "回到标题第一次只确认")
+	battle.close_system_menu()
+	await _frames(2)
+	# 关闭战斗动画：在地图上结算，伤害照常
+	GameSettings.set_battle_anim(false)
+	foe.grid_pos = tia.grid_pos + Vector2i(1, 0)
+	foe.position = foe.tile_center()
+	var hp0: int = foe.hp + tia.hp
+	Combat.force_crit = true
+	battle.do_combat(tia, foe, 0)
+	await get_tree().create_timer(0.1).timeout
+	_check(not battle.combat_scene.active, "关闭战斗动画时不应进战斗特写")
+	await _wait_cond(func() -> bool: return battle.state != battle.S.COMBAT, 10.0)
+	Combat.force_crit = false
+	_check(foe.hp + tia.hp < hp0, "关闭动画时伤害照常结算")
+	GameSettings.set_battle_anim(true)
+	GameSettings.set_fast_enemy(true)
+	_check(GameSettings.enemy_speed() < 1.0, "敌方回合快速模式应缩短停顿")
+	GameSettings.set_fast_enemy(false)
+	_check(SafeArea.MIN_HIT >= 56, "触控热区应 ≥ 56")
+	battle.queue_free()
+	await _frames(3)
+	battle = null
+	CampaignSave.clear()
+	Campaign.reset()
+
+
 func _check_qa2_batch_a() -> void:
 	_mark("QA2 A 批：觉醒经验 / 竞技场 / 支援开关 / 第 25 章渡鸦")
 	# 缇娅剧情觉醒后 Lv1 打第二篇 Lv13 的杂兵，经验不能只有 1 点

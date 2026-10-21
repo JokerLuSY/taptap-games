@@ -11,7 +11,7 @@ const DESIGN := Vector2(1280, 720)
 const MARGIN_X := 64
 const MARGIN_Y := 48
 const EDGE_ACTION := 80
-const MIN_HIT := 48
+const MIN_HIT := 56
 
 
 ## 当前实际可见的画面大小（设计坐标）。拿不到时按 1280×720。

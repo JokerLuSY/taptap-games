@@ -24,6 +24,7 @@ config/quit_on_go_back=false
 
 GameLocale="*res://scripts/game_locale.gd"
 Audio="*res://scripts/audio.gd"
+GameSettings="*res://scripts/game_settings.gd"
 CampaignSave="*res://scripts/campaign_save.gd"
 
 [display]
