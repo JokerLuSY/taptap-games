@@ -2398,6 +2398,52 @@ func _check_infra() -> void:
 	for row in [["church1", "圣焰教会兵"], ["knight1", "圣焰骑士"], ["merc1", "黑烬佣兵"], ["harlo", "哈洛"], ["nina", "妮娜"], ["kain", "凯因"], ["edric", "艾德里克"], ["silas", "塞拉斯"], ["hawk", "霍克"], ["barrett", "巴雷特"]]:
 		named.setup({"id": row[0], "name": row[0], "weapons": ["iron_sword"]})
 		_check(named.display_name == row[1], "%s 面板名应为 %s，实际 %s" % [row[0], row[1], named.display_name])
+	named.setup({"id": "morgan", "name": "莫尔甘", "class": "德鲁伊", "weapons": ["flux"]})
+	_check(named.unit_id == "morgan" and named.display_name == "莫尔甘", "莫尔甘人形面板名应为莫尔甘，id 仍是 morgan")
+	named.setup({"id": "morgan", "name": "morgan", "class": "德鲁伊"})
+	_check(named.display_name == "莫尔甘", "id 当名字时莫尔甘人形仍应是莫尔甘")
+	named.setup({"id": "morgan", "name": "莫尔甘", "class": "炎龙", "faction": "enemy", "weapons": ["dragon_flame"], "hp": 40, "pos": Vector2i(5, 4)})
+	_check(named.unit_id == "morgan" and named.display_name == "炎龙" and named.class_label == "炎龙", "炎龙形态面板名应为炎龙，id 仍是 morgan")
+	_check(named.weapon()["name"] == "炎龙之息", "炎龙之息武器名应保持不变")
+	named.promote("德鲁伊", {})
+	_check(named.display_name == "莫尔甘" and named.unit_id == "morgan", "从炎龙转回人形后面板名应回到莫尔甘")
+	named.promote("炎龙", {})
+	_check(named.display_name == "炎龙", "再转成炎龙后面板名应翻回炎龙")
+	var ally_green := Unit.new()
+	ally_green.setup({"id": "edric", "name": "艾德里克", "faction": "npc", "fights": true, "weapons": ["iron_sword"], "pos": Vector2i(4, 4)})
+	var bandit := Unit.new()
+	bandit.setup({"id": "bandit1", "name": "山贼", "faction": "enemy", "weapons": ["iron_axe"], "pos": Vector2i(5, 4)})
+	var seven := Unit.new()
+	seven.setup({"id": "seven", "name": "七号", "faction": "player", "class": "灰烬傀儡", "weapons": ["ash_claw"], "hp": 36, "pos": Vector2i(4, 4)})
+	_check(CombatScene.panel_color(seven).is_equal_approx(CombatScene.PANEL_ALLY), "我方七号面板应为蓝")
+	_check(CombatScene.panel_color(ally_green).is_equal_approx(CombatScene.PANEL_ALLY), "会作战的友军面板应为蓝，不能跟敌人一样涂红")
+	_check(CombatScene.panel_color(bandit).is_equal_approx(CombatScene.PANEL_ENEMY), "山贼面板应为红")
+	_check(CombatScene.panel_color(named).is_equal_approx(CombatScene.PANEL_ENEMY), "敌方炎龙面板应为红")
+	var panel_left := CombatScene.panel_bg_rect(0.0, 80.0)
+	var panel_right := CombatScene.panel_bg_rect(CombatScene.PANEL_MID, 80.0)
+	_check(is_equal_approx(panel_left.end.x, CombatScene.PANEL_MID) and is_equal_approx(panel_right.position.x, CombatScene.PANEL_MID), "宽屏底栏两半应在中线相接")
+	_check(panel_left.position.x < 0.0 and panel_right.end.x > 1280.0 and not panel_left.intersects(panel_right), "宽屏底栏只向外侧铺，两半不重叠")
+	var panel_scene := CombatScene.new()
+	add_child(panel_scene)
+	panel_scene._pad = 0.0
+	panel_scene._fc = {"a_hit": 100, "a_dmg": 12, "a_crit": 30, "a_times": 1, "d_can": true, "d_hit": 40, "d_dmg": 4, "d_crit": 0, "d_times": 1}
+	panel_scene._att_real = seven
+	panel_scene._def_real = bandit
+	panel_scene._build_panels(0)
+	var halves := _panel_halves(panel_scene)
+	_check(halves.size() == 2 and halves[0][0].is_equal_approx(CombatScene.PANEL_ALLY) and halves[1][0].is_equal_approx(CombatScene.PANEL_ENEMY), "七号对山贼：左蓝右红，实际 %s" % str(halves))
+	_check(halves.size() == 2 and is_equal_approx(halves[0][1].end.x, CombatScene.PANEL_MID) and is_equal_approx(halves[1][1].position.x, CombatScene.PANEL_MID), "七号对山贼两半应在 640 分开")
+	_check(_panel_has_text(panel_scene, tr("七号")) and _panel_has_text(panel_scene, tr("山贼")) and _panel_has_text(panel_scene, tr("灰烬之爪")) and _panel_has_text(panel_scene, tr("铁斧")), "战斗面板应写出双方名字和武器")
+	panel_scene._att_real = named
+	panel_scene._def_real = seven
+	panel_scene._build_panels(0)
+	halves = _panel_halves(panel_scene)
+	_check(halves.size() == 2 and halves[0][0].is_equal_approx(CombatScene.PANEL_ENEMY) and halves[1][0].is_equal_approx(CombatScene.PANEL_ALLY), "敌方先手时左红右蓝，不能整条涂红")
+	_check(_panel_has_text(panel_scene, tr("炎龙")) and _panel_has_text(panel_scene, tr("炎龙之息")), "龙形态战斗面板应显示炎龙和炎龙之息")
+	panel_scene.queue_free()
+	ally_green.free()
+	bandit.free()
+	seven.free()
 	named.free()
 	_check(int(ProjectSettings.get_setting("display/window/size/viewport_width")) == 1280, "逻辑宽度应为 1280")
 	_check(int(ProjectSettings.get_setting("display/window/size/viewport_height")) == 720, "逻辑高度应为 720")
@@ -2942,6 +2988,22 @@ func _find_button(root: Node, text: String) -> Button:
 		if found != null:
 			return found
 	return null
+
+
+func _panel_halves(scene: CombatScene) -> Array:
+	var out: Array = []
+	for c in scene._ui.get_children():
+		if c is ColorRect and not c.is_queued_for_deletion() and (c as ColorRect).size.y > 140.0:
+			var r := c as ColorRect
+			out.append([Color(r.color.r, r.color.g, r.color.b), Rect2(r.position, r.size)])
+	return out
+
+
+func _panel_has_text(scene: CombatScene, text: String) -> bool:
+	for c in scene._ui.get_children():
+		if c is Label and not c.is_queued_for_deletion() and (c as Label).text == text:
+			return true
+	return false
 
 
 func _live_stage_children(scene: CombatScene) -> Array:
