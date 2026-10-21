@@ -381,7 +381,12 @@ func recruits() -> Dictionary:
 	if battle == null or battle.state == battle.S.PREP:
 		return {}
 	var ids := _player_ids()
-	return {"gerard": ids, "ivy": ids}
+	var out := {}
+	if battle.board.tile_at(DOOR_GERARD) != "O":
+		out["gerard"] = ids
+	if battle.board.tile_at(DOOR_IVY) != "O":
+		out["ivy"] = ids
+	return out
 
 
 func recruit_lines(target_id: String, by_id: String) -> Array:

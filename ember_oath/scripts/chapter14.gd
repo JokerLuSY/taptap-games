@@ -237,11 +237,16 @@ func templates() -> Dictionary:
 
 
 ## 三主角：加雷斯转为我方之后也算
+## 加雷斯一出场（绿色时也算）就是败北条件；倒下后 get_unit 仍在，所以照样判败北
 func lose_ids() -> Array:
 	var out := ["edric", "tia"]
-	if battle != null and _here("gareth"):
+	if battle != null and battle.get_unit("gareth") != null:
 		out.append("gareth")
 	return out
+
+
+func must_join_on_victory() -> Array:
+	return ["gareth", "hagen", "liss"]
 
 
 func forced_ids() -> Array:

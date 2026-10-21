@@ -108,7 +108,7 @@ const UNITS := [
 		"hair_color": Color(0.50, 0.32, 0.18), "armor": Color(0.55, 0.48, 0.35)},
 	# 客串：艾德里克在东南被佣兵追赶。开场是绿色的第三方（自己在友军阶段迎战），缇娅或巴尔托【对话】后才归我方指挥
 	{"id": "edric", "name": "艾德里克", "class": "领主骑士", "faction": "npc", "fights": true, "level": 3,
-		"hp": 24, "pwr": 6, "skl": 8, "spd": 8, "dfn": 6, "mov": 5,
+		"hp": 30, "pwr": 6, "skl": 8, "spd": 8, "dfn": 8, "mov": 5,
 		"weapons": ["rapier"], "items": ["vulnerary"],
 		"growths": {"hp": 70, "pwr": 45, "skl": 55, "spd": 55, "dfn": 35},
 		"pos": Vector2i(13, 16), "color": Color(0.35, 0.50, 0.85),
@@ -119,8 +119,8 @@ const UNITS := [
 	{"id": "bandit2", "pos": Vector2i(7, 15)},
 	{"id": "archer2", "pos": Vector2i(6, 14)},
 	# 南岸：围着废哨塔上艾德里克的追兵
-	{"id": "merc4", "pos": Vector2i(16, 16)},
-	{"id": "bandit3", "pos": Vector2i(13, 19)},
+	{"id": "merc4", "pos": Vector2i(20, 15), "hold": true},
+	{"id": "bandit3", "pos": Vector2i(15, 20), "hold": true},
 	{"id": "archer3", "pos": Vector2i(17, 13), "hold": true},
 	{"id": "merc5", "pos": Vector2i(25, 15), "hold": true},
 	# 北岸：西桥头、猎户小屋一带的林子
@@ -134,9 +134,7 @@ const UNITS := [
 	# 要塞：营门、前院、内堡
 	{"id": "merc1", "pos": Vector2i(30, 8)},
 	{"id": "merc3", "pos": Vector2i(31, 6), "hold": true},
-	{"id": "merc7", "pos": Vector2i(28, 6), "hold": true},
 	{"id": "archer1", "pos": Vector2i(28, 2), "hold": true},
-	{"id": "archer6", "pos": Vector2i(33, 6), "hold": true},
 	# 凯因：动摇的佣兵新人，守着不动，等缇娅来说得
 	{"id": "kain", "name": "凯因", "class": "佣兵", "faction": "enemy", "level": 3,
 		"hp": 22, "pwr": 5, "skl": 8, "spd": 9, "dfn": 3, "mov": 5,
@@ -154,8 +152,6 @@ const UNITS := [
 
 const REINFORCEMENTS := [
 	{"id": "merc_r1", "pos": Vector2i(34, 7)},
-	{"id": "merc_r2", "pos": Vector2i(28, 7)},
-	{"id": "merc_r3", "pos": Vector2i(35, 14)},
 ]
 
 ## 妮娜：访问山脚小屋后入队
@@ -185,6 +181,10 @@ func deploy_limit() -> int:
 ## 艾德里克开场是第三方，不在整备名单里
 func forced_ids() -> Array:
 	return ["tia", "balto"]
+
+
+func must_join_on_victory() -> Array:
+	return ["edric"]
 
 
 func extra_deploy_slots() -> Array:

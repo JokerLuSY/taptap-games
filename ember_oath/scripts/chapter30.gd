@@ -69,7 +69,7 @@ const UNITS := [
 	{"id": "vera", "faction": "player", "pos": Vector2i(20, 21)},
 	# 莫尔甘·炎龙：站在封印台上不动
 	{"id": "morgan", "name": "莫尔甘", "class": "炎龙", "faction": "enemy", "level": 20,
-		"hp": 120, "pwr": 24, "skl": 20, "spd": 15, "dfn": 26, "res": 22, "mov": 5,
+		"hp": 120, "pwr": 21, "skl": 20, "spd": 13, "dfn": 26, "res": 22, "mov": 5,
 		"weapons": ["dragon_flame"], "boss": true, "stationary": true,
 		"pos": Vector2i(17, 6), "color": Color(1.0, 0.45, 0.20),
 		"hair": "hood", "hair_color": Color(1.0, 0.85, 0.40), "armor": Color(0.95, 0.35, 0.15)},

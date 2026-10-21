@@ -266,8 +266,8 @@ func join_unit(def: Dictionary, near: Vector2i) -> Unit:
 ## 名单里没有这个人（直接从这一章开打的测试）就用 fallback 的默认数值；转幕后、阵亡的回不来，返回 null。
 func rejoin_unit(id: String, pos: Vector2i, faction := "player", fallback := {}) -> Unit:
 	var existing := get_unit(id)
-	if existing != null and existing.is_alive():
-		return existing
+	if existing != null:
+		return existing if existing.is_alive() else null
 	if Campaign.has_member(id):
 		if not (Campaign.can_rejoin(id) or Campaign.status_of(id) == "active"):
 			return null
@@ -689,7 +689,17 @@ func _ally_phase() -> void:
 		var foes: Array = units.filter(func(x) -> bool: return not x.is_player() and not x.is_npc() and x.is_alive() and x.on_map())
 		if foes.is_empty():
 			return
+		# 能招募的敌人不打（别替玩家把人打死）；倒下就败北的友军只原地迎击，不往敌群里冲
+		var rec: Dictionary = chapter.recruits()
+		foes = foes.filter(func(x) -> bool: return not rec.has(x.unit_id))
+		if foes.is_empty():
+			continue
+		var keep_still: bool = n.unit_id in chapter.lose_ids()
+		var was_still: bool = n.stationary
+		if keep_still:
+			n.stationary = true
 		var act: Dictionary = EnemyAI.choose(n, board, foes)
+		n.stationary = was_still
 		var mv: Vector2i = act["move_to"]
 		cursor.set_grid(n.grid_pos)
 		board.ensure_visible(n.grid_pos)
@@ -875,7 +885,7 @@ func cancel() -> void:
 			board.clear_highlights()
 			_open_action_menu(selected)
 		S.PREP:
-			if prep != null and prep.in_deploy():
+			if prep != null and prep.in_subpage():
 				prep.show_menu()
 		S.MAP_MENU:
 			_clear_menu()
@@ -911,6 +921,8 @@ func _handle_system_back() -> void:
 
 
 func _has_cancel_layer() -> bool:
+	if state == S.PREP and prep != null and prep.in_subpage():
+		return true
 	if state in [S.MOVE_SEL, S.ACTION_MENU, S.WEAPON_SEL, S.TARGET_SEL, S.ITEM_MENU, S.HEAL_SEL, S.PICK, S.MAP_MENU]:
 		return true
 	if state == S.IDLE and (not board.move_tiles.is_empty() or not board.atk_tiles.is_empty()):
@@ -955,6 +967,7 @@ func _resume_idle() -> void:
 		if typeof(pair) == TYPE_ARRAY and pair.size() >= 2:
 			board.set_tile(Vector2i(int(pair[0]), int(pair[1])), "S")
 	chapter.on_resume()
+	refresh_talk_marks()
 	board.goal_tiles = chapter.goal_tiles()
 	board.opened = chapter.visited
 	if board.tiles != null:
@@ -1031,11 +1044,17 @@ func open_unit_status(u: Unit) -> void:
 		return
 	unit_status = UnitStatus.new()
 	ui.add_child(unit_status)
-	SafeArea.fit(unit_status)
 	unit_status.open(self, u)
+	SafeArea.fit(unit_status)
 	tut("status", u)
+	var prev := state
+	state = S.COMBAT
 	await unit_status.closed
 	unit_status = null
+	if state == S.COMBAT:
+		state = prev
+		if prev == S.IDLE:
+			after_player_action()
 
 
 func select_unit(u: Unit) -> void:
@@ -1443,8 +1462,8 @@ func open_shop(u: Unit) -> void:
 	state = S.COMBAT
 	shop_window = ShopWindow.new()
 	ui.add_child(shop_window)
-	SafeArea.fit(shop_window)
 	shop_window.open(self, u, "weapon" if board.tile_at(u.grid_pos) == "Y" else "item", chapter.shops().get(u.grid_pos, []))
+	SafeArea.fit(shop_window)
 
 
 func _can_open_chest(u: Unit) -> bool:
@@ -1497,8 +1516,8 @@ func open_trade(u: Unit, v: Unit) -> void:
 	state = S.COMBAT
 	trade_window = TradeWindow.new()
 	ui.add_child(trade_window)
-	SafeArea.fit(trade_window)
 	trade_window.open(self, u, v)
+	SafeArea.fit(trade_window)
 	var did: bool = await trade_window.closed
 	trade_window = null
 	if did:
@@ -2150,6 +2169,7 @@ func do_combat(att: Unit, def: Unit, wi: int) -> void:
 		_after_weapon_use(def, dwi, d_n)
 	for u in [att, def]:
 		if not u.is_alive() and u.visible:
+			print("[FALL] %s (%s) by %s (%s Lv%d)" % [u.unit_id, u.faction, (def if u == att else att).unit_id, (def if u == att else att).class_label, (def if u == att else att).level])
 			if u.is_player():
 				await _fallen_words(u)
 			elif u.is_npc() and Campaign.status_of(u.unit_id) == "away":
@@ -2223,6 +2243,7 @@ func check_end_conditions() -> bool:
 	for id in chapter.lose_ids():
 		var u := get_unit(id)
 		if u == null or not u.is_alive():
+			print("[DEFEAT] ch%d turn %d: %s %s" % [chapter_number(), turn, id, "missing" if u == null else "fell"])
 			await _game_over()
 			return true
 	if not chapter.is_won():
@@ -2241,7 +2262,13 @@ func _victory() -> void:
 	await get_tree().create_timer(0.7).timeout
 	await chapter.on_victory()
 	await play_scenes(chapter.epilogue())
-	# 存活的我方写回战役名单，推进到下一章
+	# 剧情必需的绿色友军没被【对话】也自动归队，再把存活的我方写回战役名单，推进到下一章
+	for id in chapter.must_join_on_victory():
+		var g := get_unit(id)
+		if g != null and g.is_alive() and g.is_npc():
+			g.faction = "player"
+			if Campaign.status_of(id) == "away":
+				Campaign.set_status(id, "active")
 	Campaign.store_party(units)
 	var st: Dictionary = chapter.after_victory_status()
 	for id in st:
@@ -2485,6 +2512,7 @@ func run_arena(u: Unit) -> String:
 	u.grid_pos = spots[0]
 	foe.grid_pos = spots[1]
 	var result := "draw"
+	Combat.no_support = true
 	for r in Arena.MAX_ROUNDS:
 		# 双方轮流先手
 		var att: Unit = u if r % 2 == 0 else foe
@@ -2499,6 +2527,7 @@ func run_arena(u: Unit) -> String:
 		if not u.is_alive():
 			result = "lose"
 			break
+	Combat.no_support = false
 	u.grid_pos = home
 	u.position = u.tile_center()
 	var xp := Combat.xp_gain(u, foe, true)

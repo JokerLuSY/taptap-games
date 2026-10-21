@@ -187,6 +187,12 @@ static func member(id: String, st: int) -> Dictionary:
 			d[k] = int(b[k]) + int(floor(add * 0.5))
 		d["res"] = int(b["res"]) + int(floor(add * 0.34))
 	d["faction"] = "player"
+	# 第 29、30 章的默认阵容里，艾德里克已经在第 28 章接过父亲的剑、转职为誓约领主（和战役流程一致）
+	if id == "edric" and st >= 6:
+		d["class"] = "誓约领主"
+		d["level"] = st - 3
+		for k in [["hp", 5], ["pwr", 3], ["skl", 2], ["spd", 2], ["dfn", 3], ["res", 3], ["mov", 1]]:
+			d[k[0]] = int(d[k[0]]) + int(k[1])
 	return d
 
 

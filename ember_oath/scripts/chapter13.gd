@@ -393,7 +393,7 @@ func on_door(u, pos: Vector2i) -> void:
 func recruits() -> Dictionary:
 	var out := {"selene": ["noya"]}
 	# 西里尔：开了牢门，谁走过去都能【对话】（整备界面不提示「需要谁出击」）
-	if battle != null and battle.state != battle.S.PREP:
+	if battle != null and battle.state != battle.S.PREP and battle.board.tile_at(DOOR_CYRIL) != "O":
 		out["cyril"] = _player_ids()
 	return out
 

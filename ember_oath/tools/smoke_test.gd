@@ -41,6 +41,7 @@ func _run() -> void:
 	if OS.get_environment("SYSTEMS") != "":
 		GameLocale.set_code("zh_CN")
 		await _check_part2_systems()
+		await _check_qa_fixes()
 		print("SMOKE TEST: ALL PASS" if _failures.is_empty() else "SMOKE TEST: %d FAILURES" % _failures.size())
 		for f_ in _failures:
 			print("  FAIL: " + f_)
@@ -636,6 +637,7 @@ func _run() -> void:
 	await _check_tutorial()
 	await _check_campaign_chapters()
 	await _check_part2_systems()
+	await _check_qa_fixes()
 	await _check_wide_screen()
 	await _check_part3()
 	await _check_autoplay()
@@ -1099,6 +1101,48 @@ func _check_part2_entry() -> void:
 	_shot("20_chapter11_reunion.png")
 	Campaign.from_dict(keep)
 	load("res://scripts/battle.gd").queue_chapter(null)
+
+
+## QA 第一批修复：剧情必需的绿色友军自动归队、加雷斯绿色时倒下也败北、飞行不过牢门、阵亡的人不会被复制
+func _check_qa_fixes() -> void:
+	_mark("QA 修复：绿色友军归队 / 败北 / 牢门 / 回队")
+	# 第三章：不和艾德里克对话，直接击败霍克 → 他也要进名单（离队状态，第八章再回来）
+	CampaignSave.clear()
+	Campaign.reset()
+	load("res://scripts/battle.gd").queue_chapter(load("res://scripts/chapter3.gd"))
+	await _new_battle()
+	await _skip_story()
+	var ed = battle.get_unit("edric")
+	_check(ed != null and ed.is_npc(), "第三章艾德里克开场是绿色友军")
+	battle.get_unit("hawk").take_damage(999)
+	battle.check_end_conditions()
+	await _wait_cond(func() -> bool: return battle.end_overlay.visible, 20.0)
+	_check(Campaign.has_member("edric") and Campaign.status_of("edric") == "away", "没对话也应把艾德里克写进名单（离队），实际 %s" % Campaign.status_of("edric"))
+	# 第十四章：加雷斯绿色时倒下 → 败北
+	CampaignSave.clear()
+	Campaign.reset()
+	load("res://scripts/battle.gd").queue_chapter(load("res://scripts/chapter14.gd"))
+	await _new_battle()
+	await _skip_story()
+	battle.chapter.on_turn_start(2)
+	await _wait_cond(func() -> bool: return battle.get_unit("gareth") != null and battle.state != battle.S.STORY, 10.0)
+	var g = battle.get_unit("gareth")
+	_check(g != null and g.is_ally_fighter() and "gareth" in battle.chapter.lose_ids(), "加雷斯出场就是败北条件")
+	if g != null:
+		g.take_damage(999)
+		_check("gareth" in battle.chapter.lose_ids(), "加雷斯倒下后仍在败北名单里")
+	_check(battle.chapter.must_join_on_victory().has("gareth"), "第十四章胜利时加雷斯一行应自动归队")
+	# 飞行单位飞不过关着的牢门；已阵亡的人 rejoin_unit 返回 null
+	var peg: Unit = battle.spawn_units([{"id": "pegasus_q", "name": "天马骑士", "class": "天马骑士", "faction": "player", "level": 5,
+		"hp": 20, "pwr": 6, "skl": 7, "spd": 10, "dfn": 4, "res": 6, "mov": 7, "weapons": ["iron_lance"], "pos": Vector2i(3, 3)}])[0]
+	var door: Vector2i = peg.grid_pos + Vector2i(1, 0)
+	battle.board.set_tile(door, "O")
+	_check(not battle.board.passable(door, peg), "天马飞不过关着的牢门")
+	var tia = battle.get_unit("tia")
+	tia.take_damage(999)
+	_check(battle.rejoin_unit("tia", Vector2i(2, 2), "player", {}) == null, "已阵亡的人 rejoin_unit 应返回 null，不复制")
+	CampaignSave.clear()
+	Campaign.reset()
 
 
 ## 第二篇用到的系统：偷窃、开门、飞行、撤退 / 阵亡、离队回归补等级

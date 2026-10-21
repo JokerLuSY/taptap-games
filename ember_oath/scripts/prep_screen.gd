@@ -242,6 +242,11 @@ func _highlight_slots() -> void:
 	battle.board.show_move(tiles, pick)
 
 
+## 在主菜单以外的页面（选人、布阵、物品、商店、竞技场列表）；竞技场正在打时不算（不许中途退出）
+func in_subpage() -> bool:
+	return _mode != "menu" and not _arena_busy
+
+
 func in_deploy() -> bool:
 	return _mode == "deploy"
 

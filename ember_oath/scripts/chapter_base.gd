@@ -48,6 +48,11 @@ func before_spawn_status() -> Dictionary:
 	return {}
 
 
+## 剧情必需的第三方（绿色）友军：玩家整章没和他【对话】也要在胜利时归队写进名单，否则后面的章节会缺人
+func must_join_on_victory() -> Array:
+	return []
+
+
 ## 章节胜利后改名单状态：{unit_id: status}
 func after_victory_status() -> Dictionary:
 	return {}

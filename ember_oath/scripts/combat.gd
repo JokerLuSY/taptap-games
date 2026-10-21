@@ -2,6 +2,7 @@ class_name Combat
 ## 战斗计算：预览与结算（不直接扣血，由 battle 按事件逐个结算）
 
 static var force_crit := false   # 测试用: 强制全部暴击
+static var no_support := false   # 竞技场：单挑不算地图上队友的支援加成
 
 ## 特效（威力 ×3）：弓打飞行、破甲剑打重甲、拒马枪打骑马（GBA 火纹）、守护之火打炎龙
 static func effective_mt(w: Dictionary, target: Unit) -> int:
@@ -36,8 +37,8 @@ static func forecast(att: Unit, def: Unit, wpn_idx: int, board: Board, from_pos 
 		a_hit = clampi(a_hit + 10, 0, 100)
 		a_dmg += 1
 	# 支援加成：3 格内的已支援伙伴按等级叠加（C ±5 / B ±10 / A ±15 且必杀 +5）
-	var sup_a: Dictionary = Supports.bonus(att, board.units)
-	var sup_d: Dictionary = Supports.bonus(def, board.units)
+	var sup_a: Dictionary = Supports.bonus(att, [] if no_support else board.units)
+	var sup_d: Dictionary = Supports.bonus(def, [] if no_support else board.units)
 	a_hit = clampi(a_hit + int(sup_a["hit"]) - int(sup_d["avo"]), 0, 100)
 	var a_times: int = 2 if att.eff_spd() - def.eff_spd() >= 4 else 1
 	var a_crit: int = clampi(att.eff_skl() / 2 + w.get("crit", 0) + int(sup_a["crit"]), 0, 100)

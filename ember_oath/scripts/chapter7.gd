@@ -330,6 +330,8 @@ func _captured_ids() -> Array:
 	var n = battle.get_unit("noya")
 	if n != null and n.is_alive() and n.is_player():
 		out.append("noya")
+	elif n == null and Campaign.status_of("noya") == "active":
+		out.append("noya")          # 在队但这一章没出击：剧情里她一直跟着队伍，同样被擒
 	return out
 
 
