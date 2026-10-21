@@ -371,7 +371,14 @@ func tip(id: String) -> void:
 	if guided or seen(id) or not TIPS.has(id) or not enabled():
 		return
 	mark_seen(id)
-	_show(tr(TIPS[id][0]), tr(TIPS[id][1]), true, false)
+	var body: String = tr(TIPS[id][1])
+	if id == "item" and Campaign.casual():
+		body = tr(CASUAL_ITEM_TIP)
+	_show(tr(TIPS[id][0]), body, true, false)
+
+
+## 休闲模式下「道具与永久死亡」那条换成这句
+const CASUAL_ITEM_TIP := "受伤了就退到后面，用【道具】里的伤药回血（会用掉这回合的行动）。休闲模式下同伴倒下只是撤退，下一章会归队；主角倒下仍然直接败北。"
 
 
 func _show(title: String, text: String, ok: bool, skip: bool) -> void:

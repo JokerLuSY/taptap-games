@@ -2284,7 +2284,7 @@ func do_combat(att: Unit, def: Unit, wi: int) -> void:
 			if OS.is_debug_build(): print("[FALL] %s (%s) by %s (%s Lv%d)" % [u.unit_id, u.faction, (def if u == att else att).unit_id, (def if u == att else att).class_label, (def if u == att else att).level])
 			if u.is_player():
 				await _fallen_words(u)
-			elif u.is_npc() and Campaign.status_of(u.unit_id) == "away":
+			elif u.is_npc() and Campaign.status_of(u.unit_id) == "away" and not Campaign.casual():
 				var r := Fates.retreats(u.unit_id, chapter_number())
 				Campaign.set_status(u.unit_id, "retired" if r else "dead")
 			await _death_anim(u)
@@ -2851,6 +2851,9 @@ func _float_text(u: Unit, text: String, color: Color) -> void:
 ## 倒下即败北的主角不走这里（直接进败北演出）。
 func _fallen_words(u: Unit) -> void:
 	if u.unit_id in chapter.lose_ids():
+		return
+	if Campaign.casual():
+		notify(tr("%s 撤退了（休闲模式：下一章归队）") % tr(u.display_name))
 		return
 	var retreat := Fates.retreats(u.unit_id, chapter_number())
 	u.set_meta("retreated", retreat)

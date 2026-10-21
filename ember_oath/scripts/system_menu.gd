@@ -183,7 +183,7 @@ func _slider(node_name: String) -> HSlider:
 func _apply_locale(_code: String) -> void:
 	if _title_label == null:
 		return
-	_title_label.text = tr("系统")
+	_title_label.text = tr("系统") + ("  ·  " + tr("休闲模式") if Campaign.casual() and show_title_button else "")
 	_resume_btn.text = tr("继续")
 	_restart_btn.text = tr("再点一次：本回合的行动作废") if _armed == "restart" else tr("重来本回合")
 	_title_btn.text = tr("再点一次回到标题") if _armed == "title" else tr("回到标题")

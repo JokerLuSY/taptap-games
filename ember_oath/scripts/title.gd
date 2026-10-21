@@ -20,6 +20,11 @@ var _lang: Button
 var _menu: Button
 var _system
 var _confirm: ColorRect
+var _mode: ColorRect             # 新游戏：选经典 / 休闲
+var _mode_label: Label
+var _mode_classic: Button
+var _mode_casual: Button
+var _mode_cancel: Button
 var _confirm_label: Label
 var _confirm_yes: Button
 var _confirm_no: Button
@@ -148,6 +153,7 @@ func _ready() -> void:
 	add_child(_license)
 
 	_build_confirm()
+	_build_mode()
 	_build_select()
 	_build_license()
 	_system = load("res://scripts/system_menu.gd").new()
@@ -186,6 +192,10 @@ func _apply_locale(_code: String) -> void:
 	_fill_select()
 	_lang.text = tr("LANG_SWITCH")
 	_menu.text = tr("菜单")
+	_mode_label.text = tr("选择难度模式（开始后不能更改）")
+	_mode_classic.text = tr("经典模式\n倒下的同伴不会再回来")
+	_mode_casual.text = tr("休闲模式\n倒下的同伴下一章归队")
+	_mode_cancel.text = tr("取消")
 	_confirm_label.text = tr("开始新游戏会覆盖当前存档，确定吗？")
 	_confirm_yes.text = tr("确定")
 	_confirm_no.text = tr("取消")
@@ -236,7 +246,13 @@ func _on_start() -> void:
 	if CampaignSave.has_save():
 		_confirm.visible = true
 		return
-	_begin_new_game()
+	_mode.visible = true
+
+
+## 覆盖存档确认过了 → 选模式
+func _on_confirm_new() -> void:
+	_confirm.visible = false
+	_mode.visible = true
 
 
 func _on_continue() -> void:
@@ -247,10 +263,13 @@ func _on_continue() -> void:
 	get_tree().change_scene_to_file("res://scenes/battle.tscn")
 
 
-func _begin_new_game() -> void:
+func _begin_new_game(casual := false) -> void:
 	_confirm.visible = false
+	_mode.visible = false
 	CampaignSave.clear()
 	Campaign.reset()
+	Campaign.flags["casual"] = casual
+	Campaign.snapshot_start()   # 开场快照里也要带上模式（选择章节重开时沿用）
 	load("res://scripts/battle.gd").queue_chapter(null)
 	get_tree().change_scene_to_file("res://scenes/narration.tscn")
 
@@ -279,6 +298,9 @@ func _handle_back() -> void:
 		return
 	if _confirm.visible:
 		_confirm.visible = false
+		return
+	if _mode.visible:
+		_mode.visible = false
 		return
 	if _select_overlay.visible:
 		_select_overlay.visible = false
@@ -312,7 +334,7 @@ func _build_confirm() -> void:
 	_confirm_yes.size = _confirm_yes.custom_minimum_size
 	_confirm_yes.position = Vector2(430, 380)
 	_confirm_yes.add_theme_font_size_override("font_size", 24)
-	_confirm_yes.pressed.connect(_begin_new_game)
+	_confirm_yes.pressed.connect(_on_confirm_new)
 	_confirm.add_child(_confirm_yes)
 	_confirm_no = Button.new()
 	_confirm_no.name = "ConfirmCancelButton"
@@ -323,6 +345,48 @@ func _build_confirm() -> void:
 	_confirm_no.add_theme_font_size_override("font_size", 24)
 	_confirm_no.pressed.connect(func() -> void: _confirm.visible = false)
 	_confirm.add_child(_confirm_no)
+
+
+func _build_mode() -> void:
+	_mode = ColorRect.new()
+	_mode.name = "ModeOverlay"
+	_mode.color = Color(0, 0, 0, 0.78)
+	_mode.set_anchors_preset(PRESET_FULL_RECT)
+	_mode.visible = false
+	_mode.mouse_filter = MOUSE_FILTER_STOP
+	add_child(_mode)
+	_mode_label = Label.new()
+	_mode_label.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	_mode_label.position = Vector2(SafeArea.MARGIN_X, 170)
+	_mode_label.size = Vector2(1280 - SafeArea.MARGIN_X * 2, 60)
+	_mode_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_mode_label.add_theme_font_size_override("font_size", 28)
+	_mode.add_child(_mode_label)
+	var spec := [["ClassicButton", 250.0, false], ["CasualButton", 670.0, true]]
+	for s in spec:
+		var b := Button.new()
+		b.name = s[0]
+		b.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+		b.custom_minimum_size = Vector2(360, 150)
+		b.size = b.custom_minimum_size
+		b.position = Vector2(s[1], 270)
+		b.add_theme_font_size_override("font_size", 24)
+		var casual: bool = s[2]
+		b.pressed.connect(func() -> void: _begin_new_game(casual))
+		_mode.add_child(b)
+		if casual:
+			_mode_casual = b
+		else:
+			_mode_classic = b
+	_mode_cancel = Button.new()
+	_mode_cancel.name = "ModeCancelButton"
+	_mode_cancel.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	_mode_cancel.custom_minimum_size = Vector2(200, SafeArea.MIN_HIT)
+	_mode_cancel.size = _mode_cancel.custom_minimum_size
+	_mode_cancel.position = Vector2(540, 470)
+	_mode_cancel.add_theme_font_size_override("font_size", 24)
+	_mode_cancel.pressed.connect(func() -> void: _mode.visible = false)
+	_mode.add_child(_mode_cancel)
 
 
 # ==================== 章节选择 ====================

@@ -58,6 +58,11 @@ static func reset() -> void:
 	snapshot_start()
 
 
+## 休闲模式：倒下的同伴只是撤退，下一章照常归队（主角倒下仍然败北）。开新游戏时选，整个战役不变
+static func casual() -> bool:
+	return bool(flags.get("casual", false))
+
+
 static func chapter_count() -> int:
 	return CHAPTERS.size()
 
@@ -181,7 +186,7 @@ static func store_party(units: Array) -> void:
 			continue
 		var data: Dictionary = u.to_save()
 		var keep := str(roster.get(u.unit_id, {}).get("status", "active"))
-		if not u.is_alive():
+		if not u.is_alive() and not casual():
 			data["status"] = "retired" if u.get_meta("retreated", false) else "dead"
 		else:
 			data["hp"] = data["max_hp"]

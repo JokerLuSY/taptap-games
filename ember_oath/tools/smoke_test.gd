@@ -44,6 +44,7 @@ func _run() -> void:
 		await _check_qa_fixes()
 		await _check_qa2_batch_a()
 		await _check_qa2_batch_b()
+		await _check_qa2_batch_c()
 		print("SMOKE TEST: ALL PASS" if _failures.is_empty() else "SMOKE TEST: %d FAILURES" % _failures.size())
 		for f_ in _failures:
 			print("  FAIL: " + f_)
@@ -653,6 +654,7 @@ func _run() -> void:
 	await _check_qa_fixes()
 	await _check_qa2_batch_a()
 	await _check_qa2_batch_b()
+	await _check_qa2_batch_c()
 	await _check_wide_screen()
 	await _check_part3()
 	await _check_autoplay()
@@ -1127,6 +1129,56 @@ func _mouse(pos: Vector2, down: bool) -> void:
 	ev.pressed = down
 	ev.position = pos
 	battle._unhandled_input(ev)
+
+
+func _check_qa2_batch_c() -> void:
+	_mark("QA2 C 批：休闲模式")
+	CampaignSave.clear()
+	Campaign.reset()
+	# 标题：没有存档时新游戏直接弹模式选择
+	var title = load("res://scenes/title.tscn").instantiate()
+	add_child(title)
+	await _frames(2)
+	(title.get_node("StartButton") as Button).pressed.emit()
+	var mode := title.find_child("ModeOverlay", true, false) as ColorRect
+	_check(mode != null and mode.visible, "新游戏应先选经典 / 休闲模式")
+	_check(title.find_child("CasualButton", true, false) != null and title.find_child("ClassicButton", true, false) != null, "模式选择应有经典、休闲两个按钮")
+	var mc := title.find_child("ModeCancelButton", true, false) as Button
+	if mc != null:
+		mc.pressed.emit()
+	_check(mode != null and not mode.visible, "取消应关掉模式选择")
+	title.queue_free()
+	await _frames(2)
+	# 休闲模式：倒下的人章节结束后照常在队
+	Campaign.reset()
+	Campaign.flags["casual"] = true
+	load("res://scripts/battle.gd").queue_chapter(null)
+	await _new_battle()
+	await _skip_story()
+	var balto: Unit = battle.get_unit("balto")
+	var harlo: Unit = battle.get_unit("harlo")
+	var victim: Unit = harlo if harlo != null else balto
+	_check(victim != null, "第一章应有可以倒下的同伴")
+	if victim != null:
+		victim.take_damage(999)
+		await battle._fallen_words(victim)
+		_check(not victim.get_meta("retreated", false), "休闲模式倒下不算重伤撤退")
+		Campaign.store_party(battle.units)
+		_check(Campaign.status_of(victim.unit_id) == "active" and int(Campaign.roster[victim.unit_id]["hp"]) > 0, "休闲模式倒下的人下一章照常归队，实际 %s" % Campaign.status_of(victim.unit_id))
+	battle.open_system_menu()
+	var tl: Node = battle.system_menu.find_child("ResumeButton", true, false)
+	_check(tl != null and "休闲" in str(battle.system_menu._title_label.text), "休闲模式时系统菜单标题标出模式")
+	battle.close_system_menu()
+	# 经典模式照旧阵亡
+	Campaign.flags["casual"] = false
+	if victim != null:
+		Campaign.store_party(battle.units)
+		_check(Campaign.status_of(victim.unit_id) in ["dead", "retired"], "经典模式倒下的人不再归队")
+	battle.queue_free()
+	await _frames(3)
+	battle = null
+	CampaignSave.clear()
+	Campaign.reset()
 
 
 func _check_qa2_batch_b() -> void:
