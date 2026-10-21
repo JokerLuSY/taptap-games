@@ -148,7 +148,13 @@ var _team := ""
 var _sprite: Sprite2D
 
 
-static func roster_display_name(id: String) -> String:
+## 莫尔甘的名册 id 始终是 morgan。人形面板名「莫尔甘」，与炎龙融合（职业「炎龙」）时面板名「炎龙」。
+const MORGAN_DRAGON_CLASS := "炎龙"
+
+
+static func roster_display_name(id: String, class_label := "") -> String:
+	if id == "morgan":
+		return "炎龙" if class_label == MORGAN_DRAGON_CLASS else "莫尔甘"
 	if ROSTER_NAME.has(id):
 		return str(ROSTER_NAME[id])
 	for rule in ROSTER_NAME_PREFIX:
@@ -161,13 +167,8 @@ func setup(def: Dictionary) -> void:
 	if def.get("fights", false):
 		set_meta("fights", true)
 	unit_id = def.get("id", "")
-	var given := str(def.get("name", ""))
-	var canon := roster_display_name(unit_id)
-	if canon != "" and (given.is_empty() or given == unit_id):
-		display_name = canon
-	else:
-		display_name = given if not given.is_empty() else "?"
 	class_label = def.get("class", "")
+	_apply_roster_name(str(def.get("name", "")))
 	faction = def.get("faction", "enemy")
 	level = def.get("level", 1)
 	max_hp = def.get("hp", 20)
@@ -610,9 +611,22 @@ func heal(n: int) -> void:
 	queue_redraw()
 
 
+## 空名或把 id 当名字时用名册中文。莫尔甘例外：面板名跟当前形态走，章节里写死的「莫尔甘」在龙形态下改成「炎龙」。
+func _apply_roster_name(given: String) -> void:
+	var canon := roster_display_name(unit_id, class_label)
+	if unit_id == "morgan" and canon != "":
+		display_name = canon
+	elif canon != "" and (given.is_empty() or given == unit_id):
+		display_name = canon
+	else:
+		display_name = given if not given.is_empty() else "?"
+
+
 ## 剧情转职：等级重置为 1，经验清零，保留当前能力并加上 bonus。不消耗道具。
 func promote(to_class: String, bonus: Dictionary, new_weapons: Array = []) -> void:
 	class_label = to_class
+	if unit_id == "morgan":
+		_apply_roster_name(display_name)
 	level = 1
 	xp = 0
 	var add_hp := int(bonus.get("hp", 0))

@@ -21,6 +21,10 @@ const FEET_Y := 520.0
 const UNIT_SCALE := 3.2
 const HP_BAR_W := 250.0
 const PANEL_Y := 566.0
+const PANEL_MID := 640.0
+## 底部面板：我方（含会作战的友军）蓝，敌方红。两半只向外铺，中线互不覆盖。
+const PANEL_ALLY := Color(0.14, 0.25, 0.52)
+const PANEL_ENEMY := Color(0.50, 0.15, 0.15)
 
 ## 分层战斗背景套。从远到近四层，全部 1280×720，LINEAR，脚底仍落在 FEET_Y。
 const BG_SETS := {
@@ -681,23 +685,41 @@ func _build_panels(wi: int) -> void:
 		d_stats = [-1, -1, -1]
 	_panels["a"] = _make_panel(0.0, _att_real, tr(_att_real.weapon(wi)["name"]), a_stats, int(_fc.get("a_times", 1)))
 	var dwpn := tr(_def_real.weapon(dwi)["name"]) if dwi >= 0 else "--"
-	_panels["d"] = _make_panel(640.0, _def_real, dwpn, d_stats, int(_fc.get("d_times", 1)))
+	_panels["d"] = _make_panel(PANEL_MID, _def_real, dwpn, d_stats, int(_fc.get("d_times", 1)))
+
+
+## 我方与会作战的友军用蓝底，敌方用红底。只认 is_player() 时，友军（npc 且 fights）会和敌人涂成同一块红。
+static func panel_color(u: Unit) -> Color:
+	if u != null and (u.is_player() or u.is_ally_fighter()):
+		return PANEL_ALLY
+	return PANEL_ENEMY
+
+
+## 左半从中线向左铺（含宽屏 pad），右半向右铺。两块在 PANEL_MID 相接，互不重叠。
+static func panel_bg_rect(x: float, pad: float) -> Rect2:
+	var ext_l := pad if x < 1.0 else 0.0
+	var ext_r := pad if x >= PANEL_MID else 0.0
+	return Rect2(x - ext_l, PANEL_Y, PANEL_MID + ext_l + ext_r, 720.0 - PANEL_Y)
+
+
+func _pin_rect(r: ColorRect, rect: Rect2) -> void:
+	r.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	r.set_meta("no_widen", true)
+	r.position = rect.position
+	r.size = rect.size
 
 
 func _make_panel(x: float, u: Unit, wpn: String, stats: Array, times: int) -> Dictionary:
-	var base := Color(0.14, 0.25, 0.52) if u.is_player() else Color(0.50, 0.15, 0.15)
+	var base := panel_color(u)
 	var bg := ColorRect.new()
 	bg.color = Color(base.r, base.g, base.b, 0.94)
-	# 宽屏：左面板往左、右面板往右铺到屏幕边
-	var ext_l := _pad if x < 1.0 else 0.0
-	var ext_r := _pad if x >= 640.0 else 0.0
-	bg.position = Vector2(x - ext_l, PANEL_Y)
-	bg.size = Vector2(640 + ext_l + ext_r, 720 - PANEL_Y)
+	var rect := panel_bg_rect(x, _pad)
+	_pin_rect(bg, rect)
 	_ui.add_child(bg)
 	var edge := ColorRect.new()
 	edge.color = base.lightened(0.45)
-	edge.position = Vector2(x - ext_l, PANEL_Y)
-	edge.size = Vector2(640 + ext_l + ext_r, 3)
+	_pin_rect(edge, Rect2(rect.position.x, PANEL_Y, rect.size.x, 3))
 	_ui.add_child(edge)
 	var sep := ColorRect.new()
 	sep.color = Color(0, 0, 0, 0.35)
