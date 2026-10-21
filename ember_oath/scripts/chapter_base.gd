@@ -75,6 +75,11 @@ func extra_deploy_slots() -> Array:
 	return []
 
 
+## 出击准备里有没有竞技场（默认按 Arena.CHAPTERS 里的章节号）
+func has_arena() -> bool:
+	return battle != null and Arena.open_in(battle.chapter_number())
+
+
 ## 商店卖的东西
 func shop_items() -> Array:
 	return ["vulnerary", "iron_sword", "steel_sword", "iron_lance", "iron_axe", "iron_bow", "fire", "heal_staff"]
@@ -293,6 +298,7 @@ func on_recruit(u) -> void:
 	battle.notify((tr("%s 回到了队伍！") if back else tr("%s 成为同伴了！")) % tr(t.display_name))
 	battle._update_hover_info()
 	await on_recruited(t, u)
+	battle.refresh_talk_marks()
 
 
 # ==================== 支援 ====================

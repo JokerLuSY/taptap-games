@@ -132,6 +132,8 @@ var _sprite: Sprite2D
 
 
 func setup(def: Dictionary) -> void:
+	if def.get("fights", false):
+		set_meta("fights", true)
 	unit_id = def.get("id", "")
 	display_name = def.get("name", "?")
 	class_label = def.get("class", "")
@@ -298,6 +300,11 @@ func is_player() -> bool:
 ## 中立（绿色）：不归任何一方行动，谁也打不了它，只能对话招募
 func is_flying() -> bool:
 	return GameData.is_flying(class_label)
+
+
+## 第三方友军（绿色、会在友军阶段自己移动攻击敌人，敌人也会打它）
+func is_ally_fighter() -> bool:
+	return is_npc() and bool(get_meta("fights", false))
 
 
 func is_npc() -> bool:
@@ -674,6 +681,7 @@ func to_save() -> Dictionary:
 		"alive": is_alive(),
 		"retreated": bool(get_meta("retreated", false)),
 		"sprite": sprite_sheet,
+		"fights": bool(get_meta("fights", false)),
 	}
 
 
@@ -715,6 +723,8 @@ func apply_save(data: Dictionary) -> void:
 		def["growths"] = growths_in
 	if str(data.get("sprite", "")) != "":
 		def["sprite"] = str(data["sprite"])
+	if bool(data.get("fights", false)):
+		def["fights"] = true
 	if data.has("res"):
 		def["res"] = int(data["res"])
 	if data.has("con"):
@@ -746,6 +756,8 @@ func _process(delta: float) -> void:
 	if suppress_draw:
 		return
 	_t += delta
+	if _bubble != null and _bubble.visible:
+		_bubble.position.y = sin(_t * 3.2) * 2.0
 	if walking:
 		_walk_t += delta
 	# 已行动：平滑过渡到灰暗（GBA 火纹式），复位时再亮回来
@@ -757,6 +769,37 @@ func _process(delta: float) -> void:
 		var g := lerpf(1.0, 0.52, _dim)
 		self_modulate = Color(g, g, g * 1.06, 1.0)
 	queue_redraw()
+
+
+# ---- 对话气泡：我方有人能跟这个人【对话】/【说得】时，头顶冒一个气泡（battle.refresh_talk_marks） ----
+var _bubble: Node2D = null
+
+
+func set_talk_mark(on: bool) -> void:
+	if not on and _bubble == null:
+		return
+	if _bubble == null:
+		_bubble = Node2D.new()
+		_bubble.z_index = 5
+		_bubble.draw.connect(_draw_bubble)
+		add_child(_bubble)
+		_bubble.queue_redraw()
+	_bubble.visible = on
+
+
+func has_talk_mark() -> bool:
+	return _bubble != null and _bubble.visible
+
+
+func _draw_bubble() -> void:
+	var r := Rect2(Vector2(6, -66), Vector2(26, 18))
+	var ink := Color(0.12, 0.1, 0.16)
+	_bubble.draw_colored_polygon(PackedVector2Array([Vector2(10, -49), Vector2(18, -49), Vector2(9, -42)]), Color(1, 1, 1))
+	_bubble.draw_polyline(PackedVector2Array([Vector2(10, -48), Vector2(9, -42), Vector2(18, -48)]), ink, 2.0)
+	_bubble.draw_rect(r, Color(1, 1, 1))
+	_bubble.draw_rect(r, ink, false, 2.0)
+	for i in 3:
+		_bubble.draw_circle(Vector2(12 + i * 7, -57), 2.0, ink)
 
 
 ## 按移动方向转身；d 为一格的位移（零向量不变）

@@ -278,10 +278,12 @@ func _spawn_friends() -> void:
 	var fresh := Campaign.roster.is_empty()
 	battle.rejoin_unit("kain", KAIN_POS, "npc", KAIN_FALLBACK if fresh else {})
 	battle.rejoin_unit("nina", NINA_POS, "npc", NINA_FALLBACK if fresh else {})
+	# 绿色第三方：躲着，教会兵靠近了才还手（友军阶段行动）；缇娅【对话】后回队
 	for id in ["kain", "nina"]:
 		var u = battle.get_unit(id)
 		if u != null:
-			u.stationary = true
+			u.set_meta("fights", true)
+			u.hold = true
 
 
 func on_turn_start(t: int) -> void:

@@ -183,19 +183,19 @@ const VAREN := {"id": "varen", "name": "瓦伦", "class": "圣骑士", "faction"
 
 ## 布罗登的援军：第 2 回合从东边关门出现（绿色），第 3 回合开始转为我方
 const GARETH_TEAM := [
-	{"id": "gareth", "name": "加雷斯", "class": "王子", "faction": "npc", "level": 10,
+	{"id": "gareth", "name": "加雷斯", "class": "王子", "faction": "npc", "fights": true, "level": 10,
 		"hp": 32, "pwr": 12, "skl": 8, "spd": 7, "dfn": 11, "res": 2, "mov": 5,
 		"weapons": ["wolf_axe", "hand_axe"], "items": ["vulnerary"],
 		"growths": {"hp": 90, "pwr": 60, "skl": 40, "spd": 30, "dfn": 45, "res": 20},
 		"pos": Vector2i(27, 10), "color": Color(0.75, 0.55, 0.30),
 		"hair": "spiky", "hair_color": Color(0.62, 0.38, 0.18), "armor": Color(0.55, 0.42, 0.30)},
-	{"id": "hagen", "name": "哈根", "class": "战士", "faction": "npc", "level": 11,
+	{"id": "hagen", "name": "哈根", "class": "战士", "faction": "npc", "fights": true, "level": 11,
 		"hp": 38, "pwr": 13, "skl": 9, "spd": 9, "dfn": 8, "res": 2, "mov": 5,
 		"weapons": ["steel_axe", "hand_axe"],
 		"growths": {"hp": 80, "pwr": 50, "skl": 35, "spd": 30, "dfn": 30, "res": 10},
 		"pos": Vector2i(27, 11), "color": Color(0.55, 0.48, 0.40),
 		"hair": "short", "hair_color": Color(0.20, 0.18, 0.16), "armor": Color(0.50, 0.44, 0.36)},
-	{"id": "liss", "name": "莉丝", "class": "弓箭手", "faction": "npc", "level": 11,
+	{"id": "liss", "name": "莉丝", "class": "弓箭手", "faction": "npc", "fights": true, "level": 11,
 		"hp": 27, "pwr": 10, "skl": 13, "spd": 12, "dfn": 6, "res": 4, "mov": 5,
 		"weapons": ["steel_bow", "iron_bow"], "items": ["vulnerary"],
 		"growths": {"hp": 60, "pwr": 40, "skl": 55, "spd": 50, "dfn": 20, "res": 30},
@@ -288,10 +288,6 @@ func on_turn_start(t: int) -> void:
 		Audio.play_sfx("reinforce")
 		battle.show_banner(tr("布罗登的援军！"), Color(0.95, 0.8, 0.4))
 		await battle.play_dialogue(_brodden_arrive())
-	if t == 3 and not flags.get("brodden_join", false):
-		flags["brodden_join"] = true
-		await battle.play_dialogue(_brodden_join())
-		_brodden_to_player()
 	if WAVES.has(t) and not flags.get("wave_%d" % t, false):
 		flags["wave_%d" % t] = true
 		battle.spawn_units(WAVES[t])
@@ -307,6 +303,26 @@ func on_turn_start(t: int) -> void:
 		battle.show_banner(tr("最后一回合！"), Color(1.0, 0.85, 0.35))
 	elif t > 1 and t < DEFEND_TURNS:
 		battle.notify(tr("距离天黑还有 %d 回合") % (DEFEND_TURNS - t + 1))
+
+
+## 对话入队：艾德里克（或缇娅）走到加雷斯身边【对话】，哈根、莉丝跟着王子一起归我方指挥。
+## 加雷斯在场就算败北条件（绿色时倒下也一样）
+func recruits() -> Dictionary:
+	if battle != null and battle.state == battle.S.PREP:
+		return {}
+	return {"gareth": ["edric", "tia"]}
+
+
+func recruit_lines(_target_id: String, by_id: String) -> Array:
+	var lines: Array = _brodden_join()
+	if by_id == "tia":
+		lines.push_front(_l("缇娅", C_TIA, "你就是艾德里克说的那个朋友？他在山丘上，叫你们过去会合。"))
+	return lines
+
+
+func on_recruited(_t, _by) -> void:
+	flags["brodden_join"] = true
+	_brodden_to_player()
 
 
 ## 加雷斯、哈根、莉丝：中立 → 我方（Campaign 名单在胜利时由 store_party 写入）
@@ -437,6 +453,7 @@ func _brodden_arrive() -> Array:
 		_l("加雷斯", C_GARETH, "所以我只带了你们两个啊！三个人不叫出兵，叫出门散步！"),
 		_l("莉丝", C_LISS, "散步散到教会骑士团的枪尖上。殿下，您的散步路线真有品位。"),
 		_l("加雷斯", C_GARETH, "艾德里克！再撑一会儿，我们这就上来！"),
+		_l("缇娅", C_TIA, "绿色的……是友军？艾德里克，过去跟他【对话】，让他们听你调度吧。"),
 	]
 
 

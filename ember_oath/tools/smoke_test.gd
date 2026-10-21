@@ -30,6 +30,14 @@ func _run() -> void:
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(_shot_dir))
 	CampaignSave.clear()
 	# 只试玩指定章节：CHAPTERS=8,9 godot --path . res://tools/smoke_runner.tscn（开发新章节时用）
+	if OS.get_environment("CAMPAIGN") != "":
+		GameLocale.set_code("zh_CN")
+		await _check_campaign_chapters()
+		print("SMOKE TEST: ALL PASS" if _failures.is_empty() else "SMOKE TEST: %d FAILURES" % _failures.size())
+		for f_ in _failures:
+			print("  FAIL: " + f_)
+		get_tree().quit()
+		return
 	if OS.get_environment("SYSTEMS") != "":
 		GameLocale.set_code("zh_CN")
 		await _check_part2_systems()
@@ -757,7 +765,7 @@ func _check_campaign_chapters() -> void:
 	await _new_battle()
 	_check(battle.chapter.chapter_id() == "ch3", "应进入第三章")
 	var edric = battle.get_unit("edric")
-	_check(edric != null and edric.is_player(), "艾德里克应以客串身份在我方")
+	_check(edric != null and edric.is_ally_fighter(), "艾德里克开场应是绿色的第三方友军")
 	_check("edric" in battle.chapter.lose_ids(), "第三章艾德里克倒下也算败北")
 	_check(battle.get_unit("harlo") != null and battle.get_unit("bandit6") != null, "哈洛、托比应随队")
 	var kain = battle.get_unit("kain")
@@ -772,8 +780,8 @@ func _check_campaign_chapters() -> void:
 		var p_tia = battle.get_unit("tia")
 		var p_balto = battle.get_unit("balto")
 		var p_harlo = battle.get_unit("harlo")
-		_check(battle.deploy_limit() == 5 and battle.deployed.size() <= 5, "第三章出击上限 5")
-		_check("tia" in battle.forced_ids() and "edric" in battle.forced_ids(), "缇娅、艾德里克必须出击")
+		_check(battle.deploy_limit() <= 5 and battle.deployed.size() <= battle.deploy_limit(), "第三章出击上限不超过 5（上限 %d，出击 %s）" % [battle.deploy_limit(), str(battle.deployed.map(func(x) -> String: return x.unit_id))])
+		_check("tia" in battle.forced_ids() and not "edric" in battle.forced_ids(), "缇娅必须出击，艾德里克是第三方不在整备里")
 		battle.set_deployed(p_harlo, false)
 		_check(not (p_harlo in battle.deployed) and not p_harlo.visible, "哈洛改成待命后应离开地图")
 		battle.set_deployed(p_harlo, true)
@@ -828,7 +836,10 @@ func _check_campaign_chapters() -> void:
 	_check(ok, "说得后凯因应入队")
 	edric.grid_pos = tia.grid_pos + Vector2i(0, 1)
 	edric.position = edric.tile_center()
-	_check(battle.chapter.get_talk_partner(tia) == edric, "缇娅与艾德里克相邻应能对话")
+	_check(battle.chapter.get_recruit_target(tia) == edric, "缇娅与艾德里克相邻应能【对话】让他加入")
+	battle.chapter.on_recruit(tia)
+	await _wait_cond(func() -> bool: return edric.is_player() and battle.state != battle.S.STORY, 10.0)
+	_check(edric.is_player(), "对话后艾德里克应归我方指挥")
 	# 击败霍克即通关（其余敌人还在）
 	battle.state = battle.S.IDLE
 	battle.get_unit("hawk").take_damage(999)
@@ -1112,6 +1123,81 @@ func _check_part2_systems() -> void:
 		battle.unit_status.close()
 		await _frames(3)
 	_check(battle.unit_status == null, "关闭后能力画面应消失")
+	# 对话气泡：缇娅在场、小雀能被缇娅对话 → 小雀头上有气泡；敌兵没有
+	battle.refresh_talk_marks()
+	_check(battle.get_unit("sparrow").has_talk_mark() and not e0.has_talk_mark(), "能对话的小雀头上应有气泡，普通敌兵没有")
+	# 交换：缇娅把伤药交给相邻的妮娜，交换后不能撤销移动
+	var t0 = battle.get_unit("tia")
+	var n0 = battle.get_unit("nina")
+	n0.grid_pos = t0.grid_pos + Vector2i(1, 0)
+	if not battle.board.passable(n0.grid_pos, n0) or (battle.board.unit_at(n0.grid_pos) != null and battle.board.unit_at(n0.grid_pos) != n0):
+		n0.grid_pos = t0.grid_pos + Vector2i(0, 1)
+	n0.position = n0.tile_center()
+	_check(n0 in battle._adjacent_allies(t0), "妮娜应在缇娅身边")
+	battle.selected = t0
+	battle.open_trade(t0, n0)
+	await _frames(2)
+	var tw: TradeWindow = battle.trade_window
+	_check(tw != null, "应打开交换窗口")
+	if tw != null:
+		var k: int = PrepScreen.inventory(t0).map(func(e) -> String: return e["id"]).find("vulnerary")
+		var before: int = n0.items.count("vulnerary")
+		tw._on_slot(t0, k)
+		tw._on_slot(n0, PrepScreen.inventory(n0).size())
+		_check(n0.items.count("vulnerary") == before + 1 and not "vulnerary" in t0.items, "伤药应从缇娅换到妮娜身上")
+		_shot("22_trade.png")
+		tw.close()
+		await _frames(3)
+	_check(t0.get_meta("trade_locked", false), "交换过物品应锁住移动（不能撤销）")
+	battle._clear_menu()
+	t0.remove_meta("trade_locked")
+	battle.selected = null
+	battle.state = battle.S.IDLE
+	# 友军阶段：一个绿色战斗单位会自己攻击身边的敌人
+	var foe1 = battle.get_unit("church2")
+	var ally: Unit = battle.spawn_units([{"id": "ally_t", "name": "义勇兵", "class": "战士", "faction": "npc", "fights": true, "level": 12,
+		"hp": 40, "pwr": 16, "skl": 40, "spd": 10, "dfn": 8, "mov": 5, "weapons": ["iron_axe"], "pos": foe1.grid_pos + Vector2i(0, 1)}])[0]
+	_check(ally.is_ally_fighter(), "fights 的中立单位应是第三方友军")
+	var foe_hp := func() -> int:
+		var t := 0
+		for v in battle.units:
+			if not v.is_player() and not v.is_npc() and v.is_alive():
+				t += v.hp
+		return t
+	var hp_before: int = foe_hp.call()
+	var ally_done := [false]
+	var ap := func() -> void:
+		await battle._ally_phase()
+		ally_done[0] = true
+	ap.call()
+	await _wait_cond(func() -> bool:
+		if battle.combat_scene.active:
+			battle.combat_scene.skip()
+		return ally_done[0], 30.0)
+	_check(int(foe_hp.call()) < hp_before, "友军阶段绿色单位应攻击敌人（敌方总 HP %d → %d）" % [hp_before, int(foe_hp.call())])
+	await _frames(10)
+	battle.units.erase(ally)
+	ally.queue_free()
+	battle.state = battle.S.IDLE
+	# 竞技场（第七章开放）：付押金单挑，打完 HP 回满、不会死
+	_check(battle.chapter.has_arena(), "第七章应开放竞技场")
+	battle.gold = 5000
+	var g0: int = battle.gold
+	var done := [false, ""]
+	var runner := func() -> void:
+		done[1] = await battle.run_arena(t0)
+		done[0] = true
+	runner.call()
+	await _wait_cond(func() -> bool:
+		if battle.combat_scene.active:
+			battle.combat_scene.skip()
+		return done[0], 60.0)
+	_check(done[0] and done[1] in ["win", "lose", "draw"], "竞技场应打完一场，实际 %s" % str(done[1]))
+	_check(t0.is_alive() and t0.hp == t0.max_hp, "竞技场打完缇娅应回满血、不会死")
+	var cost := Arena.wager(t0)
+	var expect: int = g0 + (cost if done[1] == "win" else (-cost if done[1] == "lose" else 0))
+	_check(battle.gold == expect, "竞技场结算金钱不对：%d → %d（%s）" % [g0, battle.gold, done[1]])
+	battle.state = battle.S.IDLE
 	var sp = battle.get_unit("sparrow")
 	var foe = battle.get_unit("church5")
 	_check(sp != null and foe != null, "第七章应有小雀和带伤药的教会兵")

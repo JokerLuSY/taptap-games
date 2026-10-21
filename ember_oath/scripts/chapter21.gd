@@ -166,7 +166,7 @@ const UNITS := [
 		"growths": {"hp": 85, "pwr": 45, "skl": 35, "spd": 25, "dfn": 45, "res": 15},
 		"pos": Vector2i(17, 24)},
 	# 洛克：布罗登铁卫，奉王命在城门外等王子。加雷斯【对话】入队
-	{"id": "rock", "name": "洛克", "class": "重甲兵", "faction": "npc", "level": 16, "stationary": true,
+	{"id": "rock", "name": "洛克", "class": "重甲兵", "faction": "npc", "fights": true, "level": 16, "stationary": true,
 		"hp": 38, "pwr": 15, "skl": 10, "spd": 6, "dfn": 18, "res": 4, "mov": 4,
 		"weapons": ["steel_lance", "javelin"], "items": ["vulnerary"], "wexp": {"lance": 121},
 		"growths": {"hp": 80, "pwr": 45, "skl": 35, "spd": 25, "dfn": 45, "res": 15},

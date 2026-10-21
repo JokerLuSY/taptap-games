@@ -105,7 +105,7 @@ static func _threatened(u: Unit, board: Board, players: Array) -> bool:
 static func _choose_healer(u: Unit, board: Board, players: Array) -> Dictionary:
 	var allies: Array = []
 	for v in board.units:
-		if v != u and v.is_alive() and v.is_player() == u.is_player():
+		if v != u and v.is_alive() and v.faction == u.faction:
 			allies.append(v)
 	var move: Dictionary = board.move_range(u)
 	var best_tile := u.grid_pos

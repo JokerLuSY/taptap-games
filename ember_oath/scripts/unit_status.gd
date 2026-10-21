@@ -118,6 +118,35 @@ func _build_left(p: Panel, team: Color) -> void:
 	if unit.carrying != null:
 		var c := _label(p, Vector2(28, 448), 16, Color(1.0, 0.85, 0.55))
 		c.text = tr("背着：%s（技、速减半）") % tr(unit.carrying.display_name)
+	var sup := support_lines()
+	if not sup.is_empty():
+		var sh := _label(p, Vector2(28, 474), 18, Color(1.0, 0.86, 0.5))
+		sh.text = tr("支援")
+		var sl := _label(p, Vector2(28, 500), 17, Color(0.92, 0.9, 0.95))
+		sl.text = "\n".join(PackedStringArray(sup.slice(0, 3)))
+
+
+## 这个人的支援关系：「兰斯  C」「葛温  —」。只列名单里认识（在场或在名单上）的人
+func support_lines() -> Array:
+	var out: Array = []
+	if not unit.is_player():
+		return out
+	for key in Supports.PAIRS:
+		var pair: Array = String(key).split("|")
+		if not unit.unit_id in pair:
+			continue
+		var pid: String = pair[1] if pair[0] == unit.unit_id else pair[0]
+		var nm := ""
+		var other = battle.get_unit(pid) if battle != null else null
+		if other != null:
+			nm = other.display_name
+		elif Campaign.roster.has(pid) and Campaign.alive_in_story(pid):
+			nm = str(Campaign.roster[pid].get("name", ""))
+		if nm == "":
+			continue
+		var r := Supports.rank_of(unit, pid)
+		out.append("%s  %s" % [tr(nm), r if r != "" else "—"])
+	return out
 
 
 # ---------------- 中：能力 ----------------

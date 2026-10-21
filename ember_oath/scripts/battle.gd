@@ -167,7 +167,7 @@ func _on_screen_resized() -> void:
 	_layout_end_buttons()
 	if prep != null and is_instance_valid(prep):
 		SafeArea.fit_right(prep)
-	for c in [shop_window, tutorial, unit_status]:
+	for c in [shop_window, tutorial, unit_status, trade_window]:
 		if c != null and is_instance_valid(c):
 			SafeArea.fit(c)
 
@@ -610,6 +610,7 @@ func start_player_phase(first := false) -> void:
 	if pending_chapter == null:
 		CampaignSave.write_checkpoint(self)
 	tut("player_phase", turn)
+	refresh_talk_marks()
 	_idle_hint()
 	_update_hover_info()
 
@@ -635,7 +636,7 @@ func enemy_phase() -> void:
 			return
 		if e.is_player() or e.is_npc() or not e.is_alive():
 			continue
-		var players: Array = units.filter(func(x) -> bool: return x.is_player() and x.on_map())
+		var players: Array = units.filter(func(x) -> bool: return (x.is_player() or x.is_ally_fighter()) and x.on_map())
 		if players.is_empty():
 			return
 		var act: Dictionary = EnemyAI.choose(e, board, players)
@@ -665,7 +666,48 @@ func enemy_phase() -> void:
 		e.has_acted = true
 		e.queue_redraw()
 		await get_tree().create_timer(ENEMY_GAP_TIME).timeout
+	await _ally_phase()
+	if state == S.OVER:
+		return
 	start_player_phase()
+
+
+## 友军阶段（火纹的 Other Phase）：绿色的第三方战斗单位自己行动，打敌人
+func _ally_phase() -> void:
+	var allies: Array = units.filter(func(x) -> bool: return x.is_ally_fighter() and x.is_alive() and x.on_map())
+	if allies.is_empty():
+		return
+	state = S.ENEMY
+	Audio.play_sfx("phase", 0.85)
+	show_banner(tr("友军回合"), Color(0.45, 0.9, 0.5))
+	await get_tree().create_timer(0.7).timeout
+	for n in allies:
+		if state == S.OVER:
+			return
+		if not n.is_alive() or not n.is_ally_fighter():
+			continue
+		var foes: Array = units.filter(func(x) -> bool: return not x.is_player() and not x.is_npc() and x.is_alive() and x.on_map())
+		if foes.is_empty():
+			return
+		var act: Dictionary = EnemyAI.choose(n, board, foes)
+		var mv: Vector2i = act["move_to"]
+		cursor.set_grid(n.grid_pos)
+		board.ensure_visible(n.grid_pos)
+		if mv != n.grid_pos:
+			var nrange := board.move_range(n)
+			board.ensure_visible(mv, 1)
+			await _animate_move(n, board.find_path(n, mv, nrange))
+			n.grid_pos = mv
+			n.position = n.tile_center()
+		if act.get("target") != null:
+			await do_combat(n, act["target"], act.get("weapon", 0))
+			if state == S.OVER:
+				return
+		elif act.get("heal") != null:
+			await do_heal(n, act["heal"])
+		n.has_acted = true
+		n.queue_redraw()
+		await get_tree().create_timer(ENEMY_GAP_TIME).timeout
 
 
 # ==================== 输入 ====================
@@ -858,6 +900,9 @@ func _handle_system_back() -> void:
 		return
 	if unit_status != null and is_instance_valid(unit_status):
 		unit_status.close()
+		return
+	if trade_window != null and is_instance_valid(trade_window):
+		trade_window.close()
 		return
 	if _has_cancel_layer():
 		cancel()
@@ -1177,6 +1222,8 @@ func _open_action_menu(u: Unit) -> void:
 		opts.append({"label": tr("交给"), "enabled": true, "cb": _on_menu_give})
 	if not u.items.is_empty():
 		opts.append({"label": tr("道具"), "enabled": true, "cb": _on_menu_item})
+	if not _adjacent_allies(u).is_empty():
+		opts.append({"label": tr("交换"), "enabled": true, "cb": _on_menu_trade})
 	opts.append({"label": tr("待机"), "enabled": true, "cb": _on_menu_wait})
 	_fill_menu(opts)
 	_place_menu(u)
@@ -1273,6 +1320,10 @@ func _clear_menu() -> void:
 
 
 func _cancel_action_menu() -> void:
+	# 交换过物品就不能再撤销移动（火纹规矩）：留在行动菜单
+	if selected != null and selected.get_meta("trade_locked", false):
+		_open_action_menu(selected)
+		return
 	_clear_menu()
 	var u := selected
 	# 原路快速走回（路径里不含起点，倒序后去掉当前格再补上起点）
@@ -1420,6 +1471,56 @@ func open_chest(u: Unit) -> void:
 	Audio.play_sfx("coin")
 	u.receive(item)
 	notify(tr("%s 打开了宝箱：获得 %s") % [tr(u.display_name), tr(PrepScreen.item_name(item))])
+
+
+## 交换：和相邻的同伴互换物品。只有一个人就直接打开，几个人先选人
+var trade_window: TradeWindow = null
+
+
+func _on_menu_trade() -> void:
+	var near := _adjacent_allies(selected)
+	if near.size() == 1:
+		_clear_menu()
+		await open_trade(selected, near[0])
+	else:
+		_start_pick(_units_at(near), _do_trade_at, tr("选择交换的同伴（点空白处返回）"), false)
+
+
+func _do_trade_at(p: Vector2i) -> void:
+	board.clear_highlights()
+	var v := board.unit_at(p)
+	if v != null:
+		await open_trade(selected, v)
+
+
+func open_trade(u: Unit, v: Unit) -> void:
+	state = S.COMBAT
+	trade_window = TradeWindow.new()
+	ui.add_child(trade_window)
+	SafeArea.fit(trade_window)
+	trade_window.open(self, u, v)
+	var did: bool = await trade_window.closed
+	trade_window = null
+	if did:
+		u.set_meta("trade_locked", true)
+	_open_action_menu(u)
+
+
+## 头顶气泡：场上有我方的人能【对话】/【说得】的单位（招募表里列的、招募者此刻在场）
+func refresh_talk_marks() -> void:
+	var table: Dictionary = chapter.recruits()
+	var present := {}
+	for v in units:
+		if v.is_player() and v.on_map():
+			present[v.unit_id] = true
+	for u in units:
+		var on := false
+		if u.is_alive() and u.on_map() and not u.is_player() and table.has(u.unit_id):
+			for id in table[u.unit_id]:
+				if present.has(id):
+					on = true
+					break
+		u.set_talk_mark(on)
 
 
 ## 开门：盗贼 / 刺客，或者背包里有钥匙的人，相邻的牢门
@@ -1580,6 +1681,8 @@ func _on_menu_wait() -> void:
 
 
 func _finish_action(u: Unit) -> void:
+	u.remove_meta("trade_locked")
+	refresh_talk_marks()
 	u.has_acted = true
 	u.queue_redraw()
 	tut("acted", u)
@@ -2363,6 +2466,76 @@ func update_topbar() -> void:
 	lbl_gold.text = tr("金钱 %d G") % gold
 	if hud != null:
 		hud.refresh()
+
+
+## 竞技场（出击准备里）：付押金单挑同等级对手。返回 "win" / "lose" / "draw"，钱不够或打不了返回 ""
+func run_arena(u: Unit) -> String:
+	var cost := Arena.wager(u)
+	var pw: Array = Arena.pick_weapon(u)
+	if gold < cost or int(pw[0]) < 0:
+		return ""
+	var spots := _arena_spots(int(pw[1]))
+	if spots.is_empty():
+		return ""
+	add_gold(-cost)
+	var home := u.grid_pos
+	var foe := Arena.make_foe(u, int(pw[1]))
+	foe.visible = false
+	board.add_child(foe)
+	u.grid_pos = spots[0]
+	foe.grid_pos = spots[1]
+	var result := "draw"
+	for r in Arena.MAX_ROUNDS:
+		# 双方轮流先手
+		var att: Unit = u if r % 2 == 0 else foe
+		var dfd: Unit = foe if att == u else u
+		var wi: int = int(pw[0]) if att == u else 0
+		var fc := Combat.forecast(att, dfd, wi, board)
+		var events := Combat.resolve(att, dfd, wi, board)
+		await combat_scene.play(att, dfd, wi, events, "S", fc)
+		if not foe.is_alive():
+			result = "win"
+			break
+		if not u.is_alive():
+			result = "lose"
+			break
+	u.grid_pos = home
+	u.position = u.tile_center()
+	var xp := Combat.xp_gain(u, foe, true)
+	foe.queue_free()
+	# 还没开战：打完回满；输了也不会死
+	u.hp = u.max_hp
+	u.visible = true
+	u.modulate.a = 1.0
+	if result == "win":
+		add_gold(cost * 2)
+		notify(tr("竞技场：%s 获胜！得到 %d G") % [tr(u.display_name), cost * 2])
+		await _give_xp(u, xp)
+	elif result == "lose":
+		notify(tr("竞技场：%s 落败……押金 %d G 没了") % [tr(u.display_name), cost])
+	else:
+		add_gold(cost)
+		notify(tr("竞技场：平局，退回押金"))
+	u.queue_redraw()
+	return result
+
+
+## 竞技场借用地图上的两块平地（同高度、无地形加成）当擂台，相距 dist 格
+func _arena_spots(dist: int) -> Array:
+	for y in board.height:
+		for x in board.width:
+			var a := Vector2i(x, y)
+			var b := a + Vector2i(dist, 0)
+			if not board.in_bounds(b):
+				continue
+			var ok := true
+			for p in [a, b]:
+				var t: Dictionary = board.terrain(p)
+				if not t["pass"] or int(t["dfn"]) != 0 or int(t["avo"]) != 0:
+					ok = false
+			if ok and board.level_at(a) == board.level_at(b):
+				return [a, b]
+	return []
 
 
 func add_gold(n: int) -> void:

@@ -157,12 +157,44 @@ func show_menu() -> void:
 		_button(tr("商店"), show_shop, battle.prep_mode() == "full" and not battle.shop_items().is_empty())
 	else:
 		_text(tr("本章地图上有武器店 / 道具店：开战后让人站上去买卖。"), 15, Color(0.8, 0.85, 0.7))
+	if battle.chapter.has_arena():
+		_button(tr("竞技场"), show_arena, battle.prep_mode() == "full")
 	_button(tr("开始战斗"), _on_start, not battle.deployed.is_empty(), 52.0)
 
 
 func _on_start() -> void:
 	battle.board.clear_highlights()
 	done.emit()
+
+
+# ==================== 竞技场 ====================
+
+var _arena_busy := false
+
+
+func show_arena() -> void:
+	_mode = "arena"
+	_clear()
+	_title(tr("竞技场"))
+	_text(tr("付押金和同等级的对手单挑：赢了拿回双倍押金和经验，输了没收押金（不会阵亡）。"), 15, Color(0.85, 0.85, 0.7))
+	_text(tr("金钱 %d G") % battle.gold, 17, Color(1.0, 0.9, 0.55))
+	for u in battle.prep_pool:
+		var uu: Unit = u
+		var cost := Arena.wager(u)
+		var can: bool = battle.gold >= cost and int(Arena.pick_weapon(u)[0]) >= 0
+		_button("%s   %s %d G" % [_unit_line(u), tr("押金"), cost], func() -> void: _fight(uu), can, 40.0)
+	_button(tr("返回"), show_menu)
+
+
+func _fight(u: Unit) -> void:
+	if _arena_busy:
+		return
+	_arena_busy = true
+	visible = false
+	await battle.run_arena(u)
+	visible = true
+	_arena_busy = false
+	show_arena()
 
 
 # ==================== 选人 ====================

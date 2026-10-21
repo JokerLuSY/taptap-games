@@ -106,8 +106,8 @@ const UNITS := [
 		"growths": {"hp": 85, "pwr": 55, "skl": 35, "spd": 40, "dfn": 30},
 		"pos": Vector2i(2, 20), "color": Color(0.70, 0.60, 0.40), "hair": "short",
 		"hair_color": Color(0.50, 0.32, 0.18), "armor": Color(0.55, 0.48, 0.35)},
-	# 客串：艾德里克在东南被佣兵追赶
-	{"id": "edric", "name": "艾德里克", "class": "领主骑士", "faction": "player", "level": 3, "join": true,
+	# 客串：艾德里克在东南被佣兵追赶。开场是绿色的第三方（自己在友军阶段迎战），缇娅或巴尔托【对话】后才归我方指挥
+	{"id": "edric", "name": "艾德里克", "class": "领主骑士", "faction": "npc", "fights": true, "level": 3,
 		"hp": 24, "pwr": 6, "skl": 8, "spd": 8, "dfn": 6, "mov": 5,
 		"weapons": ["rapier"], "items": ["vulnerary"],
 		"growths": {"hp": 70, "pwr": 45, "skl": 55, "spd": 55, "dfn": 35},
@@ -180,6 +180,11 @@ func prep_mode() -> String:
 
 func deploy_limit() -> int:
 	return 5
+
+
+## 艾德里克开场是第三方，不在整备名单里
+func forced_ids() -> Array:
+	return ["tia", "balto"]
 
 
 func extra_deploy_slots() -> Array:
@@ -259,7 +264,7 @@ func on_visit(u, pos: Vector2i) -> void:
 
 
 func talks() -> Array:
-	return [["tia", "edric", "tia_edric"], ["balto", "edric", "balto_edric"]]
+	return [["balto", "edric", "balto_edric"]]
 
 
 func talk_lines(key: String) -> Array:
@@ -287,10 +292,12 @@ func on_talked(key: String, _u, _partner) -> void:
 
 
 func recruits() -> Dictionary:
-	return {"kain": ["tia"]}
+	return {"kain": ["tia"], "edric": ["tia", "balto"]}
 
 
-func recruit_lines(_target_id: String, _by_id: String) -> Array:
+func recruit_lines(target_id: String, by_id: String) -> Array:
+	if target_id == "edric":
+		return _edric_joins(by_id)
 	return [
 		_l("凯因", C_KAIN, "红头发……你就是团长要找的人？"),
 		_l("缇娅", C_TIA, "你们烧了我的村子。你也有份吗？"),
@@ -299,6 +306,14 @@ func recruit_lines(_target_id: String, _by_id: String) -> Array:
 		_l("缇娅", C_TIA, "那就别再替他们干活了。"),
 		_l("凯因", C_KAIN, "……好。我想弄清楚，到底是谁出的钱。我叫凯因。"),
 	]
+
+
+func on_recruited(t, _by) -> void:
+	if t.unit_id == "edric":
+		var tia = battle.get_unit("tia")
+		if tia != null and tia.is_alive():
+			tia.receive("vulnerary")
+			battle.notify(tr("缇娅 获得 伤药"))
 
 
 func on_victory() -> void:
@@ -340,6 +355,27 @@ func _edric_chased() -> Array:
 		_l("艾德里克", C_EDRIC, "菲恩领的巡逻队都在这条山道上失踪了……果然是你们！"),
 		_l("黑烬佣兵", C_ENEMY, "领主家的小少爷？正好，一起埋了。"),
 		_l("缇娅", C_TIA, "那个人被围住了！巴尔托，我们去帮他！"),
+		_l("巴尔托", C_BALTO, "那小子是绿色的友军，会自己迎战。走到他身边【对话】，他才会听我们的调度。"),
+	]
+
+
+## 对话入队：缇娅（或巴尔托）走到艾德里克身边
+func _edric_joins(by_id: String) -> Array:
+	if by_id == "balto":
+		return [
+			_l("巴尔托", C_BALTO, "领主家的小子，一个人往佣兵堆里冲，你父亲知道吗？"),
+			_l("艾德里克", C_EDRIC, "您是……？这身架势，不是普通的村民。"),
+			_l("巴尔托", C_BALTO, "老夫只是个种麦子的。……别逞强，跟着我们走，后背交给我们。"),
+			_l("艾德里克", C_EDRIC, "……好。菲恩领的艾德里克，听您调度。"),
+		]
+	return [
+		_l("艾德里克", C_EDRIC, "你是……灰岩村的人？那个红头发……"),
+		_l("缇娅", C_TIA, "红头发怎么了？你也是来抓我的？"),
+		_l("艾德里克", C_EDRIC, "不，不是！我是艾德里克，菲恩领主埃德蒙之子。父亲派出的巡逻队在这条山道上失踪了。"),
+		_l("缇娅", C_TIA, "巡逻队……山贼来的那天，巡逻队一个都没出现。"),
+		_l("艾德里克", C_EDRIC, "果然。有人提前把他们引开了。……一个人打不过这么多，能让我跟你们一起走吗？"),
+		_l("缇娅", C_TIA, "跟紧了。别拖后腿。"),
+		_l("艾德里克", C_EDRIC, "哈……遵命。这个给你，领地发的伤药，比我更用得上的人是你。"),
 	]
 
 

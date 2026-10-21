@@ -165,8 +165,8 @@ const UNITS := [
 	{"id": "nina", "pos": Vector2i(2, 12), "name": "妮娜", "class": "弓箭手", "faction": "player", "level": 14,
 		"hp": 30, "pwr": 12, "skl": 15, "spd": 14, "dfn": 5, "res": 5, "mov": 5, "weapons": ["steel_bow", "iron_bow"],
 		"growths": {"hp": 55, "pwr": 45, "skl": 55, "spd": 50, "dfn": 15, "res": 25}},
-	# 朔：东方剑客，中立，在峡谷中段被教会兵围着
-	{"id": "shuo", "name": "朔", "class": "剑士", "faction": "npc", "level": 12,
+	# 朔：东方剑客，绿色第三方，在峡谷中段自己和教会兵打（友军阶段行动）。缇娅【对话】入队
+	{"id": "shuo", "name": "朔", "class": "剑士", "faction": "npc", "fights": true, "level": 12,
 		"hp": 29, "pwr": 10, "skl": 16, "spd": 17, "dfn": 6, "res": 4, "mov": 5,
 		"weapons": ["killing_edge", "iron_sword"], "wexp": {"sword": 71},
 		"growths": {"hp": 65, "pwr": 40, "skl": 60, "spd": 60, "dfn": 20, "res": 25},
@@ -282,11 +282,9 @@ func on_turn_start(t: int) -> void:
 	if t == 2 and not flags.get("hint", false):
 		flags["hint"] = true
 		await battle.play_dialogue(_turn2_hint())
-	if t in SHUO_FIGHT_TURNS:
-		_shuo_duel()
 
 
-## 朔还是中立时，回合开始和身边的一名教会兵交手（演出：双方各挂点彩，谁也不会因此倒下）
+## （旧的演出式交手，朔现在在友军阶段真打了，不再调用）
 func _shuo_duel() -> void:
 	var s = battle.get_unit("shuo")
 	if s == null or not s.is_alive() or not s.is_npc():
