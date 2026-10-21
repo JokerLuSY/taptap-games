@@ -9,7 +9,7 @@ static func effective_mt(w: Dictionary, target: Unit) -> int:
 	if w["type"] == "bow" and target.is_flying():
 		return int(w["mt"]) * 3
 	var slay := str(w.get("slay", ""))
-	if slay == "armor" and target.class_label in ["重甲兵", "将军", "王子"]:
+	if slay == "armor" and target.class_label in ["重甲兵", "将军", "王子", "苍狼王"]:
 		return int(w["mt"]) * 3
 	if slay == "mounted" and bool(GameData.class_data(target.class_label).get("mounted", false)):
 		return int(w["mt"]) * 3
@@ -108,10 +108,10 @@ static func _roll_crit(rate: int) -> bool:
 	return randi_range(1, 100) <= rate
 
 
-## 经验：按实际强度等级算（上级职业 +20 级），否则上级打杂兵经验暴涨、没转职的主角打上级敌人只拿 1 点
+## 经验：按实际强度等级算（上级职业 +20 级，剧情觉醒见 GameData.level_bonus），否则上级打杂兵经验暴涨、没转职的主角打上级敌人只拿 1 点
 static func xp_gain(att: Unit, def: Unit, killed: bool) -> int:
-	var la := att.level + (20 if GameData.is_promoted(att.class_label) else 0)
-	var ld := def.level + (20 if GameData.is_promoted(def.class_label) else 0)
+	var la := att.level + GameData.level_bonus(att.class_label)
+	var ld := def.level + GameData.level_bonus(def.class_label)
 	var base: int = clampi(10 + (ld - la) * 3, 1, 60)
 	if killed:
 		base += 15

@@ -156,7 +156,7 @@ static func raise_to(id: String, lv: int) -> int:
 
 ## 实际强度用的等级：上级职业 +20
 static func effective_level(d: Dictionary) -> int:
-	return int(d.get("level", 1)) + (20 if GameData.is_promoted(str(d.get("class", ""))) else 0)
+	return int(d.get("level", 1)) + GameData.level_bonus(str(d.get("class", "")))
 
 
 ## 存档字典直接升一级（按成长率）

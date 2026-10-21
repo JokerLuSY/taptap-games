@@ -8,6 +8,8 @@ const CHAPTERS := [7, 11, 12, 13, 16, 21, 22, 26, 29, 30]
 const MAX_ROUNDS := 6
 ## 每次出击准备最多挑战几场（防止无限刷钱刷经验）
 const MAX_FIGHTS := 3
+## 赢一场的经验：等于同等级击破（10 + 15）
+const WIN_XP := 25
 
 ## 对手职业：近身 / 远程各一组，按出战者能打到的距离挑
 const MELEE := [["剑士", "sword"], ["佣兵", "sword"], ["战士", "axe"], ["枪兵", "lance"], ["山贼", "axe"]]
@@ -31,7 +33,7 @@ static func wager(u: Unit) -> int:
 
 
 static func effective_level(u: Unit) -> int:
-	return u.level + (20 if GameData.is_promoted(u.class_label) else 0)
+	return u.level + GameData.level_bonus(u.class_label)
 
 
 ## 出战者用哪把武器、站多远：能近身就打近身，只能远程就隔一格

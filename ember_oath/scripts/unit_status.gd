@@ -111,7 +111,7 @@ func _build_left(p: Panel, team: Color) -> void:
 	var cls := _label(p, Vector2(28, 318), 22, Color(0.95, 0.92, 0.8))
 	cls.text = tr(unit.class_label)
 	var lv := _label(p, Vector2(28, 352), 22, Color(0.95, 0.92, 0.8))
-	lv.text = tr("Lv %d    EXP %d") % [unit.level, unit.xp]
+	lv.text = tr("Lv %d    EXP %d") % [unit.level, unit.xp] if unit.level < 20 else tr("Lv %d    EXP --") % unit.level
 	var hp := _label(p, Vector2(28, 392), 24, Color(1, 1, 1))
 	hp.text = "HP  %d / %d" % [unit.hp, unit.max_hp]
 	_bar(p, Vector2(28, 426), 204, float(unit.hp) / maxf(1.0, float(unit.max_hp)), Color(0.4, 0.9, 0.45))

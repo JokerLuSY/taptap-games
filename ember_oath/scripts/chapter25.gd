@@ -67,8 +67,9 @@ const UNITS := [
 	{"id": "graycloak2", "pos": Vector2i(22, 18)},
 	{"id": "fighter1", "pos": Vector2i(15, 19)},
 	{"id": "myrm1", "pos": Vector2i(16, 19)},
-	{"id": "sniper1", "pos": Vector2i(11, 17)},
-	{"id": "sniper2", "pos": Vector2i(20, 17)},
+	# 狙击手守着南坡不上来（长弓射程 3，追上台地就太难守了）
+	{"id": "sniper1", "pos": Vector2i(11, 17), "hold": true},
+	{"id": "sniper2", "pos": Vector2i(20, 17), "hold": true},
 	{"id": "pegasus1", "pos": Vector2i(5, 14)},
 	{"id": "pegasus2", "pos": Vector2i(26, 14)},
 	{"id": "darkmage1", "pos": Vector2i(9, 21)},
@@ -77,13 +78,13 @@ const UNITS := [
 	{"id": "cleric1", "pos": Vector2i(17, 21)},
 	# 绕后的两翼
 	{"id": "graycloak4", "pos": Vector2i(3, 9)},
-	{"id": "pegasus3", "pos": Vector2i(28, 9)},
 	{"id": "sage1", "pos": Vector2i(2, 16), "items": ["vulnerary"]},
 	{"id": "myrm2", "pos": Vector2i(29, 16)},
 	# 渡鸦：灰袍众长老，坐在山脚营地的堡垒上
 	{"id": "raven", "name": "渡鸦", "class": "刺客", "faction": "enemy", "level": 13,
-		"hp": 50, "pwr": 21, "skl": 25, "spd": 26, "dfn": 14, "res": 12, "mov": 7,
-		"weapons": ["killing_edge", "silver_sword"], "items": ["elixir"], "boss": true, "stationary": true,
+		# 数值按「主角满血吃一轮反击不会死」调：不追击 Lv20 的艾德里克，也不带高必杀的暗刃
+		"hp": 50, "pwr": 18, "skl": 22, "spd": 20, "dfn": 14, "res": 12, "mov": 7,
+		"weapons": ["silver_sword"], "items": ["elixir"], "boss": true, "stationary": true,
 		"pos": Vector2i(15, 22), "color": Color(0.30, 0.30, 0.34),
 		"hair": "hood", "hair_color": Color(0.10, 0.10, 0.12), "armor": Color(0.24, 0.24, 0.28)},
 ]
@@ -91,7 +92,7 @@ const UNITS := [
 ## 第 2 回合西边山路、第 4 回合东边、第 6 回合南边营地再出一批
 const WAVES := {
 	2: [{"id": "graycloak_r1", "pos": Vector2i(0, 12)}, {"id": "graycloak_r2", "pos": Vector2i(0, 13)}, {"id": "fighter_r1", "pos": Vector2i(0, 14)}],
-	4: [{"id": "pegasus_r1", "pos": Vector2i(31, 11)}, {"id": "pegasus_r2", "pos": Vector2i(31, 12)}, {"id": "sniper_r1", "pos": Vector2i(31, 13)}],
+	4: [{"id": "pegasus_r1", "pos": Vector2i(31, 11)}, {"id": "sniper_r1", "pos": Vector2i(31, 13)}],
 	6: [{"id": "graycloak_r3", "pos": Vector2i(14, 23)}, {"id": "myrm_r1", "pos": Vector2i(17, 23)}, {"id": "sage_r1", "pos": Vector2i(16, 23)}],
 }
 
@@ -121,9 +122,9 @@ func extra_slots() -> Array:
 
 func foes() -> Dictionary:
 	return {
-		"graycloak": foe("graycloak", 8, {"weapons": ["steel_sword"]}), "fighter": foe("fighter", 8), "myrm": foe("myrm", 8), "sniper": foe("sniper", 8),
-		"pegasus": foe("pegasus", 8), "darkmage": foe("darkmage", 20), "cleric": foe("cleric", 8),
-		"sage": foe("sage", 8),
+		"graycloak": foe("graycloak", 7, {"weapons": ["steel_sword"]}), "fighter": foe("fighter", 7), "myrm": foe("myrm", 7), "sniper": foe("sniper", 7),
+		"pegasus": foe("pegasus", 6), "darkmage": foe("darkmage", 20), "cleric": foe("cleric", 8),
+		"sage": foe("sage", 7),
 	}
 
 

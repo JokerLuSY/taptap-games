@@ -298,6 +298,7 @@ func talk_lines(key: String) -> Array:
 				_l("哈洛", C_HARLO, "缇娅姐！村子……村子重建好了！房子盖了十七间，井也挖好了！"),
 				_l("缇娅", C_TIA, "十七间？……哈洛，你长高了好多。"),
 			]
+			Campaign.flags["harlo_houses"] = true  # 终章缇娅说「十七间」要以听过这段为前提
 			if _in_story("bandit6"):
 				lines.append(_l("哈洛", C_HARLO, "托比也长了！就是还那么怕疼。……我们说好了，这次要把你接回去，一起看新房子。"))
 			else:

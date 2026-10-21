@@ -275,7 +275,7 @@ func win_condition() -> String:
 
 
 func lose_condition() -> String:
-	if battle != null and _here("gareth"):
+	if battle != null and battle.get_unit("gareth") != null:  # 和 lose_ids 同一判定
 		return tr("艾德里克、缇娅或加雷斯阵亡")
 	return tr("艾德里克或缇娅阵亡")
 

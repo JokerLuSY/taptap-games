@@ -42,6 +42,7 @@ func _run() -> void:
 		GameLocale.set_code("zh_CN")
 		await _check_part2_systems()
 		await _check_qa_fixes()
+		await _check_qa2_batch_a()
 		print("SMOKE TEST: ALL PASS" if _failures.is_empty() else "SMOKE TEST: %d FAILURES" % _failures.size())
 		for f_ in _failures:
 			print("  FAIL: " + f_)
@@ -638,6 +639,7 @@ func _run() -> void:
 	await _check_campaign_chapters()
 	await _check_part2_systems()
 	await _check_qa_fixes()
+	await _check_qa2_batch_a()
 	await _check_wide_screen()
 	await _check_part3()
 	await _check_autoplay()
@@ -1105,6 +1107,48 @@ func _check_part2_entry() -> void:
 
 
 ## QA 第一批修复：剧情必需的绿色友军自动归队、加雷斯绿色时倒下也败北、飞行不过牢门、阵亡的人不会被复制
+func _check_qa2_batch_a() -> void:
+	_mark("QA2 A 批：觉醒经验 / 竞技场 / 支援开关 / 第 25 章渡鸦")
+	# 缇娅剧情觉醒后 Lv1 打第二篇 Lv13 的杂兵，经验不能只有 1 点
+	var t := Unit.new()
+	t.setup({"id": "tia_probe", "faction": "player", "class": "炎刃使", "level": 1, "weapons": ["iron_sword"]})
+	var e := Unit.new()
+	e.setup({"id": "foe_probe", "faction": "enemy", "class": "枪兵", "level": 13, "weapons": ["iron_lance"]})
+	var xp_hit: int = Combat.xp_gain(t, e, false)
+	_check(xp_hit >= 10, "炎刃使 Lv1 打 Lv13 枪兵应拿到像样的经验，实际 %d" % xp_hit)
+	_check(GameData.level_bonus("炎刃使") < 20 and GameData.level_bonus("剑圣") == 20 and GameData.level_bonus("剑士") == 0, "剧情觉醒只加少量等级，一般转职 +20")
+	# 满级不再涨经验
+	t.level = 20
+	t.xp = 0
+	_check(t.gain_xp(50).is_empty() and t.xp == 0, "Lv20 不累计经验")
+	t.free()
+	e.free()
+	_check(Arena.WIN_XP >= 20, "竞技场赢一场按同级击破给经验")
+	# 竞技场打到一半离开战斗场景：单挑开关要复位
+	CampaignSave.clear()
+	Campaign.reset()
+	load("res://scripts/battle.gd").queue_chapter(null)
+	await _new_battle()
+	await _skip_story()
+	Combat.no_support = true
+	battle.queue_free()
+	await _frames(3)
+	battle = null
+	_check(not Combat.no_support, "离开战斗场景后 Combat.no_support 应复位")
+	# 第 25 章：渡鸦的一轮反击打不死满血的默认艾德里克
+	var ed_d: Dictionary = Part3Chapter.member("edric", 2)
+	var rv: Dictionary = {}
+	for d in load("res://scripts/chapter25.gd").UNITS:
+		if str(d.get("id", "")) == "raven":
+			rv = d
+	var w: Dictionary = GameData.WEAPONS[str(rv["weapons"][0])]
+	var dmg: int = int(rv["pwr"]) + int(w["mt"]) - int(ed_d["dfn"])
+	var times: int = 2 if int(rv["spd"]) - int(ed_d["spd"]) >= 4 else 1
+	_check(dmg * times < int(ed_d["hp"]) and int(w["crit"]) <= 10, "渡鸦一轮反击不能秒满血艾德里克：%d×%d vs HP %d" % [dmg, times, int(ed_d["hp"])])
+	CampaignSave.clear()
+	Campaign.reset()
+
+
 func _check_qa_fixes() -> void:
 	_mark("QA 修复：绿色友军归队 / 败北 / 牢门 / 回队")
 	# 第三章：不和艾德里克对话，直接击败霍克 → 他也要进名单（离队状态，第八章再回来）
@@ -1365,6 +1409,20 @@ func _check_wide_screen() -> void:
 	_check(absf(goal.position.x + goal.size.x - (screen.x - SafeArea.MARGIN_X)) < 2.0, "宽屏时右侧信息窗应贴着右安全边，右缘 %s" % (goal.position.x + goal.size.x))
 	await _frames(4)
 	_shot("19_wide_map.png")
+	# 教程层、剧情场景卡、大陆地图：setup 之后才居中（之前被 setup 归零）
+	_check(absf(battle.tutorial.position.x - SafeArea.pad_x()) < 1.0, "宽屏时教程层应居中，x=%s" % battle.tutorial.position.x)
+	battle.play_scenes([{"title": "测试", "mood": "night", "lines": []}])
+	await _frames(3)
+	var card_x := -1.0
+	for c in battle.ui.get_children():
+		if c is SceneCard:
+			card_x = c.position.x
+	_check(absf(card_x - SafeArea.pad_x()) < 1.0, "宽屏时剧情场景卡应居中，x=%s" % card_x)
+	await _wait_cond(func() -> bool:
+		for c in battle.ui.get_children():
+			if c is SceneCard:
+				return false
+		return true, 8.0)
 	# 战斗特写：整体居中，背景层和底部面板铺到屏幕两边
 	var tia = battle.get_unit("tia")
 	var foe: Unit = null

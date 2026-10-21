@@ -102,6 +102,8 @@ func _ready() -> void:
 
 func _exit_tree() -> void:
 	Audio.stop_loop()
+	# 竞技场打到一半回标题时 run_arena 不会走到收尾，这里兜底关掉单挑开关
+	Combat.no_support = false
 
 
 # ==================== 构建 ====================
@@ -370,8 +372,8 @@ func _build_ui() -> void:
 	_build_end_overlay()
 	tutorial = Tutorial.new()
 	ui.add_child(tutorial)
-	SafeArea.fit(tutorial)
 	tutorial.setup(self)
+	SafeArea.fit(tutorial)  # setup 会把位置归零、建底色，所以居中放在它后面
 	dialogue = DialogueBox.new()
 	ui.add_child(dialogue)
 	combat_scene = CombatScene.new()
@@ -2169,7 +2171,7 @@ func do_combat(att: Unit, def: Unit, wi: int) -> void:
 		_after_weapon_use(def, dwi, d_n)
 	for u in [att, def]:
 		if not u.is_alive() and u.visible:
-			print("[FALL] %s (%s) by %s (%s Lv%d)" % [u.unit_id, u.faction, (def if u == att else att).unit_id, (def if u == att else att).class_label, (def if u == att else att).level])
+			if OS.is_debug_build(): print("[FALL] %s (%s) by %s (%s Lv%d)" % [u.unit_id, u.faction, (def if u == att else att).unit_id, (def if u == att else att).class_label, (def if u == att else att).level])
 			if u.is_player():
 				await _fallen_words(u)
 			elif u.is_npc() and Campaign.status_of(u.unit_id) == "away":
@@ -2214,6 +2216,8 @@ func _after_weapon_use(u: Unit, idx: int, n: int) -> void:
 
 
 func _give_xp(u: Unit, n: int) -> void:
+	if u.level >= 20:
+		return  # 满级不再累计经验，也不飘「EXP +N」
 	var res: Dictionary = u.gain_xp(n)
 	_float_text(u, "EXP +%d" % n, Color(0.6, 0.9, 1.0))
 	await get_tree().create_timer(0.35).timeout
@@ -2243,7 +2247,7 @@ func check_end_conditions() -> bool:
 	for id in chapter.lose_ids():
 		var u := get_unit(id)
 		if u == null or not u.is_alive():
-			print("[DEFEAT] ch%d turn %d: %s %s" % [chapter_number(), turn, id, "missing" if u == null else "fell"])
+			if OS.is_debug_build(): print("[DEFEAT] ch%d turn %d: %s %s" % [chapter_number(), turn, id, "missing" if u == null else "fell"])
 			await _game_over()
 			return true
 	if not chapter.is_won():
@@ -2416,7 +2420,6 @@ func play_prologue() -> void:
 		return
 	var wm := WorldMap.new()
 	ui.add_child(wm)
-	SafeArea.fit(wm)
 	ui.move_child(wm, dialogue.get_index())
 	# 只画去过的地方：本章地点和来处记进战役旗标
 	var seen: Array = Campaign.flags.get("places_seen", [])
@@ -2425,6 +2428,7 @@ func play_prologue() -> void:
 			seen.append(id)
 	Campaign.flags["places_seen"] = seen
 	wm.setup(str(pr.get("place", "")), str(pr.get("from", "")), tr(chapter.CHAPTER_TITLE), seen)
+	SafeArea.fit(wm)  # setup 会把位置归零、建底色，所以居中放在它后面
 	await wm.intro()
 	await play_dialogue(pr.get("lines", []))
 	await wm.outro()
@@ -2436,9 +2440,9 @@ func play_scenes(scenes: Array) -> void:
 	for sc in scenes:
 		var card := SceneCard.new()
 		ui.add_child(card)
-		SafeArea.fit(card)
 		ui.move_child(card, dialogue.get_index())
 		card.setup(tr(str(sc.get("title", ""))), str(sc.get("mood", "night")))
+		SafeArea.fit(card)
 		await card.intro()
 		await play_dialogue(sc.get("lines", []))
 		await card.outro()
@@ -2446,6 +2450,8 @@ func play_scenes(scenes: Array) -> void:
 
 
 func play_dialogue(lines: Array) -> void:
+	if lines.is_empty():
+		return
 	var prev := state
 	state = S.STORY
 	dialogue.play(lines)
@@ -2517,10 +2523,10 @@ func run_arena(u: Unit) -> String:
 	var pw: Array = Arena.pick_weapon(u)
 	if gold < cost or int(pw[0]) < 0 or arena_fights >= Arena.MAX_FIGHTS:
 		return ""
-	arena_fights += 1
 	var spots := _arena_spots(int(pw[1]))
 	if spots.is_empty():
 		return ""
+	arena_fights += 1
 	add_gold(-cost)
 	var home := u.grid_pos
 	var foe := Arena.make_foe(u, int(pw[1]))
@@ -2547,7 +2553,8 @@ func run_arena(u: Unit) -> String:
 	Combat.no_support = false
 	u.grid_pos = home
 	u.position = u.tile_center()
-	var xp := Combat.xp_gain(u, foe, true)
+	# 对手和出战者同等强度（职业不一定同阶），按同级击破算经验，不让上级职业只拿 1 点
+	var xp := Arena.WIN_XP
 	foe.queue_free()
 	# 还没开战：打完回满；输了也不会死
 	u.hp = u.max_hp

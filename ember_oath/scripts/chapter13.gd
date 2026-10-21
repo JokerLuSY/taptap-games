@@ -499,8 +499,10 @@ func _pre_battle() -> Array:
 		lines.append(_l("老水道工", C_NPC, "你们就是要进审判所的人？……我在这水道里干了四十年，那些铁门的锁，都是我看着装上的。"))
 		lines.append(_l("", C_NARR, "老人塞过来两把钥匙。"))
 		lines.append(_l("老水道工", C_NPC, "前几天，他们又往里头拖了一个抱着烧焦的书的人。……能救就救吧。"))
-	if flags.get("cyril_cell", false):
+	if flags.get("cyril_cell", false) and Campaign.flags.get("ch7_cyril_library", false):
 		lines.append(_l("缇娅", C_TIA, "烧焦的书……是西里尔！他说过要去王都大书库等我们的。"))
+	elif flags.get("cyril_cell", false):
+		lines.append(_l("缇娅", C_TIA, "烧焦的书……是西里尔！那天在王都走散以后，他竟然被关在这里。"))
 	else:
 		lines.append(_l("缇娅", C_TIA, "抱着烧焦的书……又是一个因为「火」被关起来的人。能救，就救出来。"))
 	if _here("noya"):

@@ -190,7 +190,7 @@ const ITEMS := {
 const WEAPON_PRICE := {"E": 10, "D": 18, "C": 30, "B": 45, "A": 60, "S": 80}
 
 
-## 上级职业（含剧情转职的炎刃使）：离队回归补等级时按 +20 级算
+## 上级职业（含剧情转职的炎刃使）：算实际强度时加级，见 level_bonus
 const PROMOTED := ["剑圣", "勇者", "勇士", "狂战士", "枪斗士", "圣骑士", "将军", "狙击手", "隼骑士", "刺客", "司祭", "贤者", "德鲁伊", "炎刃使", "不灭巫女", "誓约领主", "苍狼王"]
 ## 飞行单位飞不过去的地形（其余地形一律消耗 1、不吃地形加成）
 const FLY_BLOCK := ["#", "E", "O"]
@@ -198,6 +198,16 @@ const FLY_BLOCK := ["#", "E", "O"]
 
 static func is_promoted(cls: String) -> bool:
 	return cls in PROMOTED
+
+
+## 算实际强度时上级职业加几级：一般转职 +20；缇娅的剧情觉醒在 Lv7 左右就发生，只算 +10（否则她整个第二篇打谁都只拿 1 点经验）
+const LEVEL_BONUS := {"炎刃使": 10, "不灭巫女": 15}
+
+
+static func level_bonus(cls: String) -> int:
+	if not is_promoted(cls):
+		return 0
+	return int(LEVEL_BONUS.get(cls, 20))
 
 
 static func is_flying(cls: String) -> bool:

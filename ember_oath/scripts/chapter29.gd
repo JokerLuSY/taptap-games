@@ -337,8 +337,10 @@ func epilogue() -> Array:
 		camp.append(_l("艾德里克", C_EDRIC, "我回菲恩城，把父亲的剑挂回书房。……然后，去灰岩村。"))
 	else:
 		camp.append(_l("艾德里克", C_EDRIC, "我回菲恩城，替父亲把书房收拾干净。……然后，去灰岩村。"))
-	if Campaign.flags.get("harlo_back", false):
+	if Campaign.flags.get("harlo_houses", false):
 		camp.append(_l("缇娅", C_TIA, "那我回灰岩村。哈洛说房子盖了十七间，我要去数一数。"))
+	elif Campaign.flags.get("harlo_back", false):
+		camp.append(_l("缇娅", C_TIA, "那我回灰岩村。哈洛说村子重建好了，我要回去看看。"))
 	else:
 		camp.append(_l("缇娅", C_TIA, "那我回灰岩村。不管村子变成了什么样子，那里都是我的家。"))
 	if _here("seven") or Campaign.flags.get("seven_joined", false):
