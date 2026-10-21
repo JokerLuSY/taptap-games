@@ -300,6 +300,11 @@ func on_after_combat(_att, _def, _def_died: bool) -> void:
 	if c != null and not c.is_alive() and not flags.get("caspar_down", false):
 		flags["caspar_down"] = true
 		await battle.play_dialogue(_boss_death())
+		# 他身上的霸王之证掉落（速度太快，几乎偷不到）
+		var killer = _att if _att != c else _def
+		if killer != null and killer.is_player() and killer.is_alive() and "overlord_crest" in c.items:
+			killer.receive("overlord_crest")
+			battle.notify(tr("获得 霸王之证"))
 	var v = battle.get_unit("vera")
 	if v != null and not v.is_alive() and not v.is_player() and not flags.get("vera_dead", false):
 		flags["vera_dead"] = true

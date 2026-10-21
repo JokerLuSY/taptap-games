@@ -289,7 +289,7 @@ func _awaken_point() -> void:
 	await battle.play_dialogue(_awaken_lines())
 	if tia.class_label == "炎刃使":
 		return
-	if tia.level >= 10:
+	if tia.level >= 7:
 		Campaign.flags.erase("tia_awaken_pending")
 		await battle.awaken_tia(false)
 	else:

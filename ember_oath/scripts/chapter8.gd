@@ -65,8 +65,8 @@ const _GRAY_M := {"name": "灰袍剑士", "class": "佣兵", "faction": "enemy",
 	"hp": 28, "pwr": 9, "skl": 10, "spd": 9, "dfn": 6, "res": 2, "mov": 5,
 	"weapons": ["steel_sword"], "color": Color(0.48, 0.48, 0.52),
 	"hair": "hood", "armor": Color(0.42, 0.42, 0.46)}
-const _BANDIT := {"name": "流氓", "class": "山贼", "faction": "enemy", "level": 7,
-	"hp": 28, "pwr": 9, "skl": 4, "spd": 5, "dfn": 4, "res": 0, "mov": 5,
+const _BANDIT := {"name": "流氓", "class": "山贼", "faction": "enemy", "level": 6,
+	"hp": 25, "pwr": 7, "skl": 3, "spd": 4, "dfn": 3, "res": 0, "mov": 5,
 	"weapons": ["iron_axe"], "color": Color(0.62, 0.42, 0.30),
 	"hair": "spiky", "hair_color": Color(0.25, 0.18, 0.12), "armor": Color(0.50, 0.36, 0.26)}
 const _ARCHER := {"name": "灰袍弓手", "class": "弓箭手", "faction": "enemy", "level": 6,
@@ -84,7 +84,7 @@ const UNITS := [
 		"hair": "short", "hair_color": Color(0.30, 0.42, 0.75), "armor": Color(0.40, 0.48, 0.70)},
 	{"id": "lance", "name": "兰斯", "class": "骑士", "faction": "player", "level": 7, "join": true,
 		"hp": 28, "pwr": 9, "skl": 8, "spd": 7, "dfn": 8, "res": 2, "mov": 7,
-		"weapons": ["iron_lance", "javelin"], "items": [],
+		"weapons": ["iron_lance", "javelin"], "items": ["vulnerary"],
 		"growths": {"hp": 80, "pwr": 45, "skl": 40, "spd": 40, "dfn": 30, "res": 20},
 		"pos": Vector2i(15, 3), "color": Color(0.35, 0.55, 0.40),
 		"hair": "short", "hair_color": Color(0.35, 0.28, 0.20), "armor": Color(0.45, 0.60, 0.48)},
@@ -101,9 +101,9 @@ const UNITS := [
 		"pos": Vector2i(15, 2), "color": Color(0.50, 0.52, 0.60),
 		"hair": "short", "hair_color": Color(0.45, 0.42, 0.40), "armor": Color(0.60, 0.62, 0.70)},
 	# 敌方：城门大街
-	{"id": "graycloak1", "pos": Vector2i(9, 4)},
+	{"id": "graycloak1", "pos": Vector2i(9, 4), "hold": true},
 	{"id": "graycloak2", "pos": Vector2i(20, 4), "hold": true},
-	{"id": "bandit1", "pos": Vector2i(17, 7)},
+	{"id": "bandit1", "pos": Vector2i(17, 7), "hold": true},
 	# 书斋一带：纵火的灰袍众和放风的弓手
 	{"id": "graycloak3", "pos": Vector2i(27, 5), "hold": true, "items": ["vulnerary"]},
 	{"id": "archer1", "pos": Vector2i(22, 6), "hold": true},
@@ -116,7 +116,6 @@ const UNITS := [
 	{"id": "bandit4", "pos": Vector2i(8, 13)},
 	{"id": "graycloak5", "pos": Vector2i(23, 13)},
 	{"id": "archer3", "pos": Vector2i(19, 14)},
-	{"id": "bandit5", "pos": Vector2i(3, 15)},
 	{"id": "graycloak_m1", "pos": Vector2i(15, 15), "items": ["vulnerary"]},
 	# 南门与门外
 	{"id": "graycloak_m2", "pos": Vector2i(14, 16), "hold": true},
@@ -126,7 +125,7 @@ const UNITS := [
 	# 灰袍众头目卡斯帕：南门外的堡垒上不动。HP 降到一半以下就撤退（不会真正死去）
 	{"id": "caspar", "name": "卡斯帕", "class": "佣兵队长", "faction": "enemy", "level": 10,
 		"hp": 36, "pwr": 11, "skl": 13, "spd": 12, "dfn": 6, "res": 3, "mov": 5,
-		"weapons": ["steel_sword", "killing_edge"], "boss": true, "stationary": true, "sprite": "hawk",
+		"weapons": ["steel_sword"], "boss": true, "stationary": true, "sprite": "hawk",
 		"pos": Vector2i(20, 19), "color": Color(0.40, 0.40, 0.45),
 		"hair": "hood", "hair_color": Color(0.20, 0.20, 0.22), "armor": Color(0.36, 0.36, 0.40), "scar": true},
 ]
@@ -136,7 +135,7 @@ const WAVES := {
 	3: [{"id": "graycloak_r1", "pos": Vector2i(29, 4)}, {"id": "graycloak_r2", "pos": Vector2i(29, 14)}],
 	5: [{"id": "bandit_r1", "pos": Vector2i(0, 14)}, {"id": "bandit_r2", "pos": Vector2i(0, 4)},
 		{"id": "graycloak_m_r1", "pos": Vector2i(14, 21)}],
-	7: [{"id": "archer_r1", "pos": Vector2i(29, 14)}, {"id": "bandit_r3", "pos": Vector2i(0, 14)}],
+	7: [{"id": "archer_r1", "pos": Vector2i(29, 14)}],
 }
 
 

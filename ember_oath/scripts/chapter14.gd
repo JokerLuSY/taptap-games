@@ -184,9 +184,9 @@ const VAREN := {"id": "varen", "name": "瓦伦", "class": "圣骑士", "faction"
 ## 布罗登的援军：第 2 回合从东边关门出现（绿色），第 3 回合开始转为我方
 const GARETH_TEAM := [
 	{"id": "gareth", "name": "加雷斯", "class": "王子", "faction": "npc", "fights": true, "level": 10,
-		"hp": 32, "pwr": 12, "skl": 8, "spd": 7, "dfn": 11, "res": 2, "mov": 5,
+		"hp": 32, "pwr": 12, "skl": 9, "spd": 9, "dfn": 11, "res": 5, "mov": 5,
 		"weapons": ["wolf_axe", "hand_axe"], "items": ["vulnerary"],
-		"growths": {"hp": 90, "pwr": 60, "skl": 40, "spd": 30, "dfn": 45, "res": 20},
+		"growths": {"hp": 90, "pwr": 55, "skl": 45, "spd": 45, "dfn": 40, "res": 35},
 		"pos": Vector2i(27, 10), "color": Color(0.75, 0.55, 0.30),
 		"hair": "spiky", "hair_color": Color(0.62, 0.38, 0.18), "armor": Color(0.55, 0.42, 0.30)},
 	{"id": "hagen", "name": "哈根", "class": "战士", "faction": "npc", "fights": true, "level": 11,
@@ -372,8 +372,8 @@ func on_visit(u, pos: Vector2i) -> void:
 	visited[pos] = true
 	if pos == VISIT_SHEPHERD:
 		await battle.play_dialogue(_visit_shepherd())
-		u.receive("elixir")
-		battle.notify(tr("获得 万灵药"))
+		u.receive("vulnerary")
+		battle.notify(tr("获得 伤药"))
 	elif pos == VISIT_MILLER:
 		await battle.play_dialogue(_visit_miller())
 		battle.add_gold(2000)

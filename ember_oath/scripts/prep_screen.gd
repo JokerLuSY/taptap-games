@@ -176,12 +176,12 @@ func show_arena() -> void:
 	_mode = "arena"
 	_clear()
 	_title(tr("竞技场"))
-	_text(tr("付押金和同等级的对手单挑：赢了拿回双倍押金和经验，输了没收押金（不会阵亡）。"), 15, Color(0.85, 0.85, 0.7))
-	_text(tr("金钱 %d G") % battle.gold, 17, Color(1.0, 0.9, 0.55))
+	_text(tr("付押金和同等级的对手单挑：赢了拿回 1.5 倍押金和经验，输了没收押金（不会阵亡）。每次出击准备最多 %d 场。") % Arena.MAX_FIGHTS, 15, Color(0.85, 0.85, 0.7))
+	_text(tr("金钱 %d G") % battle.gold + "   " + tr("剩余 %d 场") % (Arena.MAX_FIGHTS - battle.arena_fights), 17, Color(1.0, 0.9, 0.55))
 	for u in battle.prep_pool:
 		var uu: Unit = u
 		var cost := Arena.wager(u)
-		var can: bool = battle.gold >= cost and int(Arena.pick_weapon(u)[0]) >= 0
+		var can: bool = battle.gold >= cost and int(Arena.pick_weapon(u)[0]) >= 0 and battle.arena_fights < Arena.MAX_FIGHTS
 		_button("%s   %s %d G" % [_unit_line(u), tr("押金"), cost], func() -> void: _fight(uu), can, 40.0)
 	_button(tr("返回"), show_menu)
 

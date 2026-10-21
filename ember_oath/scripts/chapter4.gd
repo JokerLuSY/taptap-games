@@ -152,7 +152,7 @@ const UNITS := [
 const REINFORCEMENTS := [
 	{"id": "silas", "name": "塞拉斯", "class": "圣焰审判官", "faction": "enemy", "level": 10,
 		"hp": 38, "pwr": 12, "skl": 11, "spd": 10, "dfn": 10, "mov": 5,
-		"weapons": ["silver_lance"], "boss": true,
+		"weapons": ["steel_lance"], "boss": true,
 		"pos": Vector2i(0, 2), "color": Color(0.92, 0.90, 0.95),
 		"hair": "short", "hair_color": Color(0.85, 0.80, 0.60), "armor": Color(0.95, 0.92, 0.85)},
 	{"id": "knight_r1", "pos": Vector2i(1, 1)},

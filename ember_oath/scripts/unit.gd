@@ -611,6 +611,10 @@ func promote(to_class: String, bonus: Dictionary, new_weapons: Array = []) -> vo
 
 ## 返回升级信息（空 dict = 未升级）
 func gain_xp(n: int) -> Dictionary:
+	# Lv20 封顶：满级后经验不再累计（基础职业用转职道具后从 Lv1 重新练）
+	if level >= 20:
+		xp = 0
+		return {}
 	xp += n
 	if xp < 100:
 		return {}

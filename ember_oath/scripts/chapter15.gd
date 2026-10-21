@@ -320,8 +320,8 @@ func on_visit(u, pos: Vector2i) -> void:
 		battle.notify(tr("获得 锐锋弓"))
 	elif pos == VISIT_HERDER:
 		await battle.play_dialogue(_visit_herder())
-		u.receive("elixir")
-		battle.notify(tr("获得 万灵药"))
+		u.receive("vulnerary")
+		battle.notify(tr("获得 伤药"))
 
 
 func recruits() -> Dictionary:

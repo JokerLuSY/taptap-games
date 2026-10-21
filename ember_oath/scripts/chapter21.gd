@@ -49,7 +49,7 @@ const VISIT_SMITH := Vector2i(4, 12)
 const VISIT_WIDOW := Vector2i(29, 15)
 const SHOP_VENDOR := Vector2i(8, 14)
 const SHOP_ARMORY := Vector2i(25, 12)
-const CHESTS := {Vector2i(2, 1): "hero_crest", Vector2i(4, 1): "silver_lance", Vector2i(7, 1): "elixir"}
+const CHESTS := {Vector2i(2, 1): "hero_crest", Vector2i(4, 1): "silver_lance", Vector2i(7, 1): "overlord_crest"}
 
 const C_EDRIC := Color(0.55, 0.85, 1.0)
 const C_TIA := Color(1.0, 0.62, 0.45)

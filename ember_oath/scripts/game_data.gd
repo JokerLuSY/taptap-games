@@ -116,7 +116,8 @@ const CLASSES := {
 	"德鲁伊": {"ranks": {"dark": "C", "staff": "D"}, "con": 9, "magic": true},
 	# ---- 剧情 / 敌方专属 ----
 	"炎刃使": {"ranks": {"sword": "C"}, "con": 7},
-	"领主骑士": {"ranks": {"sword": "C"}, "con": 7},
+	"领主骑士": {"ranks": {"sword": "C"}, "con": 7, "promote": "誓约领主", "item": "hero_crest",
+		"bonus": {"hp": 5, "pwr": 3, "skl": 2, "spd": 2, "dfn": 3, "res": 3, "mov": 1}},
 	"山贼头目": {"ranks": {"axe": "B"}, "con": 14},
 	"佣兵队长": {"ranks": {"sword": "B"}, "con": 11},
 	"圣焰审判官": {"ranks": {"lance": "A", "sword": "C"}, "con": 11, "mounted": true},
@@ -125,7 +126,9 @@ const CLASSES := {
 	# ---- 第二篇 ----
 	"修士": {"ranks": {"staff": "D"}, "promote": "司祭", "item": "sage_crest", "con": 7,
 		"bonus": {"hp": 3, "pwr": 1, "skl": 2, "spd": 1, "dfn": 2, "res": 2, "mov": 1}, "magic": true},
-	"王子": {"ranks": {"axe": "C"}, "con": 13},
+	"王子": {"ranks": {"axe": "C"}, "con": 13, "promote": "苍狼王", "item": "hero_crest",
+		"bonus": {"hp": 5, "pwr": 2, "skl": 3, "spd": 3, "dfn": 2, "res": 4, "mov": 1}},
+	"苍狼王": {"ranks": {"axe": "B", "lance": "C"}, "con": 14},
 	"灰烬傀儡": {"ranks": {"sword": "B"}, "con": 10},
 	# ---- 第三篇 ----
 	"不灭巫女": {"ranks": {"sword": "A"}, "con": 7},
@@ -188,7 +191,7 @@ const WEAPON_PRICE := {"E": 10, "D": 18, "C": 30, "B": 45, "A": 60, "S": 80}
 
 
 ## 上级职业（含剧情转职的炎刃使）：离队回归补等级时按 +20 级算
-const PROMOTED := ["剑圣", "勇者", "勇士", "狂战士", "枪斗士", "圣骑士", "将军", "狙击手", "隼骑士", "刺客", "司祭", "贤者", "德鲁伊", "炎刃使", "不灭巫女", "誓约领主"]
+const PROMOTED := ["剑圣", "勇者", "勇士", "狂战士", "枪斗士", "圣骑士", "将军", "狙击手", "隼骑士", "刺客", "司祭", "贤者", "德鲁伊", "炎刃使", "不灭巫女", "誓约领主", "苍狼王"]
 ## 飞行单位飞不过去的地形（其余地形一律消耗 1、不吃地形加成）
 const FLY_BLOCK := ["#", "E", "O"]
 

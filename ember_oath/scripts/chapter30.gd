@@ -143,7 +143,7 @@ func foes() -> Dictionary:
 		"general": foe("general", 12, {"weapons": ["silver_lance", "steel_axe"]}), "sage": foe("sage", 12, {"weapons": ["bolganone"]}),
 		"sniper": foe("sniper", 11), "paladin": foe("paladin", 12, {"weapons": ["silver_lance", "steel_sword"]}),
 		"puppet": foe("puppet", 20, {"hp": 52, "pwr": 18, "dfn": 19}),
-		"myrm": foe("myrm", 12, {"weapons": ["silver_sword"]}), "darkmage": foe("darkmage", 20, {"weapons": ["nosferatu"]}),
+		"myrm": foe("myrm", 12, {"weapons": ["steel_sword"]}), "darkmage": foe("darkmage", 20, {"weapons": ["nosferatu"]}),
 		"graycloak": foe("graycloak", 11), "cleric": foe("cleric", 11),
 	}
 
@@ -254,7 +254,7 @@ func _awaken() -> void:
 	tia.weapons.insert(0, "guardian_flame")
 	tia.weapon_uses.insert(0, tia.max_uses("guardian_flame"))
 	var promoted := false
-	if tia.class_label == "炎刃使" and tia.level >= 10:
+	if tia.class_label == "炎刃使" and tia.level >= 5:
 		tia.promote("不灭巫女", {"hp": 5, "pwr": 3, "skl": 2, "spd": 2, "dfn": 3, "res": 5, "mov": 1})
 		tia.hair_color = Color(1.0, 0.78, 0.35)
 		tia.armor_color = Color(0.95, 0.85, 0.60)

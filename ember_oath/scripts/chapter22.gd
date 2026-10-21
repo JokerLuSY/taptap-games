@@ -84,7 +84,7 @@ const _GENERAL := {"name": "亲卫将军", "class": "将军", "faction": "enemy"
 	"weapons": ["steel_lance", "steel_axe"], "color": Color(0.88, 0.86, 0.92),
 	"hair": "short", "armor": Color(0.94, 0.92, 0.98)}
 const _SAGE := {"name": "神殿贤者", "class": "贤者", "faction": "enemy", "level": 8,
-	"hp": 42, "pwr": 18, "skl": 16, "spd": 15, "dfn": 9, "res": 17, "mov": 6,
+	"hp": 42, "pwr": 18, "skl": 16, "spd": 13, "dfn": 9, "res": 17, "mov": 6,
 	"weapons": ["elfire"], "color": Color(0.96, 0.92, 0.80),
 	"hair": "hood", "armor": Color(0.96, 0.92, 0.78)}
 const _SNIPER := {"name": "神殿狙击手", "class": "狙击手", "faction": "enemy", "level": 7,
@@ -249,7 +249,7 @@ func extra_slots() -> Array:
 
 
 func shop_items() -> Array:
-	return ["vulnerary", "elixir", "door_key", "steel_sword", "silver_sword", "steel_lance", "silver_lance", "steel_axe",
+	return ["vulnerary", "elixir", "door_key", "steel_sword", "silver_sword", "armorslayer", "steel_lance", "silver_lance", "horseslayer", "steel_axe",
 		"steel_bow", "silver_bow", "elfire", "bolganone", "mend_staff"]
 
 

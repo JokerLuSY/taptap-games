@@ -556,7 +556,7 @@ func _start_chapter() -> void:
 ## 剧情转职顺延：剧情点到了但不满 Lv10 的，满级后在队的下一章开场补上
 func _pending_promotions() -> void:
 	var tia := get_unit("tia")
-	if Campaign.flags.get("tia_awaken_pending", false) and tia != null and tia.is_player() and tia.level >= 10:
+	if Campaign.flags.get("tia_awaken_pending", false) and tia != null and tia.is_player() and tia.level >= 7:
 		Campaign.flags.erase("tia_awaken_pending")
 		await awaken_tia(true)
 
@@ -2274,6 +2274,10 @@ func _victory() -> void:
 	for id in st:
 		Campaign.set_status(id, st[id])
 	Campaign.flags["support_points"] = support_points.duplicate()
+	var bonus: int = chapter.victory_gold()
+	if bonus > 0:
+		gold += bonus
+		notify(tr("胜利奖金 %d G") % bonus)
 	Campaign.advance(gold)
 	if pending_chapter == null:
 		CampaignSave.write_chapter_start()
@@ -2496,11 +2500,15 @@ func update_topbar() -> void:
 
 
 ## 竞技场（出击准备里）：付押金单挑同等级对手。返回 "win" / "lose" / "draw"，钱不够或打不了返回 ""
+var arena_fights := 0              # 本章出击准备里已经打了几场竞技场
+
+
 func run_arena(u: Unit) -> String:
 	var cost := Arena.wager(u)
 	var pw: Array = Arena.pick_weapon(u)
-	if gold < cost or int(pw[0]) < 0:
+	if gold < cost or int(pw[0]) < 0 or arena_fights >= Arena.MAX_FIGHTS:
 		return ""
+	arena_fights += 1
 	var spots := _arena_spots(int(pw[1]))
 	if spots.is_empty():
 		return ""
@@ -2537,8 +2545,8 @@ func run_arena(u: Unit) -> String:
 	u.visible = true
 	u.modulate.a = 1.0
 	if result == "win":
-		add_gold(cost * 2)
-		notify(tr("竞技场：%s 获胜！得到 %d G") % [tr(u.display_name), cost * 2])
+		add_gold(cost * 3 / 2)
+		notify(tr("竞技场：%s 获胜！得到 %d G") % [tr(u.display_name), cost * 3 / 2])
 		await _give_xp(u, xp)
 	elif result == "lose":
 		notify(tr("竞技场：%s 落败……押金 %d G 没了") % [tr(u.display_name), cost])

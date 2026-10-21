@@ -937,19 +937,20 @@ func _check_campaign_chapters() -> void:
 	await _frames(10)
 	_shot("14_chapter5_map.png")
 	tia = battle.get_unit("tia")
-	# 觉醒剧情点：不满 Lv10 只演剧情、不转职，记下顺延
-	_check(tia.level < 10, "测试前提：缇娅不满 Lv10")
+	# 觉醒剧情点：不满 Lv7 只演剧情、不转职，记下顺延
+	tia.level = mini(tia.level, 6)
+	_check(tia.level < 7, "测试前提：缇娅不满 Lv7")
 	battle.chapter._awaken_point()
 	ok = await _wait_cond(func() -> bool: return battle.state != battle.S.STORY and Campaign.flags.get("tia_awaken_pending", false), 8.0)
-	_check(ok, "不满 Lv10 时应记下觉醒顺延")
-	_check(tia.class_label == "剑士", "不满 Lv10 不应转职，实际 " + tia.class_label)
-	# 满 Lv10 后补上转职
+	_check(ok, "不满 Lv7 时应记下觉醒顺延")
+	_check(tia.class_label == "剑士", "不满 Lv7 不应转职，实际 " + tia.class_label)
+	# 满 Lv7 后补上转职
 	battle.state = battle.S.IDLE
-	tia.level = 10
+	tia.level = 7
 	var hp_before: int = tia.max_hp
 	battle._pending_promotions()
 	ok = await _wait_cond(func() -> bool: return tia.class_label == "炎刃使" and battle.state != battle.S.STORY, 8.0)
-	_check(ok, "满 Lv10 后应补上炎刃使转职")
+	_check(ok, "满 Lv7 后应补上炎刃使转职")
 	_check(tia.level == 1 and tia.xp == 0 and tia.max_hp == hp_before + 3, "转职后 Lv1、经验清零、HP+3")
 	_check(tia.weapons[0] == "ember_blade" and "iron_sword" in tia.weapons, "转职后应拿到炎刃并保留铁剑，实际 %s" % str(tia.weapons))
 	_check(not Campaign.flags.has("tia_awaken_pending"), "补上转职后应清掉顺延标记")
@@ -1239,8 +1240,11 @@ func _check_part2_systems() -> void:
 	_check(done[0] and done[1] in ["win", "lose", "draw"], "竞技场应打完一场，实际 %s" % str(done[1]))
 	_check(t0.is_alive() and t0.hp == t0.max_hp, "竞技场打完缇娅应回满血、不会死")
 	var cost := Arena.wager(t0)
-	var expect: int = g0 + (cost if done[1] == "win" else (-cost if done[1] == "lose" else 0))
+	var expect: int = g0 + (cost * 3 / 2 - cost if done[1] == "win" else (-cost if done[1] == "lose" else 0))
 	_check(battle.gold == expect, "竞技场结算金钱不对：%d → %d（%s）" % [g0, battle.gold, done[1]])
+	battle.arena_fights = Arena.MAX_FIGHTS
+	_check(await battle.run_arena(t0) == "", "超过每次出击准备的场数上限后不能再打")
+	battle.arena_fights = 0
 	battle.state = battle.S.IDLE
 	var sp = battle.get_unit("sparrow")
 	var foe = battle.get_unit("church5")

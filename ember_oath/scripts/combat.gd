@@ -108,12 +108,15 @@ static func _roll_crit(rate: int) -> bool:
 	return randi_range(1, 100) <= rate
 
 
+## 经验：按实际强度等级算（上级职业 +20 级），否则上级打杂兵经验暴涨、没转职的主角打上级敌人只拿 1 点
 static func xp_gain(att: Unit, def: Unit, killed: bool) -> int:
-	var base: int = clampi(10 + (def.level - att.level) * 3, 1, 60)
+	var la := att.level + (20 if GameData.is_promoted(att.class_label) else 0)
+	var ld := def.level + (20 if GameData.is_promoted(def.class_label) else 0)
+	var base: int = clampi(10 + (ld - la) * 3, 1, 60)
 	if killed:
 		base += 15
 		if def.is_boss:
 			base += 25
-	if att.level > def.level:
-		base = maxi(1, base - (att.level - def.level) * 3)
+	if la > ld:
+		base = maxi(1, base - (la - ld) * 3)
 	return base

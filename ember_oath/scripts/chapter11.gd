@@ -302,8 +302,8 @@ func on_visit(u, pos: Vector2i) -> void:
 	visited[pos] = true
 	if pos == VISIT_FERRYMAN:
 		await battle.play_dialogue(_visit_ferryman())
-		u.receive("elixir")
-		battle.notify(tr("获得 万灵药"))
+		u.receive("vulnerary")
+		battle.notify(tr("获得 伤药"))
 	elif pos == VISIT_WIDOW:
 		await battle.play_dialogue(_visit_widow())
 		battle.add_gold(1500)

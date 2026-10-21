@@ -48,6 +48,16 @@ func before_spawn_status() -> Dictionary:
 	return {}
 
 
+## 章节胜利奖金（第一篇靠访问和宝箱；第二篇、第三篇收入不够武器损耗，补一笔）
+func victory_gold() -> int:
+	var n: int = battle.chapter_number() if battle != null else 0
+	if n >= 23:
+		return 2000
+	if n >= 8:
+		return 800
+	return 0
+
+
 ## 剧情必需的第三方（绿色）友军：玩家整章没和他【对话】也要在胜利时归队写进名单，否则后面的章节会缺人
 func must_join_on_victory() -> Array:
 	return []

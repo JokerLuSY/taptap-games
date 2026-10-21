@@ -372,8 +372,8 @@ func on_visit(u, pos: Vector2i) -> void:
 		battle.hint(tr("本笃是修士：用杖治疗同伴。站上祭台，也能护住铁之盾"))
 	elif pos == VISIT_FISHER:
 		await battle.play_dialogue(_visit_fisher())
-		u.receive("elixir")
-		battle.notify(tr("获得 万灵药"))
+		u.receive("vulnerary")
+		battle.notify(tr("获得 伤药"))
 
 
 func talks() -> Array:
