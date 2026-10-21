@@ -365,7 +365,7 @@ func talk_lines(key: String) -> Array:
 		return [
 			_l("凯因", C_KAIN, "缇娅。那天晚上，我说「杀出去」……要是真冲了，大家都得死在那儿。"),
 			_l("缇娅", C_TIA, "所以我才让大家分头跑。"),
-			_l("凯因", C_KAIN, "嗯。你做得对。……可我这几个月，天天梦见那辆笼车。"),
+			_l("凯因", C_KAIN, "嗯。你做得对。……可我这些天，天天梦见那辆笼车。"),
 			_l("缇娅", C_TIA, "我已经出来了。……凯因，下次我被关起来，你还会来吗？"),
 			_l("凯因", C_KAIN, "不会有下次。下次，我站在笼子前面。"),
 		]
@@ -440,9 +440,16 @@ func _pre_battle() -> Array:
 
 func _turn2_hint() -> Array:
 	var lines: Array = []
-	if battle.get_unit("kain") != null or battle.get_unit("nina") != null:
+	var kain_wait := _waiting("kain")
+	var nina_wait := _waiting("nina")
+	if kain_wait and nina_wait:
 		lines.append(_l("缇娅", C_TIA, "凯因在东北角，妮娜在西南边的沙滩。……我得亲自过去【对话】。"))
-	if battle.get_unit("kain") != null:
+	elif kain_wait:
+		lines.append(_l("缇娅", C_TIA, "凯因在东北角。……我得亲自过去【对话】。"))
+	elif nina_wait:
+		lines.append(_l("缇娅", C_TIA, "妮娜在西南边的沙滩。……我得亲自过去【对话】。"))
+	var kain = battle.get_unit("kain")
+	if kain != null and kain.is_alive():
 		lines.append(_l("艾德里克", C_EDRIC, "栈桥上那个船老大，也许你的同伴认识？"))
 		lines.append(_l("缇娅", C_TIA, "布鲁诺……？凯因以前提过这个名字，是他的老酒友。让凯因去【说得】，准没错。"))
 	else:
@@ -451,10 +458,13 @@ func _turn2_hint() -> Array:
 
 
 func _pirates() -> Array:
-	return [
+	var lines: Array = [
 		_l("海盗", C_ENEMY, "港务官大人说了！抓到巫女的同党，赏金翻倍！兄弟们，上岸！"),
-		_l("葛温", C_GWEN, "连海盗都请来了？这港务官跟教会穿一条裤子！"),
 	]
+	var w := _first_here(["gwen", "lance", "oscar"])
+	if w != "":
+		lines.append(_ret(w, "连海盗都请来了？这港务官跟教会穿一条裤子！"))
+	return lines
 
 
 func _kain_back() -> Array:
@@ -552,17 +562,43 @@ func _post_battle() -> Array:
 		lines.append(_l("布鲁诺", C_BRUNO, "伙计们都救出来了！……好，说话算话。我的船，送你们去圣都！"))
 		lines.append(_l("布鲁诺", C_BRUNO, "大船进不了圣都的正港。不过下水道有个出口通到河里，我年轻时运私货走过。"))
 	else:
-		lines.append(_l("兰斯", C_LANCE, "港口里的船老大们说，只要付够钱，有人肯从下水道的出口把我们送进圣都。"))
-	var kain = battle.get_unit("kain")
-	var nina = battle.get_unit("nina")
-	if kain != null and kain.is_alive() and kain.is_player():
-		lines.append(_l("凯因", C_KAIN, "圣都……西里尔说过，他要去王都大书库等你。可小雀那丫头，说不定就在圣都。"))
-	if nina != null and nina.is_alive() and nina.is_player():
+		var w := _first_here(["lance", "oscar", "gwen"])
+		if w != "":
+			lines.append(_ret(w, "港口里的船老大们说，只要付够钱，有人肯从下水道的出口把我们送进圣都。"))
+		else:
+			lines.append(_l("艾德里克", C_EDRIC, "港口里的船老大们说，只要付够钱，有人肯从下水道的出口把我们送进圣都。"))
+	var cyril_ok: bool = _missing("cyril") and bool(Campaign.flags.get("ch7_cyril_library", true))
+	var sparrow_ok: bool = _missing("sparrow")
+	if _here("kain"):
+		if cyril_ok and sparrow_ok:
+			lines.append(_l("凯因", C_KAIN, "圣都……西里尔说过，他要去王都大书库等你。可小雀那丫头，说不定就在圣都。"))
+		elif cyril_ok:
+			lines.append(_l("凯因", C_KAIN, "西里尔说过，他要去王都大书库等你。……等圣都的事了了，再去找他。"))
+		elif sparrow_ok:
+			lines.append(_l("凯因", C_KAIN, "圣都……小雀那丫头，说不定就在圣都。"))
+	if _here("nina") and sparrow_ok and bool(Campaign.flags.get("ch7_sparrow_sewer", Campaign.has_member("sparrow"))):
 		lines.append(_l("妮娜", C_NINA, "白垣镇那晚，小雀说过「下水道」……她最熟悉那种地方。"))
-	lines.append(_l("缇娅", C_TIA, "西里尔、小雀……还有两个人没找回来。"))
+	var names: Array = []
+	if _missing("cyril"):
+		names.append(tr("西里尔"))
+	if sparrow_ok:
+		names.append(tr("小雀"))
+	if not names.is_empty():
+		lines.append(_l("缇娅", C_TIA, tr("%s……还没找回来。") % tr("、").join(PackedStringArray(names))))
 	lines.append(_l("艾德里克", C_EDRIC, "还有我的父亲。……所有的线，都通向圣都。"))
 	lines.append(_l("艾德里克", C_EDRIC, "出发吧。去圣都。"))
 	return lines
+
+
+## 还在地图上等缇娅去【对话】的老同伴（绿色、活着）
+func _waiting(id: String) -> bool:
+	var u = battle.get_unit(id)
+	return u != null and u.is_alive() and u.is_npc()
+
+
+## 白垣镇四散后还没找回来的同伴：入过队、剧情里还活着
+func _missing(id: String) -> bool:
+	return Campaign.has_member(id) and Campaign.alive_in_story(id)
 
 
 # ============ 开场与尾声 ============
@@ -584,7 +620,7 @@ func epilogue() -> Array:
 		ship.append(_l("布鲁诺", C_BRUNO, "前面那片黑乎乎的礁石后面，就是圣都下水道的出口。天亮前能到。"))
 	else:
 		ship.append(_l("", CB_NARR, "雇来的船夫一言不发，只顾着划桨。前面，是圣都下水道的出口。"))
-	ship.append(_l("缇娅", C_TIA, "……一个月前，我坐着铁笼车往圣都去。现在，我自己坐船回去。"))
+	ship.append(_l("缇娅", C_TIA, "……十来天前，我坐着铁笼车往圣都去。现在，我自己坐船过去。"))
 	ship.append(_l("艾德里克", C_EDRIC, "这一次，是去开门的。"))
 	return [
 		{"title": "通往圣都的海上", "mood": "night", "lines": ship},
@@ -594,3 +630,42 @@ func epilogue() -> Array:
 			_l("七号", CB_SEVEN, "……有人来了。"),
 		]},
 	]
+
+# ==================== 工具 ====================
+
+const _RET := {"lance": ["兰斯", C_LANCE], "gwen": ["葛温", C_GWEN], "oscar": ["奥斯卡", C_OSCAR]}
+
+
+## 我方、活着、在地图上
+func _here(id: String) -> bool:
+	var u = battle.get_unit(id)
+	return u != null and u.is_alive() and u.is_player()
+
+
+## 剧情里还活着：本章倒下的人名单状态要到尾声后才写回，先看地图上的结果
+func _alive(id: String) -> bool:
+	var u = battle.get_unit(id)
+	if u != null and u.is_player():
+		return u.is_alive() or bool(u.get_meta("retreated", false))
+	return Campaign.alive_in_story(id)
+
+
+## 依次找第一个此刻在地图上的人；都不在返回 ""
+func _first_here(ids: Array) -> String:
+	for id in ids:
+		if _here(id):
+			return id
+	return ""
+
+
+## 依次找第一个剧情里还活着的人；都不在返回 ""
+func _first_alive(ids: Array) -> String:
+	for id in ids:
+		if _alive(id):
+			return id
+	return ""
+
+
+## 菲恩家臣（兰斯 / 葛温 / 奥斯卡）说话
+func _ret(id: String, text: String) -> Dictionary:
+	return _l(_RET[id][0], _RET[id][1], text)

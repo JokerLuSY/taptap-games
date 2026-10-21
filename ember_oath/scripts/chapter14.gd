@@ -552,7 +552,7 @@ func _post_battle() -> Array:
 	lines.append(_l("艾德里克", C_EDRIC, "托你的福。……加雷斯，谢谢你。"))
 	lines.append(_l("加雷斯", C_GARETH, "谢早了。我有坏消息要带给你。……关于埃德蒙大人。"))
 	lines.append(_l("艾德里克", C_EDRIC, "……！"))
-	lines.append(_l("加雷斯", C_GARETH, "布罗登的密探在教会里有眼线。一个月前，教会从圣都押走了一个「贵客」——送去了黑石地牢。"))
+	lines.append(_l("加雷斯", C_GARETH, "布罗登的密探在教会里有眼线。前些日子，教会从圣都押走了一个「贵客」——送去了黑石地牢。"))
 	lines.append(_l("加雷斯", C_GARETH, "押送的人里，有一个戴面具的、不说话的家伙。……眼线说，那个人身上，有灰的味道。"))
 	lines.append(_l("缇娅", C_TIA, "黑石地牢……典狱长说的「更深的地方」，就是那里？"))
 	lines.append(_l("艾德里克", C_EDRIC, "去黑石地牢。……最近的路，是穿过风鸣峡谷。"))

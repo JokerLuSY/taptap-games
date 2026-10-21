@@ -45,6 +45,8 @@ static var _tex: ImageTexture = null
 
 var place := ""
 var from := ""
+## 已经去过 / 知道的地点：只画这些（没去过的地方不剧透）；空数组 = 全画
+var known: Array = []
 var _t := 0.0
 var _route_k := 0.0                 # 来路虚线画到哪（0–1）
 var _overlay: Control
@@ -125,9 +127,13 @@ static func land_texture() -> ImageTexture:
 	return _tex
 
 
-func setup(place_id: String, from_id: String, title: String) -> void:
+func setup(place_id: String, from_id: String, title: String, known_ids: Array = []) -> void:
 	place = place_id
 	from = from_id
+	known = known_ids.duplicate()
+	for id in [place, from]:
+		if id != "" and not id in known:
+			known.append(id)
 	name = "WorldMap"
 	position = Vector2.ZERO
 	size = Vector2(1280, 720)
@@ -150,6 +156,8 @@ func setup(place_id: String, from_id: String, title: String) -> void:
 	_overlay.draw.connect(_draw_overlay)
 	add_child(_overlay)
 	for id in PLACES:
+		if not _shown(id):
+			continue
 		var l := Label.new()
 		l.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 		l.text = tr(PLACES[id]["name"])
@@ -199,15 +207,22 @@ func _process(delta: float) -> void:
 		_overlay.queue_redraw()
 
 
+func _shown(id: String) -> bool:
+	return known.is_empty() or id in known
+
+
 func _draw_overlay() -> void:
 	for r in ROADS:
+		if not (_shown(r[0]) and _shown(r[1])):
+			continue
 		var a: Vector2 = PLACES[r[0]]["pos"]
 		var b: Vector2 = PLACES[r[1]]["pos"]
 		_dashes(a, b, Color(0.95, 0.88, 0.7, 0.45), 1.0)
 	if from != "" and PLACES.has(from) and PLACES.has(place):
 		_dashes(PLACES[from]["pos"], PLACES[place]["pos"], Color(1.0, 0.45, 0.25), _route_k, 4.0)
 	for id in PLACES:
-		_icon(id, PLACES[id]["pos"], PLACES[id]["icon"])
+		if _shown(id):
+			_icon(id, PLACES[id]["pos"], PLACES[id]["icon"])
 	if PLACES.has(place):
 		var c: Vector2 = PLACES[place]["pos"]
 		var r := 16.0 + 6.0 * (0.5 + 0.5 * sin(_t * 4.0))

@@ -520,7 +520,7 @@ func _wave5() -> Array:
 func _seven_first() -> Array:
 	return [
 		_l("七号", C_SEVEN, "……"),
-		_l("", C_NARR, "戴着面具的人一句话也没说。他的指尖上，灰烬凝成了爪子。"),
+		_l("", C_NARR, "戴着面具的人一句话也没说。她的指尖上，灰烬凝成了爪子。"),
 	]
 
 
@@ -559,7 +559,7 @@ func _seven_falls() -> Array:
 
 func _gerard_door() -> Array:
 	return [
-		_l("杰拉德", C_GERARD, "……门开了？这铁门，三个月没开过了。"),
+		_l("杰拉德", C_GERARD, "……门开了？这铁门，一个多月没开过了。"),
 	]
 
 
@@ -590,7 +590,7 @@ func _ivy_recruit(by_id: String) -> Array:
 	else:
 		lines.append(_l("艾薇", C_IVY, "你们是来救人的？……这年头，还有人往地牢里跑，真稀奇。"))
 	lines.append(_l("艾薇", C_IVY, "老婆子叫艾薇，教了一辈子不该教的魔法。教会说我「私藏火种」——没说错，我藏了一辈子。"))
-	lines.append(_l("艾薇", C_IVY, "这地牢里干的事，我听了三个月。……我老了，可我的火还没灭。带上我。"))
+	lines.append(_l("艾薇", C_IVY, "这地牢里干的事，我听了一个多月。……我老了，可我的火还没灭。带上我。"))
 	return lines
 
 

@@ -339,27 +339,39 @@ func _pre_battle() -> Array:
 
 
 func _turn2_hint() -> Array:
-	return [
-		_l("兰斯", C_LANCE, "书斋门口的那个灰袍子手里提着油罐。……拖得越久，越危险。"),
-		_l("艾德里克", C_EDRIC, "父亲的书斋，得我亲手打开。……我去东边大街，站到书斋门口【访问】。"),
-		_l("奥斯卡", C_OSCAR, "南门外的堡垒上还站着一个人，一动不动。那是领头的。……少主，别一个人冲过去。"),
-	]
+	var lines: Array = []
+	if _here("lance"):
+		lines.append(_l("兰斯", C_LANCE, "书斋门口的那个灰袍子手里提着油罐。……拖得越久，越危险。"))
+	lines.append(_l("艾德里克", C_EDRIC, "父亲的书斋，得我亲手打开。……我去东边大街，站到书斋门口【访问】。"))
+	var w := _first_here(["oscar", "lance", "gwen"])
+	if w != "":
+		lines.append(_ret(w, "南门外的堡垒上还站着一个人，一动不动。那是领头的。……少主，别一个人冲过去。"))
+	return lines
 
 
 func _wave3() -> Array:
-	return [
+	var lines: Array = [
 		_l("灰袍众", C_ENEMY, "东边来人了！把领主家的小子堵在城里，一个都别放出去！"),
-		_l("葛温", C_GWEN, "还有援兵？这些家伙到底来了多少人！"),
 	]
+	var w := _first_here(["gwen", "lance", "oscar"])
+	if w != "":
+		lines.append(_ret(w, "还有援兵？这些家伙到底来了多少人！"))
+	return lines
 
 
 func _study_burned() -> Array:
-	return [
+	var lines: Array = [
 		_l("", C_NARR, "领主书斋的窗子里窜出了火舌。一屋子的书和信，转眼就烧成了灰。"),
 		_l("艾德里克", C_EDRIC, "……父亲的笔记！"),
-		_l("兰斯", C_LANCE, "来不及了，少主！……领主大人出发前说过，他要先去雾沼那一带见一个人。我们还有线索。"),
-		_l("艾德里克", C_EDRIC, "……走。从南门出去。"),
 	]
+	var w := _first_here(["lance", "oscar", "gwen"])
+	flags["burn_by"] = w
+	if w != "":
+		lines.append(_ret(w, "来不及了，少主！……领主大人出发前说过，他要先去雾沼那一带见一个人。我们还有线索。"))
+	else:
+		lines.append(_l("艾德里克", C_EDRIC, "……来不及了。父亲出发前说过，他要先去雾沼那一带见一个人。线索还在。"))
+	lines.append(_l("艾德里克", C_EDRIC, "……走。从南门出去。"))
+	return lines
 
 
 func _study_not_edric(by: String) -> Array:
@@ -440,15 +452,23 @@ func _post_battle() -> Array:
 		_l("", C_NARR, "南门外。回头望去，城下町的火已经被扑灭了大半。"),
 	]
 	if flags.get("caspar_beaten", false):
-		lines.append(_l("葛温", C_GWEN, "那个领头的跑得真快！下次见面，我一定一枪捅穿他。"))
-	else:
+		if _here("gwen"):
+			lines.append(_l("葛温", C_GWEN, "那个领头的跑得真快！下次见面，我一定一枪捅穿他。"))
+	elif _here("lance"):
 		lines.append(_l("兰斯", C_LANCE, "南门打开了。……那个领头的没追来，是不屑，还是另有安排？"))
-	lines.append(_l("奥斯卡", C_OSCAR, "城里我已托付给副队长。卫队会守住菲恩城，等您和领主大人回来。"))
+	if _here("oscar"):
+		lines.append(_l("奥斯卡", C_OSCAR, "城里我已托付给副队长。卫队会守住菲恩城，等您和领主大人回来。"))
 	if visited.has(STUDY) and not flags.get("study_burned", false):
 		lines.append(_l("艾德里克", C_EDRIC, "父亲的笔记最后一页写着：去雾沼村，见那个「从研究所逃出来的人」。"))
-	else:
+	elif flags.get("burn_by", "") == "lance":
 		lines.append(_l("艾德里克", C_EDRIC, "笔记没能保住……可兰斯说得对，父亲出发前提过雾沼。"))
-	lines.append(_l("兰斯", C_LANCE, "雾沼村在东边的沼泽里，两天的路程。"))
+	else:
+		lines.append(_l("艾德里克", C_EDRIC, "笔记没能保住……可父亲出发前提过雾沼。"))
+	var w := _first_here(["lance", "oscar", "gwen"])
+	if w != "":
+		lines.append(_ret(w, "雾沼村在东边的沼泽里，两天的路程。"))
+	else:
+		lines.append(_l("", C_NARR, "雾沼村在东边的沼泽里，两天的路程。"))
 	lines.append(_l("艾德里克", C_EDRIC, "那就去雾沼。……父亲，等着我。"))
 	return lines
 
@@ -467,8 +487,47 @@ func epilogue() -> Array:
 	return [{"title": "圣都 · 大圣堂", "mood": "church", "lines": [
 		_l("塞拉斯", CB_SILAS, "大司祭大人。巫女已入笼。白垣镇的铁笼车，三日后进圣都。"),
 		_l("莫尔甘", CB_MORGAN, "辛苦了，塞拉斯。……菲恩那边呢？"),
-		_l("塞拉斯", CB_SILAS, "灰袍众回报：书斋烧了一半，领主之子带着三个家臣出了城。"),
+		_l("塞拉斯", CB_SILAS, "灰袍众回报：书斋烧了一半，领主之子带着家臣出了城。" if _first_alive(["lance", "gwen", "oscar"]) != "" else "灰袍众回报：书斋烧了一半，领主之子一个人出了城。"),
 		_l("莫尔甘", CB_MORGAN, "父亲在找圣器，儿子在找父亲。……都往同一个地方走，倒省了我们的事。"),
 		_l("莫尔甘", CB_MORGAN, "七号。那位领主大人，最近还安分吗？"),
 		_l("七号", CB_SEVEN, "……他不说话了。"),
 	]}]
+
+# ==================== 工具 ====================
+
+const _RET := {"lance": ["兰斯", C_LANCE], "gwen": ["葛温", C_GWEN], "oscar": ["奥斯卡", C_OSCAR]}
+
+
+## 我方、活着、在地图上
+func _here(id: String) -> bool:
+	var u = battle.get_unit(id)
+	return u != null and u.is_alive() and u.is_player()
+
+
+## 剧情里还活着：本章倒下的人名单状态要到尾声后才写回，先看地图上的结果
+func _alive(id: String) -> bool:
+	var u = battle.get_unit(id)
+	if u != null and u.is_player():
+		return u.is_alive() or bool(u.get_meta("retreated", false))
+	return Campaign.alive_in_story(id)
+
+
+## 依次找第一个此刻在地图上的人；都不在返回 ""
+func _first_here(ids: Array) -> String:
+	for id in ids:
+		if _here(id):
+			return id
+	return ""
+
+
+## 依次找第一个剧情里还活着的人；都不在返回 ""
+func _first_alive(ids: Array) -> String:
+	for id in ids:
+		if _alive(id):
+			return id
+	return ""
+
+
+## 菲恩家臣（兰斯 / 葛温 / 奥斯卡）说话
+func _ret(id: String, text: String) -> Dictionary:
+	return _l(_RET[id][0], _RET[id][1], text)

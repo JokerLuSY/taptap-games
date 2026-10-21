@@ -456,7 +456,12 @@ func _post_battle() -> Array:
 		lines.append(_l("", C_NARR, "团长的房间里，一把通体银白的长弓静静挂在墙上。"))
 	lines.append_array([
 		_l("", C_NARR, "得到了圣器「风之弓」。"),
-		_l("艾德里克", C_EDRIC, "第二件。……下一件是「地之斧」，在布罗登王城的宝库里。"),
+	])
+	if Campaign.flags.get("shield_lost", false):
+		lines.append(_l("艾德里克", C_EDRIC, "这一件，总算没让教会抢走。……下一件是「地之斧」，在布罗登王城的宝库里。"))
+	else:
+		lines.append(_l("艾德里克", C_EDRIC, "第二件。……下一件是「地之斧」，在布罗登王城的宝库里。"))
+	lines.append_array([
 		_l("加雷斯", C_GARETH, "……我家。"),
 		_l("加雷斯", C_GARETH, "教会的手，伸得比我想的还长。宰相奥斯瓦尔德最近的信，字里行间全是圣焰的味道。"),
 		_l("缇娅", C_TIA, "那就趁他们还没动手，先回去。"),

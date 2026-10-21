@@ -337,33 +337,50 @@ func on_defeat() -> void:
 # ==================== 台词 ====================
 
 func _pre_battle() -> Array:
-	return [
+	var lines: Array = [
 		_l("", C_NARR, "雾沼村。终年起雾的沼泽中间，一座只有几十户人家的小村子。"),
 		_l("", C_NARR, "一行人赶到的时候，村子里已经响起了喊杀声。"),
 		_l("沼泽强盗", C_ENEMY, "老大说了！先把粮抢光，再把房子一间间点了！一个活口都别留！"),
-		_l("葛温", C_GWEN, "强盗？这种穷村子，有什么好抢的！"),
-		_l("兰斯", C_LANCE, "……他们的斧子是新的，弓也是教会军械库的样式。这不是普通的强盗。"),
-		_l("奥斯卡", C_OSCAR, "有人出钱，让他们来烧村子。……灰袍众烧书斋，这些人烧村子。"),
-		_l("艾德里克", C_EDRIC, "父亲最后一次被人看见，就是在这里。……不能让他们把村子烧了！"),
-		_l("艾德里克", C_EDRIC, "去村长家问父亲的下落。其他人，把放火的强盗赶走！"),
 	]
+	if _here("gwen"):
+		lines.append(_l("葛温", C_GWEN, "强盗？这种穷村子，有什么好抢的！"))
+	if _here("lance"):
+		lines.append(_l("兰斯", C_LANCE, "……他们的斧子是新的，弓也是教会军械库的样式。这不是普通的强盗。"))
+	if _here("oscar"):
+		lines.append(_l("奥斯卡", C_OSCAR, "有人出钱，让他们来烧村子。……灰袍众烧书斋，这些人烧村子。"))
+	lines.append(_l("艾德里克", C_EDRIC, "父亲最后一次被人看见，就是在这里。……不能让他们把村子烧了！"))
+	lines.append(_l("艾德里克", C_EDRIC, "去村长家问父亲的下落。其他人，把放火的强盗赶走！"))
+	return lines
 
 
 func _turn2_hint() -> Array:
-	return [
-		_l("兰斯", C_LANCE, "少主，村子南口那间大屋子是村长家。门口有自卫队的标记。"),
-		_l("艾德里克", C_EDRIC, "我亲自去。……站到门口【访问】。"),
-		_l("葛温", C_GWEN, "看那几个守在民居旁边的强盗，手里都拿着火把！拖久了，房子就保不住了。"),
-		_l("奥斯卡", C_OSCAR, "要么先去访问，要么把放火的家伙解决掉，或者把他们引开。"),
-	]
+	var lines: Array = []
+	var w := _first_here(["lance", "oscar", "gwen"])
+	if w != "":
+		lines.append(_ret(w, "少主，村子南口那间大屋子是村长家。门口有自卫队的标记。"))
+	else:
+		lines.append(_l("", C_NARR, "村子南口那间大屋子是村长家。门口有自卫队的标记。"))
+	lines.append(_l("艾德里克", C_EDRIC, "我亲自去。……站到门口【访问】。"))
+	w = _first_here(["gwen", "lance", "oscar"])
+	if w != "":
+		lines.append(_ret(w, "看那几个守在民居旁边的强盗，手里都拿着火把！拖久了，房子就保不住了。"))
+	else:
+		lines.append(_l("", C_NARR, "守在民居旁边的强盗，手里都拿着火把。拖久了，房子就保不住了。"))
+	w = _first_here(["oscar", "lance", "gwen"])
+	if w != "":
+		lines.append(_ret(w, "要么先去访问，要么把放火的家伙解决掉，或者把他们引开。"))
+	return lines
 
 
 func _house_burned() -> Array:
-	return [
+	var lines: Array = [
 		_l("", C_NARR, "火把扔上了茅草屋顶。一户民居在浓烟里塌了下去。"),
 		_l("艾德里克", C_EDRIC, "……可恶！"),
-		_l("兰斯", C_LANCE, "还有其他人家。少主，别停下！"),
 	]
+	var w := _first_here(["lance", "oscar", "gwen"])
+	if w != "":
+		lines.append(_ret(w, "还有其他人家。少主，别停下！"))
+	return lines
 
 
 func _mira_door() -> Array:
@@ -379,7 +396,7 @@ func _visit_mira() -> Array:
 		_l("米拉", C_MIRA, "……埃德蒙大人的儿子？"),
 		_l("米拉", C_MIRA, "我是村长的女儿，米拉，村里自卫队的队长。……你父亲来过这里。半个月前。"),
 		_l("米拉", C_MIRA, "他在我家住了一晚，问的全是北边山里那座废弃研究所的事。教会十年前封了那里，说是闹瘟疫。"),
-		_l("米拉", C_MIRA, "第二天一早，他一个人往北边的山里去了。说是要见一个「从研究所逃出来的人」。……之后，再也没回来。"),
+		_l("米拉", C_MIRA, "第二天一早，他带着几个骑士往北边的山里去了。说是要见一个「从研究所逃出来的人」。……之后，再也没回来。"),
 		_l("艾德里克", C_EDRIC, "废弃的研究所……"),
 		_l("米拉", C_MIRA, "他走后没几天，这些强盗就来了。他们一直在问：「那个领主跟谁说过话」。"),
 		_l("米拉", C_MIRA, "……带上我。我认得去研究所的路。我也想知道，这个村子到底是被谁盯上的。"),
@@ -438,15 +455,26 @@ func _post_battle() -> Array:
 	]
 	var burned: int = flags.get("burned", []).size()
 	if burned == 0:
-		lines.append(_l("兰斯", C_LANCE, "一户都没烧掉。……少主，我们守住了。"))
+		var w := _first_here(["lance", "oscar", "gwen"])
+		if w != "":
+			lines.append(_ret(w, "一户都没烧掉。……少主，我们守住了。"))
+		else:
+			lines.append(_l("艾德里克", C_EDRIC, "一户都没烧掉。……我们守住了。"))
 	else:
-		lines.append(_l("奥斯卡", C_OSCAR, "烧掉了几户人家。……人都还在，房子还能再盖。"))
-	var mira = battle.get_unit("mira")
-	if mira != null and mira.is_alive() and mira.is_player():
+		var w := _first_here(["oscar", "lance", "gwen"])
+		if w != "":
+			lines.append(_ret(w, "烧掉了几户人家。……人都还在，房子还能再盖。"))
+		else:
+			lines.append(_l("艾德里克", C_EDRIC, "烧掉了几户人家。……人都还在，房子还能再盖。"))
+	if _here("mira"):
 		lines.append(_l("米拉", C_MIRA, "斯卡尔说「穿灰袍的」……雇他们的人，和烧你家书斋的，是同一伙。"))
 		lines.append(_l("米拉", C_MIRA, "研究所在北边的山里，一天的路。我带路。"))
 	else:
-		lines.append(_l("兰斯", C_LANCE, "村长说，领主大人往北边的山里去了。那里有一座教会封掉的研究所。"))
+		var w := _first_here(["lance", "oscar", "gwen"])
+		if w != "":
+			lines.append(_ret(w, "村长说，领主大人往北边的山里去了。那里有一座教会封掉的研究所。"))
+		else:
+			lines.append(_l("艾德里克", C_EDRIC, "村长说，父亲往北边的山里去了。那里有一座教会封掉的研究所。"))
 	lines.append(_l("艾德里克", C_EDRIC, "教会说那里闹过瘟疫……可半个月前，那里的灯还亮着。"))
 	lines.append(_l("艾德里克", C_EDRIC, "去研究所。父亲要见的那个人，也许还在那里。"))
 	return lines
@@ -470,3 +498,42 @@ func epilogue() -> Array:
 		_l("维克多", C_VICTOR, "……来得真快。教会的「清理部队」。"),
 		_l("维克多", C_VICTOR, "也好。这一次，我不逃了。"),
 	]}]
+
+# ==================== 工具 ====================
+
+const _RET := {"lance": ["兰斯", C_LANCE], "gwen": ["葛温", C_GWEN], "oscar": ["奥斯卡", C_OSCAR]}
+
+
+## 我方、活着、在地图上
+func _here(id: String) -> bool:
+	var u = battle.get_unit(id)
+	return u != null and u.is_alive() and u.is_player()
+
+
+## 剧情里还活着：本章倒下的人名单状态要到尾声后才写回，先看地图上的结果
+func _alive(id: String) -> bool:
+	var u = battle.get_unit(id)
+	if u != null and u.is_player():
+		return u.is_alive() or bool(u.get_meta("retreated", false))
+	return Campaign.alive_in_story(id)
+
+
+## 依次找第一个此刻在地图上的人；都不在返回 ""
+func _first_here(ids: Array) -> String:
+	for id in ids:
+		if _here(id):
+			return id
+	return ""
+
+
+## 依次找第一个剧情里还活着的人；都不在返回 ""
+func _first_alive(ids: Array) -> String:
+	for id in ids:
+		if _alive(id):
+			return id
+	return ""
+
+
+## 菲恩家臣（兰斯 / 葛温 / 奥斯卡）说话
+func _ret(id: String, text: String) -> Dictionary:
+	return _l(_RET[id][0], _RET[id][1], text)

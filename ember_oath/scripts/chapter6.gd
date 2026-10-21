@@ -299,10 +299,12 @@ func _pre_battle() -> Array:
 		_l("圣焰教会兵", C_ENEMY, "私藏火种的西里尔！旅店已经被围住了，出来受审！"),
 		_l("西里尔", C_CYRIL, "受审？上回你们审的那个老学者，审完就只剩一把灰了。"),
 		_l("奥古斯特", C_BOSS, "教会督察奥古斯特在此。火种只属于圣焰，私藏者与异端同罪——给我把院子烧了。"),
-		_l("妮娜", C_NINA, "又是教会。……他们要烧的那个人，是什么人？"),
-		_l("诺雅", C_NOYA, "私藏火种的人……教会说，是会把火带给不该拿火的人。"),
-		_l("缇娅", C_TIA, "被教会追着跑、因为火被定罪……这不就是我吗。"),
 	]
+	if battle.get_unit("nina") != null:
+		lines.append(_l("妮娜", C_NINA, "又是教会。……他们要烧的那个人，是什么人？"))
+	if battle.get_unit("noya") != null:
+		lines.append(_l("诺雅", C_NOYA, "私藏火种的人……教会说，是会把火带给不该拿火的人。"))
+	lines.append(_l("缇娅", C_TIA, "被教会追着跑、因为火被定罪……这不就是我吗。"))
 	if battle.get_unit("kain") != null:
 		lines.append(_l("凯因", C_KAIN, "要插手？那个督察身上是全副重甲，剑砍上去跟砍铁砧差不多。"))
 		lines.append(_l("缇娅", C_TIA, "那就让会用火的人去对付他。……先冲进院子，把那个人护住！"))
@@ -316,7 +318,7 @@ func _turn2_hint() -> Array:
 		_l("西里尔", C_CYRIL, "……你们是谁？不像教会的人。"),
 		_l("缇娅", C_TIA, "路过的。也被教会追着。你别乱跑，我们过去接你！"),
 		_l("西里尔", C_CYRIL, "那就听好：山口上那个铁罐子，剑和枪都不好使，得用魔法烧他。"),
-		_l("诺雅", C_NOYA, "店主还在主屋门口……站到门口那一格【访问】，问问他有没有事。"),
+		_l("诺雅" if _here("noya") else "缇娅", C_NOYA if _here("noya") else C_TIA, "店主还在主屋门口……站到门口那一格【访问】，问问他有没有事。"),
 	]
 
 
@@ -365,7 +367,7 @@ func _post_battle() -> Array:
 		_l("西里尔", C_CYRIL, "王都的大书库里，压着教会八百年来不让人看的书。我想去看，可一个人去就是送死。"),
 		_l("西里尔", C_CYRIL, "带上我吧。我替你们烧铁罐子，你们替我挡长枪。"),
 	]
-	if battle.get_unit("noya") != null and battle.get_unit("noya").is_player():
+	if _here("noya"):
 		lines.append(_l("诺雅", C_NOYA, "……教会的人，好像越来越多了。"))
 	lines.append(_l("", C_NARR, "第二天一早，雪停了。一行人翻过山口，王都只剩几天的路程。"))
 	return lines
@@ -398,7 +400,7 @@ func epilogue() -> Array:
 	return [{"title": "圣都 · 大圣堂地下", "mood": "dungeon", "lines": [
 		_l("", CB_NARR, "圣都，大圣堂地下。没有窗的长廊里，一排排铁笼静静立着。"),
 		_l("塞拉斯", CB_SILAS, "督察奥古斯特战死。火种贩子西里尔，跟巫女走到了一起。"),
-		_l("莫尔甘", CB_MORGAN, "一个读旧书的，一个拿柴斧的，一个哭鼻子的修女……她身边的人，越来越像样了。"),
+		_l("莫尔甘", CB_MORGAN, _morgan_party_line()),
 		_l("塞拉斯", CB_SILAS, "……要属下再带人上山？"),
 		_l("莫尔甘", CB_MORGAN, "不必。去王都，必经白垣镇。把笼子运过去，让镇子等她。"),
 		_l("塞拉斯", CB_SILAS, "笼子？大人，那孩子她——"),
@@ -406,3 +408,32 @@ func epilogue() -> Array:
 		_l("塞拉斯", CB_SILAS, "……不敢。"),
 		_l("莫尔甘", CB_MORGAN, "那就去吧。这一次，我要她活着走进圣都。"),
 	]}]
+
+
+## 莫尔甘点评缇娅身边的人：只提还活着的
+func _morgan_party_line() -> String:
+	var nina := _alive("nina")
+	var noya := _alive("noya")
+	if nina and noya:
+		return "一个读旧书的，一个拿弓的猎户女儿，一个哭鼻子的修女……她身边的人，越来越像样了。"
+	if nina:
+		return "一个读旧书的，一个拿弓的猎户女儿……她身边的人，越来越像样了。"
+	if noya:
+		return "一个读旧书的，一个哭鼻子的修女……她身边的人，越来越像样了。"
+	return "一个读旧书的火种贩子……她身边的人，越来越像样了。"
+
+
+# ==================== 工具 ====================
+
+## 我方、活着、在地图上
+func _here(id: String) -> bool:
+	var u = battle.get_unit(id)
+	return u != null and u.is_alive() and u.is_player()
+
+
+## 剧情里还活着：本章倒下的人名单状态要到尾声后才写回，先看地图上的结果
+func _alive(id: String) -> bool:
+	var u = battle.get_unit(id)
+	if u != null and u.is_player():
+		return u.is_alive() or bool(u.get_meta("retreated", false))
+	return Campaign.alive_in_story(id)

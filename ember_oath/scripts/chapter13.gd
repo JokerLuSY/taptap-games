@@ -478,9 +478,9 @@ func _pre_battle() -> Array:
 	lines.append(_l("缇娅", C_TIA, "上一回，我差点被装在笼子里送进这座城。……这一回，是我自己走进来的。"))
 	if mode == "here":
 		if flags.get("sparrow_back", false):
-			lines.append(_l("小雀", C_SPARROW, "——你们可算来了！我在这底下蹲了半个月，耗子都认识我了！"))
+			lines.append(_l("小雀", C_SPARROW, "——你们可算来了！我在这底下蹲了这些天，耗子都认识我了！"))
 			lines.append(_l("缇娅", C_TIA, "小雀？！你怎么会在这儿……"))
-			lines.append(_l("小雀", C_SPARROW, "那天晚上在白垣镇，我钻水道跑掉以后，就一路跟着铁笼车的车辙走。车辙进了圣都，我就进了下水道。"))
+			lines.append(_l("小雀", C_SPARROW, "那天晚上在白垣镇，我钻水道跑掉以后，就一路跟着铁笼车的车辙走。车辙半路拐了弯，我跟丢了——可那笼车本来是要往圣都送的，我就先钻进了这儿的下水道。"))
 			lines.append(_l("小雀", C_SPARROW, "这底下的路，我画了满满一墙。……我知道你会来的。你说过，活着才能再见嘛。"))
 			lines.append(_l("缇娅", C_TIA, "……嗯。谢谢你，小雀。"))
 		else:
@@ -498,12 +498,18 @@ func _pre_battle() -> Array:
 	else:
 		lines.append(_l("老水道工", C_NPC, "你们就是要进审判所的人？……我在这水道里干了四十年，那些铁门的锁，都是我看着装上的。"))
 		lines.append(_l("", C_NARR, "老人塞过来两把钥匙。"))
-		lines.append(_l("老水道工", C_NPC, "前几天，他们又往里头拖了一个抱着烧焦的书的年轻人。……能救就救吧。"))
-	lines.append(_l("缇娅", C_TIA, "烧焦的书……是西里尔！他说过要去王都大书库等我们的。"))
-	if Campaign.alive_in_story("noya"):
+		lines.append(_l("老水道工", C_NPC, "前几天，他们又往里头拖了一个抱着烧焦的书的人。……能救就救吧。"))
+	if flags.get("cyril_cell", false):
+		lines.append(_l("缇娅", C_TIA, "烧焦的书……是西里尔！他说过要去王都大书库等我们的。"))
+	else:
+		lines.append(_l("缇娅", C_TIA, "抱着烧焦的书……又是一个因为「火」被关起来的人。能救，就救出来。"))
+	if _here("noya"):
 		lines.append(_l("诺雅", C_NOYA, "圣都的夜空，是天马骑士团巡逻的。……我的姐姐，就在骑士团里。"))
 		lines.append(_l("诺雅", C_NOYA, "如果真的遇上她——请让我去跟她说。"))
-	lines.append(_l("艾德里克", C_EDRIC, "人少，就不能硬拼。救出西里尔，查清父亲的下落，然后从东边的出口水门离开。"))
+	if flags.get("cyril_cell", false):
+		lines.append(_l("艾德里克", C_EDRIC, "人少，就不能硬拼。救出西里尔，查清父亲的下落，然后从东边的出口水门离开。"))
+	else:
+		lines.append(_l("艾德里克", C_EDRIC, "人少，就不能硬拼。救出牢里的人，查清父亲的下落，然后从东边的出口水门离开。"))
 	return lines
 
 
@@ -549,7 +555,7 @@ func _puppets_wake() -> Array:
 		_l("缇娅", C_TIA, "那是……人？还活着吗？"),
 	]
 	if _here("victor"):
-		lines.append(_l("维克多", C_VICTOR, "……灰烬傀儡。我在研究所的笔记里写过它们，可亲眼看到，还是第一次。"))
+		lines.append(_l("维克多", C_VICTOR, "……灰烬傀儡。当年在研究所，我亲手往槽里调过灰。可亲眼看到它们动起来，还是第一次。"))
 		lines.append(_l("维克多", C_VICTOR, "用灰烬魔法把活人烧空，只留下会动的躯壳。不疼、不怕、不会停——也不会再记得自己是谁。"))
 		lines.append(_l("艾德里克", C_EDRIC, "教会……在圣都的地底下，做这种事？"))
 		lines.append(_l("维克多", C_VICTOR, "你父亲追查的，就是这个。……小心，它们守备很硬，用魔法打。"))
@@ -557,7 +563,7 @@ func _puppets_wake() -> Array:
 		lines.append(_l("艾德里克", C_EDRIC, "维克多说过的「灰烬傀儡」……原来是真的。把活人烧空，只剩下会动的躯壳。"))
 		lines.append(_l("艾德里克", C_EDRIC, "父亲追查的，就是这个吗……！它们身子很硬，用魔法打！"))
 	else:
-		lines.append(_l("艾德里克", C_EDRIC, "父亲的笔记里画过这样的东西……「灰烬傀儡」。把活人烧空，只剩下会动的躯壳。"))
+		lines.append(_l("艾德里克", C_EDRIC, "研究所监察室的记录里画过这样的东西……「灰烬傀儡」。把活人烧空，只剩下会动的躯壳。"))
 		lines.append(_l("艾德里克", C_EDRIC, "教会竟然在圣都的地底下……！它们身子很硬，用魔法打！"))
 	lines.append(_l("缇娅", C_TIA, "……我身上的火，在发抖。它们身上，也有火的味道。"))
 	return lines
@@ -626,7 +632,7 @@ func _cyril_recruit(by_id: String) -> Array:
 func _prisoner() -> Array:
 	var lines: Array = [
 		_l("老学者", C_NPC, "……门？门开了？你们不是审判所的人？"),
-		_l("老学者", C_NPC, "我只是在家里多藏了一本讲火的书，就被关了三年。……这个，你们拿去。"),
+		_l("老学者", C_NPC, "我只是在家里多藏了一本讲火的书，前几天就被拖进了这里。……这个，你们拿去。"),
 		_l("老学者", C_NPC, "是我藏在稻草底下的。在这里点不着，在外面——总有人能点着。"),
 	]
 	if Campaign.status_of("cyril") == "dead":
@@ -671,7 +677,7 @@ func _post_battle() -> Array:
 	if Campaign.alive_in_story("bruno"):
 		lines.append(_l("布鲁诺", C_BRUNO, "上船！快！钟楼那边已经开始敲了！"))
 	if _here("cyril"):
-		lines.append(_l("西里尔", C_CYRIL, "三个月来第一次吹到风。……原来外面的风是这个味道。"))
+		lines.append(_l("西里尔", C_CYRIL, "关了这些天，总算又吹到风了。……原来外面的风是这个味道。"))
 	if _here("selene"):
 		lines.append(_l("赛莲", C_SELENE, "骑士团很快会发现我没回去。……天马在天上，比船快。我替你们看着后面。"))
 		lines.append(_l("诺雅", C_NOYA, "姐姐……谢谢你。"))

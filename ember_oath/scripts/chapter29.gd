@@ -201,11 +201,11 @@ func talk_lines(key: String) -> Array:
 				_l("莉莉丝", C_LILITH, "……那就好。我还以为要排队呢。"),
 			]
 	return [
-		_l("巴尔托", C_BALTO, "丫头。我抱你出那座城的那天，你娘最后跟我说了一句话。"),
+		_l("巴尔托", C_BALTO, "丫头。老夫抱你出那座城的那天，你娘最后跟老夫说了一句话。"),
 		_l("缇娅", C_TIA, "……我娘？"),
 		_l("巴尔托", C_BALTO, "她说：「别告诉她，她的血是钥匙。告诉她，她的火是暖的。」"),
 		_l("缇娅", C_TIA, "……"),
-		_l("巴尔托", C_BALTO, "我瞒了你十几年前半句。后半句……现在告诉你了。"),
+		_l("巴尔托", C_BALTO, "老夫瞒了你十几年前半句。后半句……现在告诉你了。"),
 		_l("缇娅", C_TIA, "……嗯。是暖的。我知道。"),
 	]
 
@@ -332,9 +332,15 @@ func epilogue() -> Array:
 	var camp: Array = [
 		_l("", CB_NARR, "决战前夜。神殿外的山坡上，一行人点起了最后一堆营火。"),
 		_l("加雷斯", C_GARETH, "喂，打完了干什么？我先说：回布罗登，请所有人吃烤全羊。"),
-		_l("艾德里克", C_EDRIC, "我回菲恩城，把父亲的剑挂回书房。……然后，去灰岩村。"),
-		_l("缇娅", C_TIA, "那我回灰岩村。哈洛说房子盖了十七间，我要去数一数。"),
 	]
+	if Campaign.flags.get("fenn_sword", Campaign.flags.get("roland_joined", false)):
+		camp.append(_l("艾德里克", C_EDRIC, "我回菲恩城，把父亲的剑挂回书房。……然后，去灰岩村。"))
+	else:
+		camp.append(_l("艾德里克", C_EDRIC, "我回菲恩城，替父亲把书房收拾干净。……然后，去灰岩村。"))
+	if Campaign.flags.get("harlo_back", false):
+		camp.append(_l("缇娅", C_TIA, "那我回灰岩村。哈洛说房子盖了十七间，我要去数一数。"))
+	else:
+		camp.append(_l("缇娅", C_TIA, "那我回灰岩村。不管村子变成了什么样子，那里都是我的家。"))
 	if _here("seven") or Campaign.flags.get("seven_joined", false):
 		camp.append(_l("七号", CB_SEVEN, "……我，不知道要去哪里。"))
 		camp.append(_l("缇娅", C_TIA, "那就跟我回去。灰岩村冬天很冷——正好需要一点火。"))

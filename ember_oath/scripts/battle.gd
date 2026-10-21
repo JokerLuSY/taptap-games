@@ -2325,6 +2325,9 @@ func _game_over() -> void:
 
 
 func _show_end(title: String, sub: String) -> void:
+	# 结算画面上不再叠着没关的教程提示框
+	if tutorial != null and tutorial.is_showing():
+		tutorial._hide()
 	end_title.text = title
 	end_sub.text = sub
 	hide_banner()
@@ -2415,7 +2418,13 @@ func play_prologue() -> void:
 	ui.add_child(wm)
 	SafeArea.fit(wm)
 	ui.move_child(wm, dialogue.get_index())
-	wm.setup(str(pr.get("place", "")), str(pr.get("from", "")), tr(chapter.CHAPTER_TITLE))
+	# 只画去过的地方：本章地点和来处记进战役旗标
+	var seen: Array = Campaign.flags.get("places_seen", [])
+	for id in [str(pr.get("place", "")), str(pr.get("from", ""))]:
+		if id != "" and not id in seen:
+			seen.append(id)
+	Campaign.flags["places_seen"] = seen
+	wm.setup(str(pr.get("place", "")), str(pr.get("from", "")), tr(chapter.CHAPTER_TITLE), seen)
 	await wm.intro()
 	await play_dialogue(pr.get("lines", []))
 	await wm.outro()

@@ -223,6 +223,7 @@ func _volunteers_arrive() -> void:
 		o.has_acted = false
 		o.queue_redraw()
 	flags["balto_back"] = "balto" in came
+	flags["harlo_back"] = "harlo" in came
 	await battle.play_dialogue(_volunteer_lines(came))
 
 
@@ -292,28 +293,32 @@ func talks() -> Array:
 
 func talk_lines(key: String) -> Array:
 	match key:
+		"harlo_tia_23":
+			var lines: Array = [
+				_l("哈洛", C_HARLO, "缇娅姐！村子……村子重建好了！房子盖了十七间，井也挖好了！"),
+				_l("缇娅", C_TIA, "十七间？……哈洛，你长高了好多。"),
+			]
+			if _in_story("bandit6"):
+				lines.append(_l("哈洛", C_HARLO, "托比也长了！就是还那么怕疼。……我们说好了，这次要把你接回去，一起看新房子。"))
+			else:
+				lines.append(_l("哈洛", C_HARLO, "……托比没能等到这一天。所以这次，我一定要把你接回去，一起看新房子。"))
+			lines.append(_l("缇娅", C_TIA, "嗯。一起回去。"))
+			return lines
 		"balto_tia_23":
 			return [
 				_l("缇娅", C_TIA, "……巴尔托。"),
 				_l("巴尔托", C_BALTO, "瘦了。脸色也差。……那帮人没给你饭吃？"),
 				_l("缇娅", C_TIA, "第一句话就是这个？你的伤呢？渡口分开的时候，你连马都上不去。"),
-				_l("巴尔托", C_BALTO, "早好了。……好吧，没全好。可你被人关在塔里，我还在村里劈柴，那才叫要命。"),
+				_l("巴尔托", C_BALTO, "早好了。……好吧，没全好。可你被人关在塔里，老夫还在村里劈柴，那才叫要命。"),
 				_l("缇娅", C_TIA, "……笨蛋。"),
-				_l("巴尔托", C_BALTO, "嗯。一辈子都改不了的那种。……走吧，丫头。这次，我站在你后面。"),
-			]
-		"harlo_tia_23":
-			return [
-				_l("哈洛", C_HARLO, "缇娅姐！村子……村子重建好了！房子盖了十七间，井也挖好了！"),
-				_l("缇娅", C_TIA, "十七间？……哈洛，你长高了好多。"),
-				_l("哈洛", C_HARLO, "托比也长了！就是还那么怕疼。……我们说好了，这次要把你接回去，一起看新房子。"),
-				_l("缇娅", C_TIA, "嗯。一起回去。"),
+				_l("巴尔托", C_BALTO, "嗯。一辈子都改不了的那种。……走吧，丫头。这次，老夫站在你后面。"),
 			]
 	return [
 		_l("奥瑞恩", C_ORION, "老伙计，你的枪尖抖了。"),
 		_l("巴尔托", C_BALTO, "是你的眼睛花了。……奥瑞恩，你本来不用来的。"),
-		_l("奥瑞恩", C_ORION, "二十年前那座城，我们俩守到了最后一个人。这次换成一个丫头，我总不能缺席。"),
+		_l("奥瑞恩", C_ORION, "十七年前那座城，我们俩守到了最后一个人。这次换成一个丫头，我总不能缺席。"),
 		_l("巴尔托", C_BALTO, "……谢了。"),
-		_l("奥瑞恩", C_ORION, "等打完了，请我喝酒。灰岩村的麦酒，你吹了二十年。"),
+		_l("奥瑞恩", C_ORION, "等打完了，请我喝酒。灰岩村的麦酒，我在山路上听村里人吹了一路。"),
 	]
 
 
@@ -322,6 +327,7 @@ func on_victory() -> void:
 	Campaign.flags["tia_rescued"] = true
 	Campaign.flags["tia_taken"] = false
 	Campaign.flags["balto_back"] = flags.get("balto_back", false)
+	Campaign.flags["harlo_back"] = flags.get("harlo_back", false)
 
 
 # ==================== 台词 ====================
@@ -371,13 +377,16 @@ func _volunteer_lines(came: Array) -> Array:
 	if "balto" in came:
 		lines.append_array([
 			_l("巴尔托", C_BALTO, "灰岩村的巴尔托，带着村里的人来了！"),
-			_l("艾德里克", C_EDRIC, "巴尔托……缇娅的养父！渡口那天，您伤得那么重——"),
-			_l("巴尔托", C_BALTO, "你就是渡口那个小子。……长成骑士的样子了。缇娅在哪？"),
+			_l("艾德里克", C_EDRIC, "巴尔托……缇娅的养父！听说您为她挡了一刀，伤得那么重——"),
+			_l("巴尔托", C_BALTO, "你就是北山道那个小子。……长成骑士的样子了。缇娅在哪？"),
 			_l("艾德里克", C_EDRIC, "塔顶。……对不起，是我没护住她。"),
 			_l("巴尔托", C_BALTO, "道歉留着以后说。现在，把她带回来。"),
 		])
 	elif _in_story("balto"):
-		lines.append(_l("哈洛", C_HARLO, "巴尔托大叔的伤还没好，留在山路口指挥义勇兵！他让我们先来！"))
+		if "harlo" in came:
+			lines.append(_l("哈洛", C_HARLO, "巴尔托先生的伤还没好，留在山路口指挥义勇兵！他让我们先来！"))
+		else:
+			lines.append(_l("", C_NARR, "巴尔托的伤还没好，留在山路口指挥义勇兵。"))
 	if "harlo" in came:
 		lines.append(_l("哈洛", C_HARLO, "哈洛也来了！斧头磨了一整个冬天！"))
 	if "bandit6" in came:
@@ -415,7 +424,7 @@ func _tia_freed(by_id: String) -> Array:
 		"balto":
 			lines.append_array([
 				_l("缇娅", C_TIA, "巴……巴尔托？！你怎么会在这儿——你的伤！"),
-				_l("巴尔托", C_BALTO, "闭嘴，跟我走。……教你的东西你一样没忘吧？握剑的手往下压半寸。"),
+				_l("巴尔托", C_BALTO, "闭嘴，跟老夫走。……教你的东西你一样没忘吧？握剑的手往下压半寸。"),
 				_l("缇娅", C_TIA, "……嗯。没忘。"),
 			])
 		"gareth":
@@ -444,7 +453,7 @@ func _boss(foe_id: String) -> Array:
 		lines.append(_l("缇娅", C_TIA, "你每天在楼下烧火。今天，换我来烧。"))
 	elif foe_id == "balto":
 		lines.append(_l("赫克托", C_BOSS, "老头子，你这把年纪，不在村里等死，跑来送死？"))
-		lines.append(_l("巴尔托", C_BALTO, "我年轻的时候，守过比这结实十倍的门。"))
+		lines.append(_l("巴尔托", C_BALTO, "老夫年轻的时候，守过比这结实十倍的门。"))
 	else:
 		lines.append(_l("赫克托", C_BOSS, "城防司令的盾，八年来没让任何人过去。"))
 	return lines
@@ -465,7 +474,7 @@ func _post_battle() -> Array:
 	if _here("balto"):
 		lines.append(_l("巴尔托", C_BALTO, "丫头，回去吗？村子盖好了。"))
 		lines.append(_l("缇娅", C_TIA, "……还不行。莫尔甘说过，满月那天，不灭之火会醒过来。我得去看看，那团火到底想要什么。"))
-		lines.append(_l("巴尔托", C_BALTO, "……就知道你会这么说。那我跟着。"))
+		lines.append(_l("巴尔托", C_BALTO, "……就知道你会这么说。那老夫跟着。"))
 	if _here("orion"):
 		lines.append(_l("奥瑞恩", C_ORION, "我也跟着。巴尔托的酒还没请。"))
 	lines.append_array([

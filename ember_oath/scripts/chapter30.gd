@@ -311,7 +311,8 @@ func true_ending() -> bool:
 		and bool(Campaign.flags.get("seven_named", false))
 
 
-## 七号在普通结局里的去向："dead" 第 27 章战死 / "ash" 入队但没能陪到最后 / "left" 陪到最后但还没有名字 / "none" 从没见过
+## 七号在普通结局里的去向："dead" 第 27 章战死 / "rest" 入队后重伤撤退（转幕后：灰烬还在，沉睡未醒）/
+## "ash" 入队但没能陪到最后（以防万一的兜底）/ "left" 陪到最后但还没有名字 / "none" 从没见过
 func seven_fate() -> String:
 	if Campaign.flags.get("seven_dead", false):
 		return "dead"
@@ -320,6 +321,8 @@ func seven_fate() -> String:
 	var s = battle.get_unit("seven")
 	if s != null and s.is_alive() and s.is_player():
 		return "left"
+	if Campaign.status_of("seven") == "retired" or (s != null and s.get_meta("retreated", false)):
+		return "rest"
 	return "ash"
 
 
@@ -426,7 +429,10 @@ func _boss(foe_id: String) -> Array:
 			lines.append(_l("缇娅", C_TIA, "她没有死。她一直在这团火里——等着有人来接她回家。"))
 		"edric":
 			lines.append(_l("莫尔甘·炎龙", C_MORGAN, "菲恩家的孩子。你父亲没走完的路，你也走不完。"))
-			lines.append(_l("艾德里克", C_EDRIC, "父亲的剑说，它是用来守护的。……今天，它守护的是所有人。"))
+			if Campaign.flags.get("fenn_sword", Campaign.flags.get("roland_joined", false)):
+				lines.append(_l("艾德里克", C_EDRIC, "父亲的剑说，它是用来守护的。……今天，它守护的是所有人。"))
+			else:
+				lines.append(_l("艾德里克", C_EDRIC, "父亲说过，剑是用来守护的。……今天，我守护的是所有人。"))
 		"gareth":
 			lines.append(_l("莫尔甘·炎龙", C_MORGAN, "布罗登的王子。你父王的宫廷里，有一半是我的人。"))
 			lines.append(_l("加雷斯", C_GARETH, "那就回去以后再清理。先把你这一半劈了！"))
@@ -484,6 +490,8 @@ func _finale_normal() -> Array:
 	match str(flags.get("fate", "")):
 		"left":
 			lines.append(_l("七号", C_SEVEN, "……缇娅。我想，我还缺一样东西。等我找到了，再回来。"))
+		"rest":
+			lines.append(_l("缇娅", C_TIA, "七号……她伤得太重，到现在还没醒。……要是她在这里就好了。"))
 		"ash":
 			lines.append(_l("缇娅", C_TIA, "七号……她的核，没能撑过这个晚上。……要是她在这里就好了。"))
 		"dead":
@@ -559,6 +567,9 @@ func _epilogue_normal() -> Array:
 	match str(flags.get("fate", "")):
 		"dead":
 			village.append(_l("", CB_NARR, "她脖子上一直挂着一个小布袋。里面装着一捧灰——有时候，摸上去是温的。"))
+		"rest":
+			village.append(_l("", CB_NARR, "村口那间最暖的屋子里，七号还在沉睡。灰烬已经聚回了人形，只是一直没有醒。"))
+			village.append(_l("", CB_NARR, "缇娅每天都去替她添一次炉火。……她相信，总有一天，那双灰色的眼睛会睁开。"))
 		"ash":
 			village.append(_l("", CB_NARR, "村口多了一块小小的石碑，上面没有名字，只刻着一个「七」。"))
 		"left":
@@ -566,9 +577,13 @@ func _epilogue_normal() -> Array:
 	village.append_array([
 		_l("艾德里克", C_EDRIC, "缇娅。……下次满月，我还会来。"),
 		_l("缇娅", C_TIA, "嗯。……炉子给你留着。"),
-		_l("", CB_NARR, "火被锁了回去。可是八英雄的誓言还刻在英灵廊上：「火不可封，唯可守。」"),
-		_l("", CB_NARR, "——也许，还有另一种结局。"),
 	])
+	var oath_left: bool = int(Campaign.flags.get("hero_records", 3)) > 0 and not Campaign.flags.get("oath_tomb_burned", false)
+	if oath_left:
+		village.append(_l("", CB_NARR, "火被锁了回去。可是八英雄的誓言还刻在英灵廊上：「火不可封，唯可守。」"))
+	else:
+		village.append(_l("", CB_NARR, "火被锁了回去。英灵廊上的字已经烧没了，可八英雄的誓言，缇娅一直记得：「火不可封，唯可守。」"))
+	village.append(_l("", CB_NARR, "——也许，还有另一种结局。"))
 	return [
 		{"title": "圣都 · 大圣堂", "mood": "church", "lines": church},
 		{"title": "灰岩村", "mood": "night", "lines": village},

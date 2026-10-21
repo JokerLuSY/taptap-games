@@ -263,32 +263,19 @@ func on_visit(u, pos: Vector2i) -> void:
 		battle.notify(tr("获得 伤药"))
 
 
+## 巴尔托已经用【对话】招募过艾德里克时，这段地图对话几乎重复，不再触发
 func talks() -> Array:
+	if flags.get("edric_by_balto", false):
+		return []
 	return [["balto", "edric", "balto_edric"]]
 
 
-func talk_lines(key: String) -> Array:
-	if key == "tia_edric":
-		return [
-			_l("艾德里克", C_EDRIC, "你是……灰岩村的人？那个红头发……"),
-			_l("缇娅", C_TIA, "红头发怎么了？你也是来抓我的？"),
-			_l("艾德里克", C_EDRIC, "不，不是！我是艾德里克，菲恩领主埃德蒙之子。父亲派出的巡逻队在这条山道上失踪了。"),
-			_l("缇娅", C_TIA, "巡逻队……山贼来的那天，巡逻队一个都没出现。"),
-			_l("艾德里克", C_EDRIC, "果然。有人提前把他们引开了。……拿着这个，领地发的伤药，比我更用得上的人是你。"),
-		]
+func talk_lines(_key: String) -> Array:
 	return [
 		_l("巴尔托", C_BALTO, "领主家的小子，剑握得太紧了。"),
 		_l("艾德里克", C_EDRIC, "您是……退役的骑士？这身架势，不是普通的村民。"),
 		_l("巴尔托", C_BALTO, "老夫只是个种麦子的。……专心打仗，别让你父亲白养你。"),
 	]
-
-
-func on_talked(key: String, _u, _partner) -> void:
-	if key == "tia_edric":
-		var tia = battle.get_unit("tia")
-		if tia != null:
-			tia.receive("vulnerary")
-			battle.notify(tr("缇娅 获得 伤药"))
 
 
 func recruits() -> Dictionary:
@@ -308,8 +295,10 @@ func recruit_lines(target_id: String, by_id: String) -> Array:
 	]
 
 
-func on_recruited(t, _by) -> void:
+func on_recruited(t, by) -> void:
 	if t.unit_id == "edric":
+		if by != null and by.unit_id == "balto":
+			flags["edric_by_balto"] = true
 		var tia = battle.get_unit("tia")
 		if tia != null and tia.is_alive():
 			tia.receive("vulnerary")
@@ -341,8 +330,11 @@ func _pre_battle() -> Array:
 		_l("", C_NARR, "山口上蹲着一座石砌的要塞。城墙塌了几处，城头却插着新旗。"),
 		_l("巴尔托", C_BALTO, "王国守边的旧要塞，荒了快二十年了。……现在成了别人的窝。"),
 		_l("缇娅", C_TIA, "营火的烟是从城墙里冒出来的。就是他们吧？"),
-		_l("哈洛", C_HARLO, "旗子上画着黑色的火……和爹说的一样，黑烬佣兵团！"),
 	]
+	if battle.get_unit("harlo") != null:
+		lines.append(_l("哈洛", C_HARLO, "旗子上画着黑色的火……和爹说的一样，黑烬佣兵团！"))
+	else:
+		lines.append(_l("巴尔托", C_BALTO, "旗上画着黑色的火……是黑烬佣兵团。"))
 	if battle.get_unit("bandit6") != null:
 		lines.append(_l("托比", C_TOBY, "那、那边那个年轻的佣兵……我在营里见过他。他好像不太想干这活。"))
 	lines.append(_l("巴尔托", C_BALTO, "佣兵不会白干活。一定有人出钱。……先拿下领头的。"))
@@ -464,7 +456,7 @@ func epilogue() -> Array:
 	return [{"title": "菲恩城 · 领主书房", "mood": "castle", "lines": [
 		_l("", CB_NARR, "两天后。菲恩领的主城，菲恩城。"),
 		_l("艾德里克", CB_EDRIC, "父亲，这封密信……火漆上是圣焰教会的纹章。巡逻队就是在那条山道上失踪的。"),
-		_l("埃德蒙", CB_EDMUND, "……巡逻队、佣兵、教会。艾德里克，你可知道，大圣堂里供着的八件圣器，如今只剩七件？"),
+		_l("埃德蒙", CB_EDMUND, "……巡逻队、佣兵、教会。艾德里克，大圣堂那边，圣器失窃的案子越查越不对劲。"),
 		_l("艾德里克", CB_EDRIC, "圣器……失窃了？可教会对外什么都没说。"),
 		_l("埃德蒙", CB_EDMUND, "所以我要亲自去查。圣都那边，我还有几个信得过的老朋友。"),
 		_l("艾德里克", CB_EDRIC, "我跟您一起去！"),

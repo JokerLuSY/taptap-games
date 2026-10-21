@@ -316,15 +316,20 @@ func _farewell() -> Array:
 
 
 func _pre_battle() -> Array:
-	return [
+	var lines: Array = [
 		_l("", C_NARR, "渡船还要半天才到。北面的山道上，追兵的火把亮了起来。"),
 		_l("", C_NARR, "渡口是座旧关卡：北面一道石墙、一扇关门正对着大桥。西段的墙早就塌了。"),
 		_l("巴雷特", C_BOSS, "教会追捕队长巴雷特。审判官大人有令：异端缇娅，死活不论。"),
-		_l("凯因", C_KAIN, "教会兵、骑士……还有黑烬的人。他们是一伙的。"),
-		_l("凯因", C_KAIN, "关门好守。可西边塌了的那段墙正对着浅滩，那头也得有人。"),
-		_l("妮娜", C_NINA, "背后是河，退不了了。"),
-		_l("缇娅", C_TIA, "那就不退。守住渡口，等船来！"),
 	]
+	if battle.get_unit("kain") != null:
+		lines.append(_l("凯因", C_KAIN, "教会兵、骑士……还有黑烬的人。他们是一伙的。"))
+		lines.append(_l("凯因", C_KAIN, "关门好守。可西边塌了的那段墙正对着浅滩，那头也得有人。"))
+	else:
+		lines.append(_l("缇娅", C_TIA, "教会兵、骑士……还有黑烬的人。关门好守，可西边塌了的那段墙正对着浅滩，那头也得有人。"))
+	if battle.get_unit("nina") != null:
+		lines.append(_l("妮娜", C_NINA, "背后是河，退不了了。"))
+	lines.append(_l("缇娅", C_TIA, "那就不退。守住渡口，等船来！"))
+	return lines
 
 
 func _awaken_lines() -> Array:
@@ -335,18 +340,22 @@ func _awaken_lines() -> Array:
 
 
 func _awaken_not_yet() -> Array:
-	return [
+	var lines: Array = [
 		_l("", C_NARR, "火焰在剑身上亮了一瞬，又一次散去。"),
 		_l("缇娅", C_TIA, "……还不够。现在的我，还握不住它。"),
-		_l("诺雅", C_NOYA, "缇娅，你的手在发抖。"),
-		_l("缇娅", C_TIA, "没事。总有一天，我会握住的。"),
 	]
+	if _here("noya"):
+		lines.append(_l("诺雅", C_NOYA, "缇娅，你的手在发抖。"))
+		lines.append(_l("缇娅", C_TIA, "没事。总有一天，我会握住的。"))
+	else:
+		lines.append(_l("缇娅", C_TIA, "总有一天，我会握住的。"))
+	return lines
 
 
 func _ferry_hint() -> Array:
-	return [
-		_l("妮娜", C_NINA, "河面上有船帆！渡船要到了，再撑一会儿！"),
-	]
+	if _here("nina"):
+		return [_l("妮娜", C_NINA, "河面上有船帆！渡船要到了，再撑一会儿！")]
+	return [_l("缇娅", C_TIA, "河面上有船帆！渡船要到了，再撑一会儿！")]
 
 
 func _boss() -> Array:
@@ -412,9 +421,17 @@ func epilogue() -> Array:
 	return [{"title": "某处 · 黑烬佣兵团的帐篷", "mood": "camp", "lines": [
 		_l("格雷", CB_GRAY, "团长，凯因那小子跟着巫女跑了。要不要我去把他带回来——或者埋了？"),
 		_l("薇拉", CB_VERA, "……别碰他。"),
-		_l("格雷", CB_GRAY, "团长心软了？教会的钱可还没付清。"),
-		_l("薇拉", CB_VERA, "我在想，教会要一个十七岁的丫头做什么。……格雷，灰岩村那一单，是谁接的？"),
+		_l("格雷", CB_GRAY, "团长心软了？雇主的钱可还没付清。"),
+		_l("薇拉", CB_VERA, "我在想，那位雇主要一个十七岁的丫头做什么。……格雷，灰岩村那一单，是谁接的？"),
 		_l("格雷", CB_GRAY, "……是我。怎么了？"),
 		_l("薇拉", CB_VERA, "没什么。"),
 		_l("", CB_NARR, "薇拉没有再问。可她记得，那天的火烧得太干净了——干净得不像是佣兵放的。"),
 	]}]
+
+
+# ==================== 工具 ====================
+
+## 我方、活着、在地图上
+func _here(id: String) -> bool:
+	var u = battle.get_unit(id)
+	return u != null and u.is_alive() and u.is_player()

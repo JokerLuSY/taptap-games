@@ -318,6 +318,10 @@ func talk_lines(key: String) -> Array:
 
 func on_victory() -> void:
 	await battle.play_dialogue(_post_battle())
+	# 小雀在篇末喊过「下水道」：第 12 章妮娜会提起
+	Campaign.flags["ch7_sparrow_sewer"] = _here("sparrow")
+	# 西里尔在篇末说过「王都大书库，我会先去」：第 12 章凯因会提起
+	Campaign.flags["ch7_cyril_library"] = _here("cyril")
 	Campaign.flags["arc1_captured"] = _captured_ids()
 
 
@@ -343,8 +347,9 @@ func _pre_battle() -> Array:
 		_l("", C_NARR, "一行人刚进北门，街上就乱了起来。"),
 		_l("圣焰教会兵", C_ENEMY, "站住！小贼！教会的押运车你也敢碰？！"),
 		_l("", C_NARR, "一个瘦小的身影从人群里钻过去，翻上了西北钟楼的院墙。"),
-		_l("妮娜", C_NINA, "那孩子……被一整队教会兵追着。"),
 	]
+	if battle.get_unit("nina") != null:
+		lines.append(_l("妮娜", C_NINA, "那孩子……被一整队教会兵追着。"))
 	if battle.get_unit("cyril") != null:
 		lines.append(_l("西里尔", C_CYRIL, "城里的教会兵太多了，多得不像是在抓一个小偷。……像是在等什么人。"))
 	if battle.get_unit("kain") != null:
@@ -354,19 +359,26 @@ func _pre_battle() -> Array:
 
 
 func _turn2_hint() -> Array:
-	return [
-		_l("妮娜", C_NINA, "钟楼院子里那个孩子没动，教会兵也不碰她……像是在拿她当饵。"),
-		_l("缇娅", C_TIA, "那我去跟她说。……走到她身边，选【对话】。"),
-	]
+	var lines: Array = []
+	if _here("nina"):
+		lines.append(_l("妮娜", C_NINA, "钟楼院子里那个孩子没动，教会兵也不碰她……像是在拿她当饵。"))
+	elif _here("cyril"):
+		lines.append(_l("西里尔", C_CYRIL, "钟楼院子里那个孩子没动，教会兵也不碰她……像是在拿她当饵。"))
+	lines.append(_l("缇娅", C_TIA, "那我去跟她说。……走到她身边，选【对话】。"))
+	return lines
 
 
 func _gate_closed() -> Array:
-	return [
+	var lines: Array = [
 		_l("", C_NARR, "轰的一声，北门的铁闸落了下来。东门那边，马蹄声越来越近。"),
 		_l("圣焰骑士", C_ENEMY, "东门的骑士已经进城！所有出口封锁，只留南门——审判官大人有令，一个不许放过！"),
-		_l("西里尔", C_CYRIL, "只留南门……这话说得也太大声了。"),
-		_l("缇娅", C_TIA, "管不了那么多了。往南冲！"),
 	]
+	if _here("cyril"):
+		lines.append(_l("西里尔", C_CYRIL, "只留南门……这话说得也太大声了。"))
+	elif _here("kain"):
+		lines.append(_l("凯因", C_KAIN, "只留南门……这话说得也太大声了。"))
+	lines.append(_l("缇娅", C_TIA, "管不了那么多了。往南冲！"))
+	return lines
 
 
 func _sparrow_leaves() -> Array:
@@ -415,13 +427,15 @@ func _post_battle() -> Array:
 		_l("塞拉斯", C_SILAS, "笼子从你们走进北门那一刻就关上了。我只留了一道门——让你们以为，自己还能飞出去。"),
 		_l("塞拉斯", C_SILAS, "放下剑。你一个人跟我回圣都，其余的人，我今晚不追。"),
 	]
-	if battle.get_unit("kain") != null:
+	if _here("kain"):
 		lines.append(_l("凯因", C_KAIN, "别听他的，缇娅！我们杀出去——"))
-	lines.append(_l("缇娅", C_TIA, "……你看看四周，凯因。我们杀不出去的。"))
+		lines.append(_l("缇娅", C_TIA, "……你看看四周，凯因。我们杀不出去的。"))
+	else:
+		lines.append(_l("缇娅", C_TIA, "……四周全是火把。我们杀不出去的。"))
 	lines.append(_l("缇娅", C_TIA, "大家分头走！活下去——活着，才能再见！"))
-	if battle.get_unit("sparrow") != null and battle.get_unit("sparrow").is_player():
+	if _here("sparrow"):
 		lines.append(_l("小雀", C_SPARROW, "下水道！跟我来，城墙底下有条老水道！"))
-	if battle.get_unit("cyril") != null:
+	if _here("cyril"):
 		lines.append(_l("西里尔", C_CYRIL, "……缇娅。王都大书库，我会先去。等你。"))
 	if noya_in:
 		lines.append(_l("诺雅", C_NOYA, "我不走。"))
@@ -475,3 +489,11 @@ func epilogue() -> Array:
 		_l("", CB_NARR, "——第一篇「灰烬之芽」 完。"),
 	]})
 	return scenes
+
+
+# ==================== 工具 ====================
+
+## 我方、活着、在地图上
+func _here(id: String) -> bool:
+	var u = battle.get_unit(id)
+	return u != null and u.is_alive() and u.is_player()

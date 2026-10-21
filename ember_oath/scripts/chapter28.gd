@@ -275,6 +275,7 @@ func on_talked(key: String, _u, _partner) -> void:
 func on_victory() -> void:
 	await battle.play_dialogue(_post_battle())
 	Campaign.flags["roland_joined"] = _here("roland")
+	Campaign.flags["fenn_sword"] = flags.get("roland", false)
 	Campaign.flags["chronicle_read"] = flags.get("chronicle", false)
 
 
@@ -316,12 +317,12 @@ func _roland_lines() -> Array:
 		_l("艾德里克", C_EDRIC, "你是……罗兰？父亲的侍从！你不是和父亲一起——"),
 		_l("罗兰", C_ROLAND, "圣都郊外被伏击的那天，领主大人让我带着他的剑先走。他说：「要是我回不去，把它交给艾德里克。」"),
 		_l("罗兰", C_ROLAND, "我没能回菲恩城。灰袍众一直在追。……我只好扮成杂役，躲进了神殿。最危险的地方，最没人找。"),
-		_l("罗兰", C_ROLAND, "我在这里扫了两年的地。每天都在想，领主大人什么时候来取他的剑。"),
+		_l("罗兰", C_ROLAND, "我在这里扫了几个月的地。每天都在想，领主大人什么时候来取他的剑。"),
 		_l("艾德里克", C_EDRIC, "……父亲不会来了。他在黑石地牢……"),
 		_l("罗兰", C_ROLAND, "我知道。灰袍众说话的时候，从来不避着扫地的人。"),
 		_l("罗兰", C_ROLAND, "那么——这把剑，交给您。菲恩之剑。领主大人说过，它是用来守护的。"),
 		_l("艾德里克", C_EDRIC, "……我收下了。罗兰，你也一起来吧。"),
-		_l("罗兰", C_ROLAND, "这正是我等了两年的话。"),
+		_l("罗兰", C_ROLAND, "这正是我一直在等的话。"),
 	]
 
 

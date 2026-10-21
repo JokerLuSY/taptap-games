@@ -566,10 +566,7 @@ func _post_battle() -> Array:
 		lines.append(_l("杰拉德", C_GERARD, "西边的王国军也在后撤。……可他们的指挥官没有被说服，只是被将军的死吓住了。"))
 	lines.append(_l("艾德里克", C_EDRIC, "这一仗停了。可教会只要再写一封信，下一仗就会在别的地方打起来。"))
 	lines.append(_l("缇娅", C_TIA, "那就在他们写下一封信之前，把剩下的圣器找到。"))
-	if Campaign.flags.get("edmund_notes", false):
-		lines.append(_l("艾德里克", C_EDRIC, "父亲的笔记上写着：铁之盾在海边的废修道院。……我们去那里。"))
-	else:
-		lines.append(_l("艾德里克", C_EDRIC, "父亲查到的圣器下落里，最近的一件——铁之盾，在海边的废修道院。……我们去那里。"))
+	lines.append(_l("艾德里克", C_EDRIC, "父亲查到的圣器下落里，最近的一件——铁之盾，在海边的废修道院。……我们去那里。"))
 	return lines
 
 

@@ -279,6 +279,7 @@ func on_victory() -> void:
 	await battle.play_dialogue(_post_battle())
 	Campaign.flags["owen_joined"] = _here("owen")
 	Campaign.flags["hero_records"] = _tombs_left()
+	Campaign.flags["oath_tomb_burned"] = flags.get("burned_%d_%d" % [TOMBS[1].x, TOMBS[1].y], false)
 
 
 # ==================== 台词 ====================
@@ -305,7 +306,7 @@ func _owen_joins() -> Array:
 		_l("欧文", C_OWEN, "守墓人，欧文。八英雄第八位「持杖者」的后裔。"),
 		_l("欧文", C_OWEN, "你们是来烧墓的，还是来读墓的？"),
 		_l("艾德里克", C_EDRIC, "来读的。……顺便帮你守门。"),
-		_l("欧文", C_OWEN, "那就守好。墓碑一共三块：巫女的、八英雄的誓言、还有一块——被人刮过字的。"),
+		_l("欧文", C_OWEN, "那就守好。八百年下来，还完整的墓碑只剩三块：巫女的、刻着八英雄誓言的、还有一块——被人刮过字的。"),
 		_l("欧文", C_OWEN, "灰袍众要是站上墓碑，八百年的字就没了。……我会在里面守着。我要是倒了，这里就没有守墓人了。"),
 	]
 	if _here("silas"):

@@ -337,19 +337,29 @@ func _pre_battle() -> Array:
 	]
 	if battle.get_unit("mira") != null:
 		lines.append(_l("米拉", C_MIRA, "就是这里。……十年来，晚上总有灯。原来一直有人在。"))
-	lines.append(_l("兰斯", C_LANCE, "教会的部队把研究所围住了。里面困着什么人。"))
+	var w := _first_here(["lance", "oscar", "gwen"])
+	if w != "":
+		lines.append(_ret(w, "教会的部队把研究所围住了。里面困着什么人。"))
 	lines.append(_l("维克多", C_VICTOR, "（远处）滚开！谁都别过来！教会的、强盗的——谁靠近，谁就是灰！"))
 	lines.append(_l("艾德里克", C_EDRIC, "那个声音……会不会就是父亲要见的人？"))
-	lines.append(_l("奥斯卡", C_OSCAR, "他现在敌我不分。少主，要跟他说话，得您亲自走到他跟前。"))
+	w = _first_here(["oscar", "lance", "gwen"])
+	if w != "":
+		lines.append(_ret(w, "他现在敌我不分。少主，要跟他说话，得您亲自走到他跟前。"))
+	else:
+		lines.append(_l("艾德里克", C_EDRIC, "他现在敌我不分。要跟他说话，得我亲自走到他跟前。"))
 	lines.append(_l("艾德里克", C_EDRIC, "我去。……先打进研究所！"))
 	return lines
 
 
 func _turn2_hint() -> Array:
-	return [
-		_l("葛温", C_GWEN, "那个法师就在中廊正中间，一步也不挪。可他连教会的人也打，咱们靠近了也得挨。"),
-		_l("艾德里克", C_EDRIC, "我走到他身边【说得】。在那之前，别对他动手。"),
-	]
+	var lines: Array = []
+	var w := _first_here(["gwen", "lance", "oscar"])
+	if w != "":
+		lines.append(_ret(w, "那个法师就在中廊正中间，一步也不挪。可他连教会的人也打，咱们靠近了也得挨。"))
+	elif _here("mira"):
+		lines.append(_l("米拉", C_MIRA, "那个法师就在中廊正中间，一步也不挪。可他连教会的人也打，咱们靠近了也得挨。"))
+	lines.append(_l("艾德里克", C_EDRIC, "我走到他身边【说得】。在那之前，别对他动手。"))
+	return lines
 
 
 func _victor_fight() -> Array:
@@ -392,14 +402,21 @@ func _post_battle() -> Array:
 	var lines: Array = [
 		_l("", C_NARR, "监察室里堆满了记录。最上面的一份，是新的押送令。"),
 	]
-	var v = battle.get_unit("victor")
-	if v != null and v.is_alive() and v.is_player():
+	if _here("victor"):
 		lines.append(_l("维克多", C_VICTOR, "「火之巫女一名、叛教修女一名，押送圣都。因河道封锁，改由白鹭渡过河。」"))
 		lines.append(_l("维克多", C_VICTOR, "……火之巫女。教会找了八百年的那个血脉。他们抓到了。"))
 	else:
-		lines.append(_l("兰斯", C_LANCE, "「火之巫女一名、叛教修女一名，押送圣都。因河道封锁，改由白鹭渡过河。」"))
+		var r := _first_here(["lance", "oscar", "gwen"])
+		if r != "":
+			lines.append(_ret(r, "「火之巫女一名、叛教修女一名，押送圣都。因河道封锁，改由白鹭渡过河。」"))
+		else:
+			lines.append(_l("艾德里克", C_EDRIC, "「火之巫女一名、叛教修女一名，押送圣都。因河道封锁，改由白鹭渡过河。」"))
 	lines.append(_l("艾德里克", C_EDRIC, "火之巫女……红头发的……缇娅？"))
-	lines.append(_l("奥斯卡", C_OSCAR, "少主认识？"))
+	var w := _first_here(["oscar", "lance", "gwen"])
+	if w != "":
+		lines.append(_ret(w, "少主认识？"))
+	elif _here("mira"):
+		lines.append(_l("米拉", C_MIRA, "……你认识她？"))
 	lines.append(_l("艾德里克", C_EDRIC, "北山道上，我们一起打过仗。后来在大河渡口约好了：王都再见。……父亲也说过，若她再遇险，要我替他还她这份人情。"))
 	lines.append(_l("艾德里克", C_EDRIC, "白鹭渡，在去圣都的路上。……我们去截下那辆囚车。"))
 	return lines
@@ -430,3 +447,42 @@ func epilogue() -> Array:
 		lines.append(_l("缇娅", C_TIA, "（车子转弯了。不是往圣都的大路。……手心里的火，还在。）"))
 		lines.append(_l("缇娅", C_TIA, "（大家都还活着吗。……那个约好在王都见的人，还记得吗。）"))
 	return [{"title": "押送圣都的夜路", "mood": "night", "lines": lines}]
+
+# ==================== 工具 ====================
+
+const _RET := {"lance": ["兰斯", C_LANCE], "gwen": ["葛温", C_GWEN], "oscar": ["奥斯卡", C_OSCAR]}
+
+
+## 我方、活着、在地图上
+func _here(id: String) -> bool:
+	var u = battle.get_unit(id)
+	return u != null and u.is_alive() and u.is_player()
+
+
+## 剧情里还活着：本章倒下的人名单状态要到尾声后才写回，先看地图上的结果
+func _alive(id: String) -> bool:
+	var u = battle.get_unit(id)
+	if u != null and u.is_player():
+		return u.is_alive() or bool(u.get_meta("retreated", false))
+	return Campaign.alive_in_story(id)
+
+
+## 依次找第一个此刻在地图上的人；都不在返回 ""
+func _first_here(ids: Array) -> String:
+	for id in ids:
+		if _here(id):
+			return id
+	return ""
+
+
+## 依次找第一个剧情里还活着的人；都不在返回 ""
+func _first_alive(ids: Array) -> String:
+	for id in ids:
+		if _alive(id):
+			return id
+	return ""
+
+
+## 菲恩家臣（兰斯 / 葛温 / 奥斯卡）说话
+func _ret(id: String, text: String) -> Dictionary:
+	return _l(_RET[id][0], _RET[id][1], text)

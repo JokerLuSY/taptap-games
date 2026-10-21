@@ -12,6 +12,7 @@
 | 逻辑分辨率 | 1280×720，`canvas_items` + `expand` |
 | ABI | `arm64-v8a`（真机）+ `x86_64`（模拟器） |
 | 渲染 | `gl_compatibility`（桌面与 Android 相同） |
+| 全屏 | `screen/immersive_mode=true` 隐藏状态栏 / 导航条；`screen/edge_to_edge=true` 画进刘海 / 挖孔区域（否则挖孔那一侧留黑边）。界面左右留 64 逻辑像素安全边距，不会被挖孔挡住 |
 | 签名 | debug。keystore 留空时用编辑器调试密钥，不能上架 |
 
 APK 不进 git（`.gitignore` 已忽略 `*.apk` 与 `**/builds/`）。

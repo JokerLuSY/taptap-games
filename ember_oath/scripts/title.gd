@@ -177,7 +177,7 @@ func _label(size: int, color: Color, pos: Vector2, box: Vector2) -> Label:
 func _apply_locale(_code: String) -> void:
 	_title.text = tr("炎烬之誓")
 	_sub.text = tr("巫女与灰烬")
-	_note.text = tr("战棋原型 v0.4 · 第一篇「灰烬之芽」、第二篇「寻父之旅」（第 1–22 章）")
+	_note.text = tr("战棋原型 v0.5 · 全三篇 30 章 ·「灰烬之芽」「寻父之旅」「不灭之火」")
 	_start.text = tr("新游戏")
 	_continue.text = tr("继续游戏")
 	_select.text = tr("选择章节")

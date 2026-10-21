@@ -391,9 +391,10 @@ func _post_battle() -> Array:
 		if _here("lilith"):
 			lines.append(_l("莉莉丝", C_LILITH, "我的灰停在肩膀，你的灰装着一颗心。……我们两个次品，凑一起刚好一个人。"))
 	else:
+		lines.append(_l("缇娅", C_TIA, "……"))
+		if _here("balto"):
+			lines.append(_l("巴尔托", C_BALTO, "丫头。"))
 		lines.append_array([
-			_l("缇娅", C_TIA, "……"),
-			_l("巴尔托", C_BALTO, "丫头。"),
 			_l("缇娅", C_TIA, "我没事。……我只是在想，要是我早一点，再早一点和她说话……"),
 			_l("艾德里克", C_EDRIC, "缇娅。她最后，是看着你的。"),
 		])

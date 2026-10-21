@@ -337,10 +337,13 @@ func _pre_battle() -> Array:
 
 
 func _turn2_noya() -> Array:
-	return [
-		_l("妮娜", C_NINA, "那个穿白衣服的女孩子在给他们治伤！不先解决她，打不完的。"),
-		_l("巴尔托", C_BALTO, "她手里只有杖，不会还手。……缇娅，去跟她说说话。"),
-	]
+	var lines: Array = []
+	if _here("nina"):
+		lines.append(_l("妮娜", C_NINA, "那个穿白衣服的女孩子在给他们治伤！不先解决她，打不完的。"))
+	else:
+		lines.append(_l("缇娅", C_TIA, "那个穿白衣服的女孩子在给他们治伤……不先解决她，打不完的。"))
+	lines.append(_l("巴尔托", C_BALTO, "她手里只有杖，不会还手。……缇娅，去跟她说说话。"))
+	return lines
 
 
 func _turn3_silas() -> Array:
@@ -396,7 +399,7 @@ func _post_battle() -> Array:
 		_l("缇娅", C_TIA, "……都是因为我。"),
 		_l("巴尔托", C_BALTO, "傻丫头。错的是那些想要你的火的人。"),
 	]
-	if battle.get_unit("noya") != null and battle.get_unit("noya").is_player():
+	if _here("noya"):
 		lines.append(_l("诺雅", C_NOYA, "让我看看伤口……还好，没伤到要害。可是三个月之内，他不能再骑马了。"))
 	lines.append(_l("巴尔托", C_BALTO, "（……这一刀，换她走出这座村子。值了。）"))
 	return lines
@@ -438,3 +441,11 @@ func epilogue() -> Array:
 		_l("七号", CB_SEVEN, "……这是命令吗？"),
 		_l("莫尔甘", CB_MORGAN, "还不是。……还不是时候。"),
 	]}]
+
+
+# ==================== 工具 ====================
+
+## 我方、活着、在地图上
+func _here(id: String) -> bool:
+	var u = battle.get_unit(id)
+	return u != null and u.is_alive() and u.is_player()
