@@ -119,6 +119,23 @@ const SPRITE_BY_ID := {
 	"morgan": "morgan",
 }
 const SPRITE_BY_PREFIX := [["mage", "mage"], ["bandit", "bandit"], ["archer", "archer"], ["church", "church"], ["knight", "knight"], ["merc", "merc"], ["soldier", "church"], ["armor", "barrett"], ["pegasus", "pegasus"], ["puppet", "puppet"], ["pirate", "bandit"], ["darkmage", "mage"], ["graycloak", "scout"], ["cleric", "noya"], ["sniper", "archer"], ["paladin", "knight"], ["general", "barrett"], ["sage", "mage"], ["brodden", "merc"], ["thief", "sparrow"], ["fighter", "harlo"], ["myrm", "scout"]]
+## 战斗面板上的名册中文名。章节若已经写了中文 name 则保留；只有空名或把 id 当名字时才补。
+const ROSTER_NAME := {
+	"harlo": "哈洛",
+	"nina": "妮娜",
+	"kain": "凯因",
+	"edric": "艾德里克",
+	"noya": "诺雅",
+	"silas": "塞拉斯",
+	"hawk": "霍克",
+	"barrett": "巴雷特",
+}
+## 杂兵按 id 前缀。步兵的章节名是「圣焰教会兵」（见第四章与 game_flow）。
+const ROSTER_NAME_PREFIX := [
+	["church", "圣焰教会兵"],
+	["knight", "圣焰骑士"],
+	["merc", "黑烬佣兵"],
+]
 const SPRITE_PX := 4.0
 const SPRITE_FOOT := 30.0       # 脚底离格子中心的距离（格子半高 32，留 2px）
 const WALK_FPS := 10.0
@@ -131,11 +148,25 @@ var _team := ""
 var _sprite: Sprite2D
 
 
+static func roster_display_name(id: String) -> String:
+	if ROSTER_NAME.has(id):
+		return str(ROSTER_NAME[id])
+	for rule in ROSTER_NAME_PREFIX:
+		if id.begins_with(str(rule[0])):
+			return str(rule[1])
+	return ""
+
+
 func setup(def: Dictionary) -> void:
 	if def.get("fights", false):
 		set_meta("fights", true)
 	unit_id = def.get("id", "")
-	display_name = def.get("name", "?")
+	var given := str(def.get("name", ""))
+	var canon := roster_display_name(unit_id)
+	if canon != "" and (given.is_empty() or given == unit_id):
+		display_name = canon
+	else:
+		display_name = given if not given.is_empty() else "?"
 	class_label = def.get("class", "")
 	faction = def.get("faction", "enemy")
 	level = def.get("level", 1)

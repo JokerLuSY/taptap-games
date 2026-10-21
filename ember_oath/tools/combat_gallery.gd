@@ -16,15 +16,16 @@ const PAIRS := [
 ## 第 2–5 章的新角色：章节数据由另一处维护，这里用最小的单位定义直接对打（[攻方, 守方, 必杀]）
 const NEW_DEFS := {
 	"harlo": ["player", "iron_axe"], "nina": ["player", "iron_bow"], "kain": ["player", "iron_sword"],
-	"edric": ["player", "iron_sword"],
-	"church1": ["enemy", "silver_lance"], "knight1": ["enemy", "silver_lance"], "silas": ["enemy", "silver_lance"],
-	"merc1": ["enemy", "iron_sword"], "hawk": ["enemy", "iron_sword"], "barrett": ["enemy", "silver_lance"],
+	"edric": ["player", "rapier"], "noya": ["player", "heal_staff"],
+	"church1": ["enemy", "iron_lance"], "knight1": ["enemy", "iron_lance"], "silas": ["enemy", "silver_lance"],
+	"merc1": ["enemy", "iron_sword"], "hawk": ["enemy", "steel_sword"], "barrett": ["enemy", "steel_lance"],
 }
 const NEW_PAIRS := [
 	["harlo", "merc1", false], ["harlo", "merc1", true],
 	["nina", "church1", false], ["nina", "church1", true],
 	["kain", "merc1", false], ["kain", "merc1", true],
 	["edric", "hawk", false], ["edric", "hawk", true],
+	["noya", "bandit1", false], ["noya", "bandit1", true],
 	["church1", "kain", false], ["church1", "kain", true],
 	["knight1", "edric", false], ["knight1", "edric", true],
 	["silas", "harlo", false], ["silas", "harlo", true],
