@@ -259,7 +259,7 @@ func on_after_combat(_att, _def, _def_died: bool) -> void:
 		Campaign.flags["seven_26_killed"] = true
 		await battle.play_dialogue(_seven_falls())
 	var l = battle.get_unit("lilith")
-	if l != null and not l.is_alive() and l.is_player() and not flags.get("lilith_dead", false):
+	if l != null and not l.is_alive() and l.is_player() and not flags.get("lilith_dead", false) and not Campaign.casual():
 		flags["lilith_dead"] = true
 		await battle.play_dialogue(_lilith_dies())
 

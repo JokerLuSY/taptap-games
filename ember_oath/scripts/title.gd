@@ -452,6 +452,7 @@ func _build_select() -> void:
 func _fill_select() -> void:
 	if _select_box == null:
 		return
+	_select_armed = -1
 	for c in _select_box.get_children():
 		c.queue_free()
 	for i in _reached_chapters():
@@ -462,8 +463,22 @@ func _fill_select() -> void:
 		b.add_theme_font_size_override("font_size", 24)
 		b.text = tr(str(Campaign.chapter_script(i).CHAPTER_TITLE))
 		var idx: int = i
-		b.pressed.connect(func() -> void: _start_from_chapter(idx))
+		var label: String = b.text
+		# 会覆盖之后的进度：第一次点只变成确认文字，再点一次才开打（滑动列表时误触不会丢档）
+		b.pressed.connect(func() -> void:
+			if _select_armed == idx:
+				_start_from_chapter(idx)
+				return
+			for c in _select_box.get_children():
+				if c is Button and c.has_meta("label"):
+					c.text = c.get_meta("label")
+			_select_armed = idx
+			b.text = tr("再点一次：从这一章重开"))
+		b.set_meta("label", label)
 		_select_box.add_child(b)
+
+
+var _select_armed := -1
 
 
 func _on_select() -> void:

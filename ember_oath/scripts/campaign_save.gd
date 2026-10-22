@@ -88,6 +88,9 @@ func read() -> Dictionary:
 		_want_turn_start = false
 		var ts := _turn_start_of(data)
 		if not ts.is_empty():
+			# 立刻落盘：之后不管在哪一刻退出，「继续」都不会再读回被放弃的那条时间线
+			_turn_start = ts.duplicate(true)
+			_write(ts)
 			return ts
 	return data
 

@@ -46,6 +46,7 @@ func _run() -> void:
 		await _check_qa2_batch_b()
 		await _check_qa2_batch_c()
 		await _check_qa2_batch_d()
+		await _check_qa3_batch_a()
 		print("SMOKE TEST: ALL PASS" if _failures.is_empty() else "SMOKE TEST: %d FAILURES" % _failures.size())
 		for f_ in _failures:
 			print("  FAIL: " + f_)
@@ -657,6 +658,7 @@ func _run() -> void:
 	await _check_qa2_batch_b()
 	await _check_qa2_batch_c()
 	await _check_qa2_batch_d()
+	await _check_qa3_batch_a()
 	await _check_wide_screen()
 	await _check_part3()
 	await _check_autoplay()
@@ -1131,6 +1133,104 @@ func _mouse(pos: Vector2, down: bool) -> void:
 	ev.pressed = down
 	ev.position = pos
 	battle._unhandled_input(ev)
+
+
+func _check_qa3_batch_a() -> void:
+	_mark("QA3 A 批：重来落盘 / 首领反杀剧情 / 中断存档 / 预报顺序 / 教程避让")
+	CampaignSave.clear()
+	Campaign.reset()
+	load("res://scripts/battle.gd").queue_chapter(null)
+	await _new_battle()
+	await _skip_story()
+	var tia: Unit = battle.get_unit("tia")
+	var start_pos: Vector2i = tia.grid_pos
+	# 重来本回合：读到快照的同时写回存档
+	CampaignSave.write_checkpoint(battle)
+	tia.grid_pos = start_pos + Vector2i(0, 1)
+	CampaignSave.write_checkpoint(battle, true)
+	CampaignSave.request_restart_turn()
+	CampaignSave.take_pending_load()
+	CampaignSave.read()
+	var raw: Dictionary = CampaignSave._read_raw()
+	_check(not bool(raw.get("suspend", false)), "重来本回合后存档应已换成回合开始的快照")
+	tia.grid_pos = start_pos
+	# 选中单位时也能写中断档，并按「还没动」存
+	battle.click_tile(tia.grid_pos)
+	_check(battle.state == battle.S.MOVE_SEL, "选中缇娅")
+	battle.suspend_save()
+	_check(bool(CampaignSave._read_raw().get("suspend", false)), "选中单位时切后台也应写中断档")
+	battle.cancel()
+	await _frames(2)
+	# 预报按出手顺序：我方先被反击打死，敌人就不会被击破
+	var f := {"a_dmg": 8, "a_times": 2, "d_can": true, "d_dmg": 6, "d_times": 1}
+	var hp0: int = tia.hp
+	tia.hp = 5
+	var foe: Unit = null
+	for e in battle.units:
+		if not e.is_player() and e.is_alive():
+			foe = e
+			break
+	var fhp: int = foe.hp
+	foe.hp = 15
+	var left: Array = battle._forecast_left(tia, foe, f)
+	_check(left[0] == 0 and left[1] == 7, "预报：我方先倒下时敌人应剩 7，实际 %s" % str(left))
+	tia.hp = hp0
+	foe.hp = fhp
+	# 跳过对话时补发换曲
+	var got := [""]
+	var cb := func(fx: String) -> void: got[0] = fx
+	battle.dialogue.cue.connect(cb)
+	battle.state = battle.S.STORY
+	battle.dialogue.play([{"name": "", "text": "一", "fx": "silence"}, {"name": "", "text": "二"}, {"name": "", "text": "三", "fx": "music:boss"}])
+	battle.dialogue.skip_all()
+	battle.dialogue.cue.disconnect(cb)
+	_check(got[0] == "music:boss", "跳过对话应补发最后一个换曲标记，实际 %s" % got[0])
+	battle.state = battle.S.IDLE
+	Audio.play_music("map")
+	# 教程提示框不盖住行动菜单
+	battle.tutorial._panel.visible = true
+	battle._fill_menu([{"label": "待机", "enabled": true, "cb": func() -> void: pass}])
+	battle._place_menu_at(Vector2i(5, 4))
+	var tr_rect: Rect2 = battle.tutorial._panel.get_global_rect()
+	var mr: Rect2 = battle.menu_panel.get_global_rect()
+	_check(not tr_rect.intersects(mr), "教程提示框不应盖住行动菜单：%s / %s" % [tr_rect, mr])
+	battle.tutorial._panel.visible = false
+	battle._clear_menu()
+	battle.queue_free()
+	await _frames(3)
+	battle = null
+	# 第 14 章坚守进度
+	var c14 = load("res://scripts/chapter14.gd").new()
+	_check(c14.get_script().get_script_constant_map().has("DEFEND_TURNS"), "第 14 章用 DEFEND_TURNS")
+	# 首领主动出手被反杀：死亡剧情照样播
+	CampaignSave.clear()
+	Campaign.reset()
+	load("res://scripts/battle.gd").queue_chapter(load("res://scripts/chapter2.gd"))
+	await _new_battle()
+	await _skip_story()
+	var marco: Unit = battle.get_unit("marco")
+	var t2: Unit = battle.get_unit("tia")
+	if marco != null and t2 != null:
+		GameSettings.battle_anim = false
+		battle.chapter.flags["boss"] = true
+		t2.max_hp = 99
+		t2.hp = 99
+		t2.skl = 200
+		marco.hp = 1
+		marco.grid_pos = t2.grid_pos + Vector2i(1, 0)
+		marco.position = marco.tile_center()
+		battle.state = battle.S.ENEMY
+		battle.do_combat(marco, t2, 0)
+		var seen: bool = await _wait_cond(func() -> bool: return battle.dialogue._active, 8.0)
+		_check(seen and not marco.is_alive(), "首领主动出手被反杀时也应播死亡剧情")
+		battle.dialogue.skip_all()
+		GameSettings.battle_anim = true
+		await _frames(3)
+	battle.queue_free()
+	await _frames(3)
+	battle = null
+	CampaignSave.clear()
+	Campaign.reset()
 
 
 func _check_qa2_batch_d() -> void:

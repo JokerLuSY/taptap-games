@@ -173,7 +173,8 @@ func music() -> String:
 func progress_text() -> String:
 	if battle == null:
 		return ""
-	var hold = get_script().get_script_constant_map().get("HOLD_TURNS")
+	var consts: Dictionary = get_script().get_script_constant_map()
+	var hold = consts.get("HOLD_TURNS", consts.get("DEFEND_TURNS"))
 	if hold != null:
 		return tr("还剩 %d 回合") % maxi(1, int(hold) - battle.turn + 1)
 	if win_condition() == tr("击败所有敌人"):

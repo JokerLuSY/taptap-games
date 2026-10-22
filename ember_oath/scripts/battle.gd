@@ -758,6 +758,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if state == S.STORY or state == S.COMBAT or state == S.ENEMY or state == S.OVER:
 		_press_tile = NO_TILE
+		if PointerInput.is_primary_release(event):
+			_pressing = false
+			_dragging = false
 		return
 	if PointerInput.is_primary_release(event):
 		# 松手时没拖动过地图、也没触发长按，才算「点了一下」
@@ -779,6 +782,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			_on_cursor_moved()
 	elif PointerInput.is_primary_press(event):
 		_press_tile = board.tile_at_viewport(PointerInput.viewport_position(event))
+		# 触摸模拟鼠标时，手指不动地点一下不会有移动事件：光标直接跟到按下的格子
+		if board.in_bounds(_press_tile) and _press_tile != cursor.grid_pos:
+			cursor.set_grid(_press_tile)
+			_update_hover_info()
 		_long_fired = false
 		_press_id += 1
 		_long_press_check(_press_id, _press_tile)
@@ -822,6 +829,8 @@ func _long_press_check(id: int, p: Vector2i) -> void:
 	if u == null or not u.on_map():
 		return
 	_long_fired = true
+	_pressing = false
+	_dragging = false
 	open_unit_status(u)
 
 
@@ -1009,7 +1018,7 @@ func _on_menu_pressed() -> void:
 func open_system_menu() -> void:
 	if system_menu == null or system_menu.is_open():
 		return
-	system_menu.can_restart = pending_chapter == null and state != S.OVER and state != S.PREP \
+	system_menu.can_restart = pending_chapter == null and state != S.OVER and state != S.PREP and state != S.STORY \
 		and CampaignSave.can_restart_turn(chapter.chapter_id())
 	system_menu.open()
 
@@ -1035,9 +1044,20 @@ func _on_restart_turn() -> void:
 
 ## 中断存档：只在我方回合空闲时写（此刻场上状态是完整的），继续游戏就回到这里
 func suspend_save() -> void:
-	if pending_chapter != null or state != S.IDLE or units.is_empty():
+	if pending_chapter != null or units.is_empty():
 		return
+	if state == S.IDLE or state == S.MAP_MENU:
+		CampaignSave.write_checkpoint(self, true)
+		return
+	# 正在给某人下指令：按「还没动」存（走过去但没确认的，放回出发点）。交换过物品的不能撤销，不存
+	if not state in [S.MOVE_SEL, S.ACTION_MENU, S.TARGET_SEL, S.WEAPON_SEL, S.ITEM_MENU, S.HEAL_SEL, S.PICK]:
+		return
+	if selected == null or selected.get_meta("trade_locked", false):
+		return
+	var here := selected.grid_pos
+	selected.grid_pos = pre_move_pos if state != S.MOVE_SEL else here
 	CampaignSave.write_checkpoint(self, true)
+	selected.grid_pos = here
 
 
 func _notification(what: int) -> void:
@@ -1063,6 +1083,11 @@ func _resume_idle() -> void:
 	var tia := get_unit("tia")
 	if tia != null and tia.is_alive():
 		cursor.set_grid(tia.grid_pos)
+	# 中断档里我方已经全员行动：接着进敌方回合
+	for u in units:
+		if u.is_player() and u.on_map() and not u.has_acted:
+			return
+	after_player_action()
 
 
 func _apply_checkpoint(data: Dictionary) -> bool:
@@ -1365,6 +1390,8 @@ func _place_menu_at(p: Vector2i) -> void:
 		x = c.x - TILE / 2.0 - 6.0 - ms.x
 	var y := c.y - TILE / 2.0
 	menu_panel.position = Vector2(clampf(x, safe.position.x, safe.end.x - ms.x), clampf(y, safe.position.y, safe.end.y - ms.y))
+	if tutorial != null:
+		tutorial.reposition()
 
 
 # ==================== 地图菜单（空地上点一下） ====================
@@ -2125,6 +2152,7 @@ func do_heal(healer: Unit, target: Unit) -> void:
 
 func after_player_action() -> void:
 	update_topbar()
+	suspend_save()   # 每个行动做完就存一份，来电 / 被杀进程最多丢掉正在做的那一步
 	for u in units:
 		if u.is_player() and u.on_map() and not u.has_acted:
 			hint(tr("点击我方单位行动"))
@@ -2192,9 +2220,10 @@ func _show_forecast(att: Unit, def: Unit, wi: int) -> void:
 	var aw: Dictionary = att.weapon(wi)
 	var dw: Dictionary = def.weapon(dwi) if dwi >= 0 else def.weapon()
 	var tri := GameData.triangle_dir(str(aw.get("type", "")), str(dw.get("type", "")))
-	# 全部命中时双方剩多少血（火纹式预览）
-	var a_left: int = maxi(0, att.hp - (f["d_dmg"] * f["d_times"] if f["d_can"] else 0))
-	var d_left: int = maxi(0, def.hp - f["a_dmg"] * f["a_times"])
+	# 全部命中时双方剩多少血（火纹式预览，按出手顺序：一方倒下就不再继续）
+	var left := _forecast_left(att, def, f)
+	var a_left: int = left[0]
+	var d_left: int = left[1]
 	forecast_att.text = _forecast_text(att, aw, f["a_dmg"], f["a_hit"], f["a_times"], f["a_crit"], a_left, tri, Combat.effective_mt(aw, def) > int(aw.get("mt", 0)))
 	if f["d_can"]:
 		forecast_def.text = _forecast_text(def, dw, f["d_dmg"], f["d_hit"], f["d_times"], f["d_crit"], d_left, -tri, Combat.effective_mt(dw, att) > int(dw.get("mt", 0)))
@@ -2208,10 +2237,33 @@ func _show_forecast(att: Unit, def: Unit, wi: int) -> void:
 	var fs := forecast_panel.get_combined_minimum_size()
 	var right := tile_screen_pos(def.grid_pos).x < 640.0
 	forecast_panel.position = Vector2(safe.end.x - fs.x if right else safe.position.x, clampf(360.0 - fs.y / 2.0, safe.position.y, safe.end.y - fs.y))
+	if tutorial != null:
+		tutorial.reposition()
 	if hud != null:
 		hud.hide_unit()
 		hud.goal_win.visible = false
 		hud.terrain_win.visible = false
+
+
+## 全部命中、不出必杀时双方剩下的 HP。出手顺序和 Combat.resolve 一致
+func _forecast_left(att: Unit, def: Unit, f: Dictionary) -> Array:
+	var order: Array = ["a"]
+	if f["d_can"]:
+		order.append("d")
+	if f["a_times"] == 2:
+		order.append("a")
+	elif f["d_can"] and f["d_times"] == 2:
+		order.append("d")
+	var ha := att.hp
+	var hd := def.hp
+	for s in order:
+		if ha <= 0 or hd <= 0:
+			break
+		if s == "a":
+			hd = maxi(0, hd - int(f["a_dmg"]))
+		else:
+			ha = maxi(0, ha - int(f["d_dmg"]))
+	return [ha, hd]
 
 
 ## left：全部命中后剩的 HP；tri：武器克制（1 有利 / -1 不利）；eff：特效武器
@@ -2300,6 +2352,9 @@ func do_combat(att: Unit, def: Unit, wi: int) -> void:
 		var dxp: int = Combat.xp_gain(def, att, not att.is_alive())
 		await _give_xp(def, dxp)
 	await chapter.on_after_combat(att, def, not def.is_alive())
+	# 攻击方被反击打死（例如首领主动出手被反杀）：对调再通知一次，章节里「死的是首领」的判断才能命中
+	if not att.is_alive() and def.is_alive() and not att.is_player() and state != S.OVER:
+		await chapter.on_after_combat(def, att, true)
 	update_topbar()
 	if await check_end_conditions():
 		return
@@ -2465,6 +2520,10 @@ func _game_over() -> void:
 	Audio.play_sfx("defeat")
 	await get_tree().create_timer(0.6).timeout
 	await chapter.on_defeat()
+	if pending_chapter == null and CampaignSave.can_restart_turn(chapter.chapter_id()):
+		end_next.visible = true
+		end_next.text = tr("回到本回合开始")
+		_bind_pressed(end_next, _on_restart_turn)
 	end_restart.visible = true
 	end_restart.text = tr("重开本关")
 	_bind_pressed(end_restart, _on_restart_pressed)
@@ -2642,7 +2701,7 @@ func _shake_screen() -> void:
 		t.tween_property(ui, "offset", Vector2(randf_range(-10, 10), randf_range(-6, 6)), 0.035)
 	t.tween_property(ui, "offset", Vector2.ZERO, 0.05)
 	if map_clip != null:
-		var home := map_clip.position
+		var home := Vector2.ZERO   # 连续震屏时不能拿震到一半的位置当原位
 		var t2 := create_tween()
 		for i in 8:
 			t2.tween_property(map_clip, "position", home + Vector2(randf_range(-10, 10), randf_range(-6, 6)), 0.035)

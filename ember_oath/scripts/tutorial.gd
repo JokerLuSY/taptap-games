@@ -387,15 +387,39 @@ func _show(title: String, text: String, ok: bool, skip: bool) -> void:
 	_btn_ok.visible = ok
 	_btn_skip.visible = skip and guided
 	_panel.visible = true
+	reposition()
+
+
+## 摆提示框：优先放回合横幅（y 290–380）下面；会挡住行动菜单、战斗预报或引导要点的格子时，换到上面或最底下
+func reposition() -> void:
+	if _panel == null or not _panel.visible:
+		return
 	_panel.reset_size()
 	var ps := _panel.get_combined_minimum_size()
-	# 默认放在回合横幅（y 290–380）下面，不和它叠在一起；分步引导要点的格子在下半屏时改放上面，别挡住它
-	var y := 392.0
-	if guided and _step >= 0 and _step < _steps.size() and battle != null:
-		var p = _steps[_step]["tile"].call()
-		if p != null and battle.tile_screen_pos(p).y > 360.0:
-			y = SafeArea.MARGIN_Y + 92.0
-	_panel.position = Vector2(640.0 - ps.x / 2.0, clampf(y, SafeArea.MARGIN_Y, 720.0 - SafeArea.MARGIN_Y - ps.y))
+	var x := 640.0 - ps.x / 2.0
+	var avoid: Array = []
+	if battle != null:
+		var origin := get_global_rect().position
+		for c in [battle.menu_panel, battle.forecast_panel]:
+			if c != null and c.visible:
+				avoid.append(Rect2(c.get_global_rect().position - origin, c.size))
+		if guided and _step >= 0 and _step < _steps.size():
+			var p = _steps[_step]["tile"].call()
+			if p != null:
+				avoid.append(Rect2(battle.tile_screen_pos(p) - origin - Vector2(36, 36), Vector2(72, 72)))
+	var lo := SafeArea.MARGIN_Y
+	var hi := 720.0 - SafeArea.MARGIN_Y - ps.y
+	for y in [392.0, SafeArea.MARGIN_Y + 92.0, hi, lo]:
+		var r := Rect2(x, clampf(y, lo, hi), ps.x, ps.y)
+		var ok := true
+		for a in avoid:
+			if r.intersects(a):
+				ok = false
+				break
+		if ok:
+			_panel.position = r.position
+			return
+	_panel.position = Vector2(x, clampf(392.0, lo, hi))
 
 
 func _hide() -> void:

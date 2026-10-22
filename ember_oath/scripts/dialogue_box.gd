@@ -298,4 +298,13 @@ func skip_all() -> void:
 		return
 	if _tween != null and _tween.is_valid():
 		_tween.kill()
+	# 跳过的台词里如果有换曲 / 静音，补发最后一个（闪光、震屏就不补了）
+	var last := ""
+	for i in range(_idx + 1, _lines.size()):
+		for part in str(_lines[i].get("fx", "")).split(","):
+			var p := part.strip_edges()
+			if p == "silence" or p.begins_with("music:"):
+				last = p
+	if last != "":
+		cue.emit(last)
 	_finish()
