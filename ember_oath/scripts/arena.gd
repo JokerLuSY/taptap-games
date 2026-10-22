@@ -38,6 +38,11 @@ static func effective_level(u: Unit) -> int:
 
 ## 出战者用哪把武器、站多远：能近身就打近身，只能远程就隔一格
 static func pick_weapon(u: Unit) -> Array:
+	# 魔法隔一格打：配远程对手（原来火焰也被拉去近身，对手照抄施法者的低守备，打不过）
+	for wi in u.weapons.size():
+		var mw: Dictionary = u.weapon(wi)
+		if mw.get("magic", false) and u.can_use(wi) and 2 in mw["rng"]:
+			return [wi, 2]
 	for wi in u.weapons.size():
 		var w: Dictionary = u.weapon(wi)
 		if w["type"] == "staff" or not u.can_use(wi):

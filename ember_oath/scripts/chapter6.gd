@@ -114,7 +114,7 @@ const UNITS := [
 		"growths": {"hp": 45, "pwr": 40, "skl": 40, "spd": 50, "dfn": 15}},
 	# 西里尔：被困在旅店院里的流浪法师。开场就归我方指挥，倒下即败北，章末正式入队
 	{"id": "cyril", "name": "西里尔", "class": "魔道士", "faction": "player", "level": 6, "join": true,
-		"hp": 23, "pwr": 7, "skl": 7, "spd": 7, "dfn": 3, "res": 7, "mov": 5,
+		"hp": 26, "pwr": 7, "skl": 7, "spd": 7, "dfn": 5, "res": 7, "mov": 5,
 		"weapons": ["fire"], "items": ["vulnerary"],
 		"growths": {"hp": 50, "pwr": 55, "skl": 45, "spd": 50, "dfn": 15, "res": 45},
 		"pos": Vector2i(17, 9), "color": Color(0.55, 0.35, 0.25),
@@ -123,12 +123,13 @@ const UNITS := [
 	{"id": "church4", "pos": Vector2i(10, 20)},
 	{"id": "archer2", "pos": Vector2i(14, 17)},
 	{"id": "church5", "pos": Vector2i(20, 18)},
-	{"id": "church3", "pos": Vector2i(9, 11)},
+	{"id": "church3", "pos": Vector2i(9, 11), "hold": true},
 	{"id": "mage2", "pos": Vector2i(7, 9), "hold": true},
-	{"id": "church1", "pos": Vector2i(19, 5)},
-	{"id": "church2", "pos": Vector2i(21, 4)},
-	{"id": "mage1", "pos": Vector2i(22, 5)},
-	{"id": "church6", "pos": Vector2i(8, 9)},
+	# 北门外这三个原地守：西里尔一个人在旅店院里，开局就压上来他撑不到大部队赶到
+	{"id": "church1", "pos": Vector2i(19, 5), "hold": true},
+	{"id": "church2", "pos": Vector2i(21, 4), "hold": true},
+	{"id": "mage1", "pos": Vector2i(22, 5), "hold": true},
+	{"id": "church6", "pos": Vector2i(8, 9), "hold": true},
 	{"id": "archer1", "pos": Vector2i(15, 3), "hold": true},
 	{"id": "archer3", "pos": Vector2i(25, 5), "hold": true},
 	{"id": "church7", "pos": Vector2i(18, 3), "hold": true},
@@ -143,10 +144,10 @@ const UNITS := [
 		"hair": "short", "hair_color": Color(0.36, 0.30, 0.24), "armor": Color(0.70, 0.68, 0.64)},
 ]
 
-## 增援：第 3 回合从山口下来，第 5 回合沿东侧山道上来
+## 增援：第 4 回合从山口下来，第 6 回合沿东侧山道上来
 const WAVES := {
-	3: [{"id": "church_r1", "pos": Vector2i(18, 0)}, {"id": "archer_r1", "pos": Vector2i(20, 0)}],
-	5: [{"id": "knight_r1", "pos": Vector2i(33, 16)}, {"id": "church_r2", "pos": Vector2i(33, 15)}],
+	4: [{"id": "church_r1", "pos": Vector2i(18, 0)}, {"id": "church_r3", "pos": Vector2i(20, 0)}],
+	6: [{"id": "knight_r1", "pos": Vector2i(33, 16)}, {"id": "church_r2", "pos": Vector2i(33, 15)}],
 }
 
 

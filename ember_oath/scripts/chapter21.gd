@@ -167,7 +167,8 @@ const UNITS := [
 		"pos": Vector2i(17, 24)},
 	# 洛克：布罗登铁卫，奉王命在城门外等王子。加雷斯【对话】入队
 	{"id": "rock", "name": "洛克", "class": "重甲兵", "faction": "npc", "fights": true, "level": 16, "stationary": true,
-		"hp": 38, "pwr": 15, "skl": 10, "spd": 6, "dfn": 18, "res": 4, "mov": 4,
+		# 魔防 4 → 10：原来暗法师一下 17，开局就被打死
+		"hp": 38, "pwr": 15, "skl": 10, "spd": 6, "dfn": 18, "res": 10, "mov": 4,
 		"weapons": ["steel_lance", "javelin"], "items": ["vulnerary"], "wexp": {"lance": 121},
 		"growths": {"hp": 80, "pwr": 45, "skl": 35, "spd": 25, "dfn": 45, "res": 15},
 		"pos": Vector2i(19, 19), "color": Color(0.45, 0.48, 0.55),

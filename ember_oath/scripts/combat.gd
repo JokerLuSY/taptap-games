@@ -41,7 +41,8 @@ static func forecast(att: Unit, def: Unit, wpn_idx: int, board: Board, from_pos 
 	var sup_d: Dictionary = Supports.bonus(def, [] if no_support else board.units)
 	a_hit = clampi(a_hit + int(sup_a["hit"]) - int(sup_d["avo"]), 0, 100)
 	var a_times: int = 2 if att.eff_spd() - def.eff_spd() >= 4 else 1
-	var a_crit: int = clampi(att.eff_skl() / 2 + w.get("crit", 0) + int(sup_a["crit"]), 0, 100)
+	# 必杀回避：防守方技巧的 1/4（原来没有回避项，首领个个能靠必杀秒人）
+	var a_crit: int = clampi(att.eff_skl() / 2 + w.get("crit", 0) + int(sup_a["crit"]) - def.eff_skl() / 4, 0, 100)
 	# 防守方反击（自动选用能打到的武器）
 	var d_wi: int = def.counter_weapon(d)
 	var d_dmg := 0
@@ -59,7 +60,7 @@ static func forecast(att: Unit, def: Unit, wpn_idx: int, board: Board, from_pos 
 			d_dmg += 1
 		d_hit = clampi(d_hit + int(sup_d["hit"]) - int(sup_a["avo"]), 0, 100)
 		d_times = 2 if def.eff_spd() - att.eff_spd() >= 4 else 1
-		d_crit = clampi(def.eff_skl() / 2 + dw.get("crit", 0) + int(sup_d["crit"]), 0, 100)
+		d_crit = clampi(def.eff_skl() / 2 + dw.get("crit", 0) + int(sup_d["crit"]) - att.eff_skl() / 4, 0, 100)
 	return {
 		"a_dmg": a_dmg, "a_hit": a_hit, "a_times": a_times, "a_crit": a_crit,
 		"d_can": d_wi >= 0, "d_dmg": d_dmg, "d_hit": d_hit, "d_times": d_times, "d_crit": d_crit,
@@ -117,6 +118,5 @@ static func xp_gain(att: Unit, def: Unit, killed: bool) -> int:
 		base += 15
 		if def.is_boss:
 			base += 25
-	if la > ld:
-		base = maxi(1, base - (la - ld) * 3)
+	# 等级差在上面 (ld - la) * 3 里已经扣过一次，不再重复扣（原来打低 5 级的敌人击杀只得 1 点）
 	return base

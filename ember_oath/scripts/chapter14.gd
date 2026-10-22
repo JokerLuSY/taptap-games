@@ -557,8 +557,13 @@ func _post_battle() -> Array:
 	lines.append(_l("缇娅", C_TIA, "黑石地牢……典狱长说的「更深的地方」，就是那里？"))
 	lines.append(_l("艾德里克", C_EDRIC, "去黑石地牢。……最近的路，是穿过风鸣峡谷。"))
 	lines.append(_l("加雷斯", C_GARETH, "我跟你去。父王那边……我会想办法。教会的手已经伸进布罗登的宫廷了，我留在王城也只是被人盯着。"))
-	lines.append(_l("哈根", C_HAGEN, "……王子去哪，我去哪。"))
-	lines.append(_l("莉丝", C_LISS, "我要是不跟着，谁替殿下数他捅了几个马蜂窝？"))
+	# 哈根、莉丝在这一章是会参战的第三方，可能已经倒下
+	var hg = battle.get_unit("hagen")
+	if hg != null and hg.is_alive():
+		lines.append(_l("哈根", C_HAGEN, "……王子去哪，我去哪。"))
+	var ls = battle.get_unit("liss")
+	if ls != null and ls.is_alive():
+		lines.append(_l("莉丝", C_LISS, "我要是不跟着，谁替殿下数他捅了几个马蜂窝？"))
 	lines.append(_l("", C_NARR, "那一夜，营地里点起了三堆篝火。火之巫女、菲恩的继承人、布罗登的王子——三个人，第一次围坐在同一团火边。"))
 	return lines
 

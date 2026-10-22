@@ -460,10 +460,14 @@ func _turn2_hint() -> Array:
 
 
 func _wave_royal() -> Array:
-	return [
-		_l("王国骑士", C_ENEMY, "王国军第二骑兵队到！布罗登的叛贼和异端，一并拿下！"),
-		_l("杰拉德", C_GERARD, "……那面旗，我年轻的时候也扛过。如今却对着我们。"),
-	]
+	var lines: Array = [_l("王国骑士", C_ENEMY, "王国军第二骑兵队到！布罗登的叛贼和异端，一并拿下！")]
+	# 杰拉德第 16 章是可选救援，可能没救出来或已经倒下
+	var g = battle.get_unit("gerard")
+	if g != null and g.is_alive() and g.is_player():
+		lines.append(_l("杰拉德", C_GERARD, "……那面旗，我年轻的时候也扛过。如今却对着我们。"))
+	else:
+		lines.append(_l("艾德里克", C_EDRIC, "……王国的旗。如今却对着我们。"))
+	return lines
 
 
 func _wave_rebel() -> Array:

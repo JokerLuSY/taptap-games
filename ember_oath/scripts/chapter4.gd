@@ -12,7 +12,7 @@ const BG := ""
 
 ## 38×20。西北是灰岩村废墟（我方开局，老奶奶的地窖屋可访问），中间一条河：
 ## 西桥接南岸大路（教会兵沿路设卡、路边有流动商人的道具店、路南一座堡垒），中间浅滩、东桥接北岸丘陵小道（北堡上有魔道士、猎人小屋）。
-## 撤离点在东南角大路尽头，三名骑士守着。审判官塞拉斯第 4 回合从西北林子追来，第 6 回合东边再来一队堵路。
+## 撤离点在东南角大路尽头，三名骑士守着。审判官塞拉斯第 4 回合从西北林子追来，第 7 回合东边再来一队堵路。
 const MAP := [
 	"FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
 	"...CC..RCZZFFF.h............F.....F.F.",
@@ -76,16 +76,17 @@ const C_ENEMY := Color(1.0, 0.55, 0.5)
 const C_BOSS := Color(1.0, 0.45, 0.35)
 const C_NARR := Color(0.82, 0.82, 0.88)
 
-const _CHURCH := {"name": "圣焰教会兵", "class": "枪兵", "faction": "enemy", "level": 5,
-	"hp": 24, "pwr": 7, "skl": 5, "spd": 5, "dfn": 5, "mov": 5,
+## 数值和第 5 章的教会兵同档（原来比第 5 章还高一级，枪兵克剑，缇娅挨三下就倒）
+const _CHURCH := {"name": "圣焰教会兵", "class": "枪兵", "faction": "enemy", "level": 4,
+	"hp": 22, "pwr": 6, "skl": 5, "spd": 4, "dfn": 4, "mov": 5,
 	"weapons": ["iron_lance"], "color": Color(0.85, 0.82, 0.75),
 	"hair": "short", "hair_color": Color(0.40, 0.32, 0.25), "armor": Color(0.82, 0.78, 0.70)}
-const _KNIGHT := {"name": "圣焰骑士", "class": "骑士", "faction": "enemy", "level": 6,
-	"hp": 27, "pwr": 8, "skl": 6, "spd": 6, "dfn": 7, "mov": 7,
+const _KNIGHT := {"name": "圣焰骑士", "class": "骑士", "faction": "enemy", "level": 5,
+	"hp": 26, "pwr": 7, "skl": 6, "spd": 6, "dfn": 6, "mov": 7,
 	"weapons": ["iron_lance"], "color": Color(0.80, 0.78, 0.82),
 	"hair": "short", "hair_color": Color(0.55, 0.45, 0.30), "armor": Color(0.86, 0.84, 0.88)}
-const _ARCHER := {"name": "教会弓兵", "class": "弓箭手", "faction": "enemy", "level": 5,
-	"hp": 21, "pwr": 6, "skl": 7, "spd": 6, "dfn": 3, "mov": 5,
+const _ARCHER := {"name": "教会弓兵", "class": "弓箭手", "faction": "enemy", "level": 4,
+	"hp": 20, "pwr": 5, "skl": 7, "spd": 6, "dfn": 3, "mov": 5,
 	"weapons": ["iron_bow"], "color": Color(0.80, 0.78, 0.70),
 	"hair": "hood", "armor": Color(0.78, 0.74, 0.64)}
 
@@ -96,8 +97,8 @@ const _MAGE := {"name": "教会魔道士", "class": "魔道士", "faction": "ene
 
 const UNITS := [
 	{"id": "tia", "name": "缇娅", "class": "剑士", "faction": "player", "level": 5,
-		"hp": 24, "pwr": 7, "skl": 8, "spd": 9, "dfn": 4, "mov": 5,
-		"weapons": ["iron_sword"], "items": ["vulnerary"],
+		"hp": 24, "pwr": 7, "skl": 8, "spd": 9, "dfn": 5, "mov": 5,
+		"weapons": ["iron_sword"], "items": ["vulnerary", "vulnerary"],
 		"growths": {"hp": 75, "pwr": 45, "skl": 55, "spd": 60, "dfn": 35},
 		"pos": Vector2i(5, 4), "color": Color(0.85, 0.45, 0.35),
 		"hair": "ponytail", "hair_color": Color(0.80, 0.22, 0.18), "armor": Color(0.62, 0.45, 0.32)},
@@ -129,8 +130,8 @@ const UNITS := [
 	{"id": "archer4", "pos": Vector2i(25, 16)},
 	{"id": "church9", "pos": Vector2i(28, 13)},
 	# 北岸小道
-	{"id": "archer1", "pos": Vector2i(15, 2)},
-	{"id": "church6", "pos": Vector2i(23, 6)},
+	{"id": "archer1", "pos": Vector2i(15, 2), "hold": true},
+	{"id": "church6", "pos": Vector2i(23, 6), "hold": true},
 	{"id": "church8", "pos": Vector2i(25, 2), "hold": true},
 	{"id": "archer3", "pos": Vector2i(28, 7)},
 	# 撤离点前守着的骑士
@@ -138,7 +139,7 @@ const UNITS := [
 	{"id": "knight2", "pos": Vector2i(35, 15), "hold": true},
 	{"id": "knight3", "pos": Vector2i(32, 18), "hold": true},
 	# 教会魔道士：火焰打魔防，守备高的骑士也挡不住
-	{"id": "mage1", "pos": Vector2i(18, 5)},
+	{"id": "mage1", "pos": Vector2i(18, 5), "hold": true},
 	# 诺雅：随军的见习修女，给教会兵治疗；缇娅可说得
 	{"id": "noya", "name": "诺雅", "class": "修女", "faction": "enemy", "level": 2,
 		"hp": 16, "pwr": 3, "skl": 4, "spd": 6, "dfn": 1, "mov": 5,
@@ -181,10 +182,10 @@ func templates() -> Dictionary:
 	return {"church": _CHURCH, "knight": _KNIGHT, "archer": _ARCHER, "mage": _MAGE}
 
 
-## 第 6 回合：东边又来一队教会兵堵撤离的路
+## 第 7 回合：东边又来一队教会兵堵撤离的路（刷在撤离点北边几格，不贴着撤离点）
 const LATE_WAVE := [
-	{"id": "church_r1", "pos": Vector2i(37, 13)},
-	{"id": "church_r2", "pos": Vector2i(37, 14)},
+	{"id": "church_r1", "pos": Vector2i(37, 10)},
+	{"id": "church_r2", "pos": Vector2i(37, 11)},
 ]
 
 
@@ -234,7 +235,7 @@ func on_turn_start(t: int) -> void:
 		Audio.play_sfx("reinforce")
 		battle.show_banner(tr("审判官来袭！"), Color(1.0, 0.85, 0.5))
 		await battle.play_dialogue(_turn3_silas())
-	elif t == 6 and not flags.get("late_wave", false):
+	elif t == 7 and not flags.get("late_wave", false):
 		flags["late_wave"] = true
 		battle.spawn_units(LATE_WAVE)
 		Audio.play_sfx("reinforce")

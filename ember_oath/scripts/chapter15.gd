@@ -167,7 +167,7 @@ const UNITS := [
 		"growths": {"hp": 55, "pwr": 45, "skl": 55, "spd": 50, "dfn": 15, "res": 25}},
 	# 朔：东方剑客，绿色第三方，在峡谷中段自己和教会兵打（友军阶段行动）。缇娅【对话】入队
 	{"id": "shuo", "name": "朔", "class": "剑士", "faction": "npc", "fights": true, "level": 12,
-		"hp": 29, "pwr": 10, "skl": 16, "spd": 17, "dfn": 6, "res": 4, "mov": 5,
+		"hp": 34, "pwr": 10, "skl": 16, "spd": 17, "dfn": 9, "res": 4, "mov": 5,
 		"weapons": ["killing_edge", "iron_sword"], "wexp": {"sword": 71},
 		"growths": {"hp": 65, "pwr": 40, "skl": 60, "spd": 60, "dfn": 20, "res": 25},
 		"pos": Vector2i(16, 10), "color": Color(0.30, 0.32, 0.40),
@@ -176,9 +176,10 @@ const UNITS := [
 	{"id": "soldier1", "pos": Vector2i(8, 9)},
 	{"id": "myrm1", "pos": Vector2i(10, 11)},
 	{"id": "fighter1", "pos": Vector2i(12, 10), "items": ["vulnerary"]},
-	{"id": "soldier2", "pos": Vector2i(15, 10), "hold": true},
-	{"id": "soldier3", "pos": Vector2i(17, 10), "hold": true},
-	{"id": "myrm2", "pos": Vector2i(16, 9), "hold": true},
+	# 朔两边的敌人隔开两三格：原来三面贴身，友军回合还没轮到他就被围死
+	{"id": "soldier2", "pos": Vector2i(14, 9), "hold": true},
+	{"id": "soldier3", "pos": Vector2i(18, 9), "hold": true},
+	{"id": "myrm2", "pos": Vector2i(16, 8), "hold": true},
 	{"id": "knight1", "pos": Vector2i(21, 10), "hold": true},
 	{"id": "armor1", "pos": Vector2i(25, 10), "hold": true},
 	{"id": "fighter2", "pos": Vector2i(28, 11), "hold": true},

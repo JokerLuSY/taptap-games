@@ -589,7 +589,8 @@ func awaken_tia(late := false) -> void:
 	lines.append({"name": "", "color": c_narr, "text": tr("剑士之路在火里折断。炎刃使，于此觉醒。")})
 	Audio.play_sfx("awaken")
 	await play_dialogue(lines)
-	tia.promote("炎刃使", {"hp": 3, "pwr": 2, "dfn": 1}, ["ember_blade"] + tia.weapons)
+	# 移动 +1：和第二、三篇默认阵容里炎刃使的移动力 6 对上
+	tia.promote("炎刃使", {"hp": 3, "pwr": 2, "dfn": 1, "mov": 1}, ["ember_blade"] + tia.weapons)
 	tia.hair_color = Color(1.0, 0.42, 0.12)
 	tia.armor_color = Color(0.72, 0.28, 0.16)
 	tia.body_color = Color(0.95, 0.40, 0.22)
@@ -2355,6 +2356,7 @@ func do_combat(att: Unit, def: Unit, wi: int) -> void:
 	# 攻击方被反击打死（例如首领主动出手被反杀）：对调再通知一次，章节里「死的是首领」的判断才能命中
 	if not att.is_alive() and def.is_alive() and not att.is_player() and state != S.OVER:
 		await chapter.on_after_combat(def, att, true)
+	_boss_loot(att, def)
 	update_topbar()
 	if await check_end_conditions():
 		return
@@ -2396,6 +2398,22 @@ func _map_combat(att: Unit, def: Unit, wi: int, dwi: int, events: Array) -> void
 			_float_text(v, tr("未命中"), Color(0.8, 0.88, 1.0))
 		await t.finished
 		await get_tree().create_timer(0.22 * sp).timeout
+
+
+## 首领倒下：身上的道具（勋章、万灵药……）交给打倒他的我方单位，背包满了进道具库（原来打死就没了，只能偷）
+func _boss_loot(att: Unit, def: Unit) -> void:
+	for pair in [[def, att], [att, def]]:
+		var dead: Unit = pair[0]
+		var killer: Unit = pair[1]
+		if dead.is_alive() or dead.is_player() or not dead.is_boss or dead.items.is_empty():
+			continue
+		if not killer.is_player() or not killer.is_alive():
+			continue
+		for id in dead.items:
+			killer.receive(id)
+			notify(tr("获得 %s") % tr(PrepScreen.item_name(id)))
+		dead.items.clear()
+		dead.item_uses.clear()
 
 
 ## 我方用了 n 次第 idx 把武器：扣耐久（坏了提示）、涨武器经验（升级提示）

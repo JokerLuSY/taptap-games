@@ -211,6 +211,8 @@ func _volunteers_arrive() -> void:
 	var came: Array = []
 	var fresh := Campaign.roster.is_empty()
 	for id in ["balto", "harlo", "bandit6"]:
+		if not fresh:
+			Campaign.raise_stats_to(id, member(id, 0))   # 第 4 章离队到现在，至少有默认阵容的水平
 		var u = battle.rejoin_unit(id, slots.pop_front(), "player", member(id, 0) if fresh else {})
 		if u != null:
 			u.has_acted = false

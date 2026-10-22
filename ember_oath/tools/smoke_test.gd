@@ -47,6 +47,7 @@ func _run() -> void:
 		await _check_qa2_batch_c()
 		await _check_qa2_batch_d()
 		await _check_qa3_batch_a()
+		await _check_qa3_batch_b()
 		print("SMOKE TEST: ALL PASS" if _failures.is_empty() else "SMOKE TEST: %d FAILURES" % _failures.size())
 		for f_ in _failures:
 			print("  FAIL: " + f_)
@@ -659,6 +660,7 @@ func _run() -> void:
 	await _check_qa2_batch_c()
 	await _check_qa2_batch_d()
 	await _check_qa3_batch_a()
+	await _check_qa3_batch_b()
 	await _check_wide_screen()
 	await _check_part3()
 	await _check_autoplay()
@@ -1133,6 +1135,63 @@ func _mouse(pos: Vector2, down: bool) -> void:
 	ev.pressed = down
 	ev.position = pos
 	battle._unhandled_input(ev)
+
+
+func _check_qa3_batch_b() -> void:
+	_mark("QA3 B 批：经验 / 数值 / 勋章 / 竞技场 / 回队 / 首领掉落")
+	var a := Unit.new()
+	a.setup({"id": "xp_a", "faction": "player", "class": "剑士", "level": 10, "weapons": ["iron_sword"]})
+	var d := Unit.new()
+	d.setup({"id": "xp_d", "faction": "enemy", "class": "枪兵", "level": 5, "weapons": ["iron_lance"]})
+	_check(Combat.xp_gain(a, d, true) >= 10, "打低 5 级的敌人击杀不应只有 1 点经验，实际 %d" % Combat.xp_gain(a, d, true))
+	a.free()
+	d.free()
+	_check(PrepScreen.sell_price("hero_crest", 1) == 0, "转职勋章不能卖")
+	_check(PrepScreen.sell_price("vulnerary", 3) > 0, "伤药照常能卖")
+	var mg := Unit.new()
+	mg.setup({"id": "arena_mage", "faction": "player", "class": "魔道士", "level": 8, "weapons": ["fire"], "wexp": {"anima": 31}})
+	_check(int(Arena.pick_weapon(mg)[1]) == 2, "竞技场里魔道士应隔一格打")
+	mg.free()
+	# 第 4、6 章数值
+	var c4 = load("res://scripts/chapter4.gd")
+	_check(int(c4._CHURCH["level"]) <= 4, "第 4 章教会兵不应比第 5 章还强")
+	for u in load("res://scripts/chapter6.gd").UNITS:
+		if str(u.get("id", "")) == "cyril":
+			_check(int(u["hp"]) >= 26 and int(u["dfn"]) >= 5, "第 6 章西里尔应更耐打")
+	# 首领不再追击秒杀主角
+	for spec in [["res://scripts/chapter18.gd", "caspar", 18], ["res://scripts/chapter20.gd", "adeline", 15]]:
+		for u in load(spec[0]).UNITS:
+			if str(u.get("id", "")) == spec[1]:
+				_check(int(u["spd"]) - int(spec[2]) < 4, "%s 不应追击速 %d 的艾德里克" % [spec[1], spec[2]])
+	# 久别回队：能力至少抬到默认阵容
+	Campaign.reset()
+	Campaign.roster["balto"] = {"id": "balto", "class": "圣骑士", "level": 8, "max_hp": 26, "hp": 26, "pwr": 8, "skl": 9, "spd": 8, "dfn": 7, "res": 3, "mov": 7, "status": "away"}
+	Campaign.raise_stats_to("balto", Part3Chapter.member("balto", 0))
+	_check(int(Campaign.roster["balto"]["pwr"]) >= 17 and int(Campaign.roster["balto"]["max_hp"]) >= 46, "巴尔托第 23 章回队应至少是默认阵容的水平")
+	Campaign.reset()
+	# 首领倒下掉道具
+	CampaignSave.clear()
+	load("res://scripts/battle.gd").queue_chapter(null)
+	await _new_battle()
+	await _skip_story()
+	var tia: Unit = battle.get_unit("tia")
+	var boss: Unit = null
+	for e in battle.units:
+		if e.is_boss and not e.is_player():
+			boss = e
+	if boss != null:
+		boss.items = ["elixir"]
+		boss.item_uses = [3]
+		boss.hp = 0
+		var before: int = tia.items.size()
+		battle._boss_loot(tia, boss)
+		_check(tia.items.size() == before + 1 or Campaign.convoy.size() > 0, "首领倒下，身上的道具应交给打倒他的人")
+		_check(boss.items.is_empty(), "掉落后首领身上不应再有道具")
+	battle.queue_free()
+	await _frames(3)
+	battle = null
+	CampaignSave.clear()
+	Campaign.reset()
 
 
 func _check_qa3_batch_a() -> void:

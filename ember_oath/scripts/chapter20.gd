@@ -188,7 +188,8 @@ const UNITS := [
 	{"id": "archer3", "pos": Vector2i(16, 4), "hold": true},
 	# 阿德琳：天马骑士团长，守在峰顶的堡垒上
 	{"id": "adeline", "name": "阿德琳", "class": "隼骑士", "faction": "enemy", "level": 9,
-		"hp": 46, "pwr": 18, "skl": 18, "spd": 20, "dfn": 13, "res": 17, "mov": 8,
+		# 速 18：不追击艾德里克（速 15），否则银枪两下就能秒他
+		"hp": 46, "pwr": 18, "skl": 18, "spd": 18, "dfn": 13, "res": 17, "mov": 8,
 		"weapons": ["silver_lance", "javelin"], "items": ["overlord_crest"], "boss": true, "hold": true,
 		"sprite": "pegasus", "pos": Vector2i(15, 1), "color": Color(0.90, 0.88, 0.96),
 		"hair": "ponytail", "hair_color": Color(0.30, 0.25, 0.22), "armor": Color(0.95, 0.92, 1.0)},

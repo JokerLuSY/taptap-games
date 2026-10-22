@@ -274,6 +274,17 @@ func on_talked(key: String, _u, _partner) -> void:
 
 func on_victory() -> void:
 	await battle.play_dialogue(_post_battle())
+	# 没拿到父亲的剑（罗兰没说动或倒下）：艾德里克照样在这一章立誓转职，否则第三篇后半他永远卡在 Lv20 的领主骑士
+	if not flags.get("roland", false):
+		var e = battle.get_unit("edric")
+		if e != null and e.is_alive() and e.class_label == "领主骑士" and e.level >= 10:
+			await battle.play_dialogue([
+				_l("艾德里克", C_EDRIC, "……父亲的剑没能拿回来。可我要守的东西，不会因此变少。"),
+				_l("艾德里克", C_EDRIC, "菲恩家的骑士，以这双手起誓：守护所有该守护的人。"),
+			])
+			e.promote("誓约领主", {"hp": 5, "pwr": 3, "skl": 2, "spd": 2, "dfn": 3, "res": 3, "mov": 1})
+			Audio.play_sfx("promote")
+			battle.notify(tr("艾德里克转职为誓约领主！"))
 	Campaign.flags["roland_joined"] = _here("roland")
 	Campaign.flags["fenn_sword"] = flags.get("roland", false)
 	Campaign.flags["chronicle_read"] = flags.get("chronicle", false)

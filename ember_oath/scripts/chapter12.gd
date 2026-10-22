@@ -162,8 +162,9 @@ const UNITS := [
 	# 敌方：追凯因、妮娜的教会兵
 	{"id": "church1", "pos": Vector2i(30, 0), "hold": true},
 	{"id": "church2", "pos": Vector2i(30, 2), "hold": true},
-	{"id": "church3", "pos": Vector2i(4, 15), "hold": true},
-	{"id": "church4", "pos": Vector2i(3, 14), "hold": true},
+	# 离妮娜的落脚点远一点：原来 3 格内两个枪兵，她还没入队就被打死
+	{"id": "church3", "pos": Vector2i(6, 13), "hold": true},
+	{"id": "church4", "pos": Vector2i(5, 12), "hold": true},
 	# 街区
 	{"id": "soldier1", "pos": Vector2i(8, 6)},
 	{"id": "soldier2", "pos": Vector2i(14, 9), "hold": true},

@@ -390,10 +390,13 @@ func show_shop() -> void:
 	_button(tr("返回"), show_menu)
 
 
-## 卖价：原价一半，按剩余耐久折算；专属武器不能卖
+## 卖价：原价一半，按剩余耐久折算；专属武器、转职道具不能卖
 static func sell_price(id: String, uses: int) -> int:
 	var full := GameData.item_price(id)
 	if full <= 0:
+		return 0
+	# 转职道具不收：一枚 5000G，卖掉比打一整章还赚
+	if bool(GameData.ITEMS.get(id, {}).get("promote", false)):
 		return 0
 	var mx := Unit.max_uses(id)
 	if mx <= 0:

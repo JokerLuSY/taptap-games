@@ -147,6 +147,24 @@ static func catch_up(id: String) -> int:
 	return n
 
 
+## 离队很久的人回队：能力至少抬到 floor（章节给的默认数值）。用于第 4 章就离队、第 23 章才回来的巴尔托一行——
+## 巴尔托是上级职业，按实际等级算已经「够高」，catch_up 一级都不补，回来还是第 4 章的数值
+static func raise_stats_to(id: String, floor: Dictionary) -> void:
+	if not roster.has(id) or floor.is_empty():
+		return
+	var d: Dictionary = roster[id]
+	if str(d.get("class", "")) != str(floor.get("class", d.get("class", ""))):
+		return
+	for k in ["pwr", "skl", "spd", "dfn", "res", "mov"]:
+		if floor.has(k):
+			d[k] = maxi(int(d.get(k, 0)), int(floor[k]))
+	if floor.has("hp"):
+		d["max_hp"] = maxi(int(d.get("max_hp", 1)), int(floor["hp"]))
+		d["hp"] = d["max_hp"]
+	if floor.has("level"):
+		d["level"] = maxi(int(d.get("level", 1)), int(floor["level"]))
+
+
 ## 剧情需要：把名单里某人至少补到 lv 级（例如第 8 章艾德里克离开第 3 章后自己也在成长）
 static func raise_to(id: String, lv: int) -> int:
 	if not roster.has(id):

@@ -177,8 +177,9 @@ const UNITS := [
 	{"id": "darkmage2", "pos": Vector2i(29, 4), "hold": true, "weapons": ["nosferatu"]},
 	# 卡斯帕：灰袍众头目。第 8 章逃掉了，这次守在指挥所的堡垒上
 	{"id": "caspar", "name": "卡斯帕", "class": "刺客", "faction": "enemy", "level": 7,
-		"hp": 48, "pwr": 17, "skl": 22, "spd": 23, "dfn": 11, "res": 9, "mov": 6,
-		"weapons": ["silver_sword", "killing_edge"], "items": ["overlord_crest"], "boss": true, "hold": true,
+		# 速度压到不追击第 17 章水平的艾德里克，钢剑：主角满血吃一轮反击不会倒
+		"hp": 48, "pwr": 17, "skl": 22, "spd": 21, "dfn": 11, "res": 9, "mov": 6,
+		"weapons": ["steel_sword"], "items": ["overlord_crest"], "boss": true, "hold": true,
 		"sprite": "hawk", "pos": Vector2i(27, 2), "color": Color(0.55, 0.55, 0.60),
 		"hair": "hood", "armor": Color(0.45, 0.45, 0.50)},
 ]
@@ -305,6 +306,10 @@ func on_after_combat(_att, _def, _def_died: bool) -> void:
 		if killer != null and killer.is_player() and killer.is_alive() and "overlord_crest" in c.items:
 			killer.receive("overlord_crest")
 			battle.notify(tr("获得 霸王之证"))
+			var ci: int = c.items.find("overlord_crest")
+			c.items.remove_at(ci)
+			if ci < c.item_uses.size():
+				c.item_uses.remove_at(ci)
 	var v = battle.get_unit("vera")
 	if v != null and not v.is_alive() and not v.is_player() and not flags.get("vera_dead", false):
 		flags["vera_dead"] = true
