@@ -7,12 +7,15 @@ extends Control
 ## - 提示条：底部居中的一行操作提示
 ## 所有窗都不吃鼠标，点击照样落到地图上。
 
-const W_GOAL := 360.0
-const W_UNIT := 390.0
+const W_GOAL := 380.0
+const W_UNIT := 410.0
 const W_TERRAIN := 240.0
 const GAP := 8.0
 
 var goal_win: PanelContainer
+## 常驻按钮：菜单 / 危险范围 / 下一个未行动单位（battle 连 pressed，按 id 分派）
+var quick_box: HBoxContainer
+signal quick(id: String)
 var unit_win: PanelContainer
 var terrain_win: PanelContainer
 var hint_win: PanelContainer
@@ -38,13 +41,27 @@ func _init() -> void:
 	position = Vector2.ZERO
 	size = SafeArea.screen()
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	quick_box = HBoxContainer.new()
+	quick_box.name = "QuickButtons"
+	quick_box.add_theme_constant_override("separation", 8)
+	for spec in [["menu", "菜单"], ["danger", "危险"], ["next", "下一个"]]:
+		var qb := Button.new()
+		qb.name = "Quick_" + spec[0]
+		qb.text = spec[1]
+		qb.custom_minimum_size = Vector2(72, 64)
+		qb.add_theme_font_size_override("font_size", 19)
+		qb.focus_mode = Control.FOCUS_NONE
+		var qid: String = spec[0]
+		qb.pressed.connect(func() -> void: quick.emit(qid))
+		quick_box.add_child(qb)
+	add_child(quick_box)
 	goal_win = _window(Color(0.85, 0.72, 0.38))
 	goal_win.name = "GoalWindow"
 	var gv := VBoxContainer.new()
 	gv.add_theme_constant_override("separation", 2)
 	gv.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	goal_win.add_child(gv)
-	lbl_chapter = _label(gv, 17, Color(1.0, 0.86, 0.5))
+	lbl_chapter = _label(gv, 19, Color(1.0, 0.86, 0.5))
 	lbl_chapter.name = "ChapterLabel"
 	lbl_chapter.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	lbl_chapter.clip_text = true
@@ -56,11 +73,11 @@ func _init() -> void:
 	lbl_turn.name = "TurnLabel"
 	lbl_gold = _label(row, 20, Color(1.0, 0.9, 0.55))
 	lbl_gold.name = "GoldLabel"
-	lbl_win = _label(gv, 17, Color(0.96, 0.86, 0.45))
+	lbl_win = _label(gv, 19, Color(0.96, 0.86, 0.45))
 	lbl_win.name = "WinCondition"
 	lbl_win.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	lbl_win.custom_minimum_size = Vector2(W_GOAL - 24, 0)
-	lbl_lose = _label(gv, 17, Color(0.95, 0.62, 0.48))
+	lbl_lose = _label(gv, 19, Color(0.95, 0.62, 0.48))
 	lbl_lose.name = "LoseCondition"
 	lbl_lose.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	lbl_lose.custom_minimum_size = Vector2(W_GOAL - 24, 0)
@@ -92,7 +109,7 @@ func _init() -> void:
 	portrait.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	portrait.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	portrait_frame.add_child(portrait)
-	unit_label = _label(uh, 17, Color(0.94, 0.95, 1.0))
+	unit_label = _label(uh, 19, Color(0.94, 0.95, 1.0))
 	unit_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	unit_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	unit_label.custom_minimum_size = Vector2(W_UNIT - 24 - 68 - 10, 0)   # 换行宽度固定，首次布局时不会被撑成一字一行
@@ -165,7 +182,7 @@ func show_terrain(text: String) -> void:
 
 ## 光标在屏幕上的位置变了：信息窗停到另一侧
 func follow(cursor_screen: Vector2) -> void:
-	var want := "right" if cursor_screen.x < 640.0 else "left"
+	var want := "right" if cursor_screen.x < size.x / 2.0 else "left"
 	if forced_side != "":
 		want = forced_side
 	if want != side:
@@ -194,6 +211,12 @@ func _layout(animate: bool) -> void:
 		unit_win: Vector2(ux, safe.position.y + gs.y + GAP),
 		terrain_win: Vector2(tx, safe.end.y - ts.y),
 	}
+	# 常驻按钮：和信息窗同一侧，压在地形窗上方
+	if quick_box != null:
+		quick_box.reset_size()
+		var qs := quick_box.get_combined_minimum_size()
+		var qx := safe.end.x - qs.x if right else safe.position.x
+		quick_box.position = Vector2(qx, safe.end.y - ts.y - GAP - qs.y)
 	if _tween != null and _tween.is_valid():
 		_tween.kill()
 	if animate and is_inside_tree():

@@ -180,7 +180,7 @@ func setup(place_id: String, from_id: String, title: String, known_ids: Array = 
 	var region := Label.new()
 	region.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 	region.text = tr("卡尔迪亚大陆")
-	region.add_theme_font_size_override("font_size", 16)
+	region.add_theme_font_size_override("font_size", 18)
 	region.add_theme_color_override("font_color", Color(0.85, 0.9, 1.0, 0.8))
 	region.position = Vector2(1280 - SafeArea.MARGIN_X - 120, SafeArea.MARGIN_Y)
 	add_child(region)

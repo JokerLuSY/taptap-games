@@ -53,7 +53,7 @@ func open(b, u: Unit, shop_kind: String, items: Array) -> void:
 	_title.text = tr("武器店") if kind == "weapon" else tr("道具店")
 	_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_gold = _label(head, 22, Color(1.0, 0.9, 0.55))
-	var greet := _label(vb, 17, Color(0.85, 0.85, 0.8))
+	var greet := _label(vb, 19, Color(0.85, 0.85, 0.8))
 	greet.text = tr("店主：欢迎光临！看看需要什么？") if kind == "item" else tr("铁匠：好铁打好刃，挑一把趁手的吧。")
 	var cols := HBoxContainer.new()
 	cols.add_theme_constant_override("separation", 24)
@@ -112,7 +112,7 @@ func refresh() -> void:
 		_row(_goods_box, "%s  %s" % [tr(PrepScreen.item_name(id)), info], "%d G" % price, battle.gold >= price, func() -> void: buy(iid))
 	var inv := PrepScreen.inventory(unit)
 	if inv.is_empty():
-		_label(_bag_box, 16, Color(0.7, 0.7, 0.7)).text = tr("（空）")
+		_label(_bag_box, 18, Color(0.7, 0.7, 0.7)).text = tr("（空）")
 	for k in inv.size():
 		var e: Dictionary = inv[k]
 		var kk: int = k
@@ -153,11 +153,19 @@ func buy(id: String) -> void:
 	refresh()
 
 
+var _sell_armed := -1
+
+
 func sell(k: int) -> void:
 	var e: Dictionary = PrepScreen.inventory(unit)[k]
 	var val := PrepScreen.sell_price(e["id"], e["uses"])
 	if val <= 0:
 		return
+	if PrepScreen.needs_sell_confirm(unit, k) and _sell_armed != k:
+		_sell_armed = k
+		battle.notify(tr("再点一次：卖掉 %s 后 %s 可能没武器可用") % [tr(PrepScreen.item_name(e["id"])), tr(unit.display_name)])
+		return
+	_sell_armed = -1
 	PrepScreen.take_out(unit, k)
 	battle.gold += val
 	traded = true

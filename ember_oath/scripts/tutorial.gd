@@ -105,7 +105,7 @@ func setup(b) -> void:
 	vb.add_theme_constant_override("separation", 6)
 	_panel.add_child(vb)
 	_title = _label(vb, 19, Color(1.0, 0.86, 0.45))
-	_body = _label(vb, 17, Color(0.96, 0.94, 0.9))
+	_body = _label(vb, 19, Color(0.96, 0.94, 0.9))
 	_body.autowrap_mode = TextServer.AUTOWRAP_ARBITRARY
 	_body.custom_minimum_size = Vector2(520, 0)
 	var row := HBoxContainer.new()
@@ -483,7 +483,7 @@ func open_browser() -> void:
 		var b := Button.new()
 		b.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 		b.text = tr(TIPS[key][0])
-		b.custom_minimum_size = Vector2(220, 44)
+		b.custom_minimum_size = Vector2(220, SafeArea.MIN_HIT)
 		b.pressed.connect(func() -> void:
 			t.text = tr(TIPS[key][0])
 			body.text = tr(TIPS[key][1]).replace("\\n", "\n"))
@@ -494,6 +494,10 @@ func open_browser() -> void:
 	close.name = "TutorialClose"
 	add_child(_browser)
 	SafeArea.widen(_browser)  # 宽屏：遮罩盖满整屏
+
+
+func is_browsing() -> bool:
+	return _browser != null and is_instance_valid(_browser)
 
 
 func close_browser() -> void:

@@ -41,7 +41,7 @@ func open(b, u: Unit) -> void:
 	_build_left(p, team)
 	_build_stats(p)
 	_build_right(p)
-	var foot := _label(p, Vector2(0, PANEL_SIZE.y - 34), 16, Color(0.7, 0.72, 0.78))
+	var foot := _label(p, Vector2(0, PANEL_SIZE.y - 34), 18, Color(0.7, 0.72, 0.78))
 	foot.size.x = PANEL_SIZE.x
 	foot.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	foot.text = tr("点任意处关闭")
@@ -121,13 +121,13 @@ func _build_left(p: Panel, team: Color) -> void:
 	hp.text = "HP  %d / %d" % [unit.hp, unit.max_hp]
 	_bar(p, Vector2(28, 426), 204, float(unit.hp) / maxf(1.0, float(unit.max_hp)), Color(0.4, 0.9, 0.45))
 	if unit.carrying != null:
-		var c := _label(p, Vector2(28, 448), 16, Color(1.0, 0.85, 0.55))
+		var c := _label(p, Vector2(28, 448), 18, Color(1.0, 0.85, 0.55))
 		c.text = tr("背着：%s（技、速减半）") % tr(unit.carrying.display_name)
 	var sup := support_lines()
 	if not sup.is_empty():
 		var sh := _label(p, Vector2(28, 474), 18, Color(1.0, 0.86, 0.5))
 		sh.text = tr("支援")
-		var sl := _label(p, Vector2(28, 500), 17, Color(0.92, 0.9, 0.95))
+		var sl := _label(p, Vector2(28, 500), 18, Color(0.92, 0.9, 0.95))
 		sl.text = "\n".join(PackedStringArray(sup.slice(0, 3)))
 
 

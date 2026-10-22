@@ -63,7 +63,7 @@ func _title(text: String) -> void:
 	_body.add_child(l)
 
 
-func _text(text: String, size := 17, color := Color(0.92, 0.92, 0.95)) -> void:
+func _text(text: String, size := 19, color := Color(0.92, 0.92, 0.95)) -> void:
 	var l := Label.new()
 	l.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 	l.text = text
@@ -147,19 +147,27 @@ func show_menu() -> void:
 	_text(tr("出击 %d / %d 人   金钱 %d G") % [battle.deployed.size(), battle.deploy_limit(), battle.gold])
 	var hints: Array = battle.recruit_hints()
 	if not hints.is_empty():
-		_text(tr("【招募提示】"), 17, Color(0.6, 0.9, 1.0))
+		_text(tr("【招募提示】"), 18, Color(0.6, 0.9, 1.0))
 		for h in hints:
-			_text("· " + h, 16, Color(0.75, 0.92, 1.0))
+			_text("· " + h, 18, Color(0.75, 0.92, 1.0))
 	_button(tr("选择出击"), show_pick, battle.prep_mode() == "full" or battle.prep_mode() == "pick")
 	_button(tr("布阵"), show_deploy, battle.prep_mode() == "full")
 	_button(tr("物品"), show_items, battle.prep_mode() == "full")
 	if battle.chapter.shops().is_empty():
 		_button(tr("商店"), show_shop, battle.prep_mode() == "full" and not battle.shop_items().is_empty())
 	else:
-		_text(tr("本章地图上有武器店 / 道具店：开战后让人站上去买卖。"), 15, Color(0.8, 0.85, 0.7))
+		_text(tr("本章地图上有武器店 / 道具店：开战后让人站上去买卖。"), 18, Color(0.8, 0.85, 0.7))
 	if battle.chapter.has_arena():
 		_button(tr("竞技场"), show_arena, battle.prep_mode() == "full")
+	_button(tr("隐藏危险范围") if battle.danger_on else tr("显示危险范围"), _toggle_danger)
+	_text(tr("点地图上的敌人看威胁范围，按住不放看能力。"), 18, Color(0.8, 0.85, 0.7))
 	_button(tr("开始战斗"), _on_start, not battle.deployed.is_empty(), 52.0)
+
+
+func _toggle_danger() -> void:
+	battle.danger_on = not battle.danger_on
+	battle.refresh_danger()
+	show_menu()
 
 
 func _on_start() -> void:
@@ -177,8 +185,8 @@ func show_arena() -> void:
 	_clear()
 	battle.tut("arena")
 	_title(tr("竞技场"))
-	_text(tr("付押金和同等级的对手单挑：赢了拿回 1.5 倍押金和经验，输了没收押金（不会阵亡）。每次出击准备最多 %d 场。") % Arena.MAX_FIGHTS, 15, Color(0.85, 0.85, 0.7))
-	_text(tr("金钱 %d G") % battle.gold + "   " + tr("剩余 %d 场") % (Arena.MAX_FIGHTS - battle.arena_fights), 17, Color(1.0, 0.9, 0.55))
+	_text(tr("付押金和同等级的对手单挑：赢了拿回 1.5 倍押金和经验，输了没收押金（不会阵亡）。每次出击准备最多 %d 场。") % Arena.MAX_FIGHTS, 18, Color(0.85, 0.85, 0.7))
+	_text(tr("金钱 %d G") % battle.gold + "   " + tr("剩余 %d 场") % (Arena.MAX_FIGHTS - battle.arena_fights), 18, Color(1.0, 0.9, 0.55))
 	for u in battle.prep_pool:
 		var uu: Unit = u
 		var cost := Arena.wager(u)
@@ -193,7 +201,7 @@ func _confirm_fight(u: Unit) -> void:
 	_clear()
 	_title(tr("竞技场"))
 	_text(tr("%s 出战，押金 %d G。") % [tr(u.display_name), Arena.wager(u)], 18)
-	_text(tr("金钱 %d G") % battle.gold, 17, Color(1.0, 0.9, 0.55))
+	_text(tr("金钱 %d G") % battle.gold, 18, Color(1.0, 0.9, 0.55))
 	_button(tr("开始比试"), func() -> void: _fight(u))
 	_button(tr("返回"), show_arena)
 
@@ -239,7 +247,7 @@ func show_deploy() -> void:
 	_deploy_pick = null
 	_clear()
 	_title(tr("布阵"))
-	_text(tr("点一名出击的同伴，再点蓝色格子：空格就移过去，有人就互换位置。可以先看看敌人的危险范围（T）。"))
+	_text(tr("点一名出击的同伴，再点蓝色格子：空格就移过去，有人就互换位置。可以先在准备主菜单里打开敌人的危险范围。"))
 	_button(tr("完成"), show_menu)
 	_highlight_slots()
 
@@ -295,13 +303,13 @@ func show_items() -> void:
 	_text(_unit_line(_cur) + "   %d/%d" % [_cur.inventory_size(), Unit.BAG_LIMIT], 18, Color(1.0, 0.95, 0.8))
 	var inv := inventory(_cur)
 	if inv.is_empty():
-		_text(tr("（什么也没带）"), 16, Color(0.7, 0.7, 0.75))
+		_text(tr("（什么也没带）"), 18, Color(0.7, 0.7, 0.75))
 	for k in inv.size():
 		var e: Dictionary = inv[k]
 		var kk: int = k
 		_text("%s %s" % [tr(item_name(e["id"])), uses_label(e["id"], e["uses"])], 17)
 		_row([[tr("交给…"), func() -> void: _choose_receiver(kk), true], [tr("存入道具库"), func() -> void: _to_convoy(kk), true]])
-	_text(tr("—— 道具库（%d 件）——") % Campaign.convoy.size(), 17, Color(0.85, 0.85, 0.6))
+	_text(tr("—— 道具库（%d 件）——") % Campaign.convoy.size(), 18, Color(0.85, 0.85, 0.6))
 	for i in Campaign.convoy.size():
 		var c: Array = Campaign.convoy[i]
 		var ii: int = i
@@ -318,7 +326,7 @@ func _unit_tabs(refresh: Callable) -> void:
 		b.text = tr(u.display_name)
 		b.toggle_mode = true
 		b.button_pressed = u == _cur
-		b.custom_minimum_size = Vector2(68, 36)
+		b.custom_minimum_size = Vector2(68, SafeArea.MIN_HIT)
 		var uu: Unit = u
 		b.pressed.connect(func() -> void:
 			_cur = uu
@@ -380,7 +388,7 @@ func show_shop() -> void:
 		var price := GameData.item_price(id)
 		var iid: String = id
 		_button("%s  %d G" % [tr(item_name(id)), price], func() -> void: _buy(iid), battle.gold >= price, 38.0)
-	_text(tr("—— 卖出（半价）——"), 17, Color(0.85, 0.85, 0.6))
+	_text(tr("—— 卖出（半价）——"), 18, Color(0.85, 0.85, 0.6))
 	var inv := inventory(_cur)
 	for k in inv.size():
 		var e: Dictionary = inv[k]
@@ -388,6 +396,19 @@ func show_shop() -> void:
 		var val := sell_price(e["id"], e["uses"])
 		_button("%s %s  +%d G" % [tr(item_name(e["id"])), uses_label(e["id"], e["uses"]), val], func() -> void: _sell(kk), val > 0, 38.0)
 	_button(tr("返回"), show_menu)
+
+
+## 卖第 k 件要不要二次确认：装备中的武器，或身上最后一把能用的武器
+static func needs_sell_confirm(u: Unit, k: int) -> bool:
+	if k >= u.weapons.size():
+		return false
+	if k == 0:
+		return true
+	var usable := 0
+	for i in u.weapons.size():
+		if u.weapon(i)["type"] != "staff":
+			usable += 1
+	return usable <= 1
 
 
 ## 卖价：原价一半，按剩余耐久折算；专属武器、转职道具不能卖
@@ -417,8 +438,17 @@ func _buy(id: String) -> void:
 	show_shop()
 
 
+var _sell_armed := -1
+
+
 func _sell(k: int) -> void:
 	var e: Dictionary = inventory(_cur)[k]
+	# 卖掉装备中的 / 最后一把武器要点两次（卖完下回合就没法打了）
+	if needs_sell_confirm(_cur, k) and _sell_armed != k:
+		_sell_armed = k
+		battle.notify(tr("再点一次：卖掉 %s 后 %s 可能没武器可用") % [tr(item_name(e["id"])), tr(_cur.display_name)])
+		return
+	_sell_armed = -1
 	var val := sell_price(e["id"], e["uses"])
 	take_out(_cur, k)
 	battle.gold += val

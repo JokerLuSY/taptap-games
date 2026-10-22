@@ -7,7 +7,7 @@ extends Control
 signal closed(traded: bool)
 
 const SLOT_W := 380.0
-const SLOT_H := 50.0
+const SLOT_H := 56.0
 
 var battle = null
 var a: Unit = null
@@ -51,7 +51,7 @@ func open(bt, u1: Unit, u2: Unit) -> void:
 	p.add_child(vb)
 	var title := _label(vb, 26, Color(1.0, 0.86, 0.5))
 	title.text = tr("交换")
-	_hint = _label(vb, 17, Color(0.8, 0.84, 0.92))
+	_hint = _label(vb, 19, Color(0.8, 0.84, 0.92))
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 56)
 	row.size_flags_vertical = Control.SIZE_EXPAND_FILL

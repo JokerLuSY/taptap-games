@@ -336,6 +336,7 @@ func _build_ui() -> void:
 	lbl_chapter.text = tr(chapter.CHAPTER_TITLE)
 	lbl_turn = hud.lbl_turn
 	lbl_gold = hud.lbl_gold
+	hud.quick.connect(_on_quick)
 	lbl_win = hud.lbl_win
 	lbl_lose = hud.lbl_lose
 	hint_label = hud.hint_label
@@ -622,6 +623,7 @@ func start_player_phase(first := false) -> void:
 	if state == S.OVER:
 		return
 	state = S.IDLE
+	refresh_danger()
 	if pending_chapter == null:
 		CampaignSave.write_checkpoint(self)
 	tut("player_phase", turn)
@@ -637,8 +639,7 @@ func enemy_phase() -> void:
 	_clear_menu()
 	_hide_forecast()
 	selected = null
-	danger_on = false
-	board.set_danger({})
+	board.set_danger({})          # 敌方回合里先收起来；我方回合开始按开关状态重新算
 	board.clear_highlights()
 	update_topbar()
 	Audio.play_sfx("phase", 0.85)
@@ -824,7 +825,7 @@ func _long_press_check(id: int, p: Vector2i) -> void:
 	await get_tree().create_timer(LONG_PRESS_TIME).timeout
 	if id != _press_id or _press_tile != p or _dragging:
 		return
-	if not (state == S.IDLE or state == S.MOVE_SEL or state == S.TARGET_SEL):
+	if not (state == S.IDLE or state == S.MOVE_SEL or state == S.TARGET_SEL or state == S.PREP):
 		return
 	var u := board.unit_at(p) if board.in_bounds(p) else null
 	if u == null or not u.on_map():
@@ -928,7 +929,10 @@ func click_tile(p: Vector2i) -> void:
 			else:
 				cancel()
 		S.PREP:
-			if prep != null:
+			var eu := board.unit_at(p)
+			if eu != null and not eu.is_player() and prep != null and not prep.in_subpage():
+				_preview_enemy(eu)   # 整备时也能点敌人看威胁范围（长按看能力）
+			elif prep != null:
 				prep.on_map_click(p)
 		# 下拉菜单开着时点到菜单外的地图 = 取消
 		S.ACTION_MENU, S.WEAPON_SEL, S.ITEM_MENU, S.MAP_MENU:
@@ -984,6 +988,12 @@ func _handle_system_back() -> void:
 	if trade_window != null and is_instance_valid(trade_window):
 		trade_window.close()
 		return
+	if shop_window != null and is_instance_valid(shop_window):
+		shop_window.close_shop()
+		return
+	if tutorial != null and tutorial.is_browsing():
+		tutorial.close_browser()
+		return
 	if _has_cancel_layer():
 		cancel()
 		return
@@ -1027,6 +1037,42 @@ func open_system_menu() -> void:
 func close_system_menu() -> void:
 	if system_menu != null:
 		system_menu.close()
+
+
+## 常驻按钮（信息窗那一侧、地形窗上方）
+func _on_quick(id: String) -> void:
+	match id:
+		"menu":
+			open_system_menu()
+		"danger":
+			if state == S.PREP:
+				danger_on = not danger_on
+				refresh_danger()
+			else:
+				toggle_danger()
+		"next":
+			_select_next_unit()
+
+
+## 下一个还没行动的我方单位：镜头移过去并选中
+func _select_next_unit() -> void:
+	if not (state == S.IDLE or state == S.MOVE_SEL):
+		return
+	var pool: Array = units.filter(func(x) -> bool: return x.is_player() and x.is_alive() and x.on_map() and not x.has_acted)
+	if pool.is_empty():
+		return
+	var i := pool.find(selected)
+	var nxt: Unit = pool[(i + 1) % pool.size()]
+	if state == S.MOVE_SEL:
+		_deselect()
+	cursor.set_grid(nxt.grid_pos)
+	board.ensure_visible(nxt.grid_pos)
+	select_unit(nxt)
+
+
+func _process(_delta: float) -> void:
+	if hud != null and hud.quick_box != null:
+		hud.quick_box.visible = state == S.IDLE or state == S.MOVE_SEL or state == S.PREP or state == S.MAP_MENU
 
 
 func _on_system_title() -> void:
@@ -1202,8 +1248,60 @@ func _move_click(p: Vector2i) -> void:
 	var u := board.unit_at(p)
 	if u != null and u.is_player() and not u.has_acted and u != selected:
 		select_unit(u)
+	elif u != null and u.is_alive() and not u.is_player() and not u.is_npc() and board.atk_tiles.has(p):
+		_attack_from_move(u)
 	else:
 		cancel()
+
+
+## 选中我方后直接点红色范围里的敌人：挑一个打得到它的落脚格走过去，直接弹出战斗预报
+func _attack_from_move(foe: Unit) -> void:
+	var spot := _attack_spot(selected, foe)
+	if spot.x < -999:
+		cancel()
+		return
+	var wi := _weapon_vs(selected, GameData.dist(spot, foe.grid_pos))
+	var u := selected
+	await _player_move(u, spot)
+	if selected != u or state != S.ACTION_MENU or wi < 0:
+		return
+	u.equip(wi)
+	sel_weapon = 0
+	_enter_target_select()
+	if state == S.TARGET_SEL and foe in targets:
+		_show_forecast(u, foe, sel_weapon)
+
+
+## 能打到 foe 的落脚格：优先路径箭头的终点，其次敌人威胁最少、离出发点最近的格子
+func _attack_spot(u: Unit, foe: Unit) -> Vector2i:
+	var best := Vector2i(-9999, -9999)
+	var best_score := 99999.0
+	var danger := _compute_danger()
+	var arrow_end: Vector2i = board.path_tiles.back() if board.path_tiles.size() >= 1 else Vector2i(-9999, -9999)
+	for t in move_dict:
+		if t != u.grid_pos and board.unit_at(t) != null:
+			continue
+		if _weapon_vs(u, GameData.dist(t, foe.grid_pos)) < 0:
+			continue
+		var score := float(GameData.dist(t, u.grid_pos))
+		if danger.has(t):
+			score += 50.0
+		if t == arrow_end:
+			score -= 1000.0
+		if score < best_score:
+			best_score = score
+			best = t
+	return best
+
+
+## 在距离 d 上能用来攻击的武器（拿得动、不是杖），没有返回 -1
+func _weapon_vs(u: Unit, d: int) -> int:
+	for wi in u.weapons.size():
+		if u.weapon(wi)["type"] == "staff" or not u.can_use(wi):
+			continue
+		if board.can_hit_from(u, d, wi):
+			return wi
+	return -1
 
 
 func _player_move(u: Unit, dst: Vector2i) -> void:
@@ -1769,8 +1867,22 @@ func _on_menu_item() -> void:
 		var item: Dictionary = GameData.ITEMS[selected.items[i]]
 		var idx := i
 		opts.append({"label": tr("%s %d（%s）") % [tr(item["name"]), int(selected.item_uses[idx]), tr(item["desc"])], "enabled": _item_usable(selected, idx), "cb": func() -> void: _on_use_item(idx)})
+	# 换装备（不算行动）：决定敌方回合用哪把武器反击
+	for wi in range(1, selected.weapons.size()):
+		var w: Dictionary = selected.weapon(wi)
+		if w["type"] == "staff" or not selected.can_use(wi):
+			continue
+		var widx: int = wi
+		opts.append({"label": tr("装备 %s %s") % [tr(w["name"]), selected.uses_text(wi)], "enabled": true, "cb": func() -> void: _on_equip(widx)})
 	_fill_menu(opts)
 	hint(tr("选择要使用的道具（点菜单外返回）"))
+
+
+func _on_equip(wi: int) -> void:
+	selected.equip(wi)
+	Audio.play_sfx("select")
+	notify(tr("%s 装备了 %s") % [tr(selected.display_name), tr(selected.weapon(0)["name"])])
+	_on_menu_item()
 
 
 func _item_usable(u: Unit, idx: int) -> bool:
@@ -2153,6 +2265,7 @@ func do_heal(healer: Unit, target: Unit) -> void:
 
 func after_player_action() -> void:
 	update_topbar()
+	refresh_danger()
 	suspend_save()   # 每个行动做完就存一份，来电 / 被杀进程最多丢掉正在做的那一步
 	for u in units:
 		if u.is_player() and u.on_map() and not u.has_acted:
@@ -2178,8 +2291,13 @@ func toggle_danger() -> void:
 	if state == S.STORY or state == S.COMBAT or state == S.ENEMY or state == S.OVER:
 		return
 	danger_on = not danger_on
-	board.set_danger(_compute_danger() if danger_on else {})
+	refresh_danger()
 	tut("danger")
+
+
+## 危险范围开着就重算（击破、增援、我方回合开始之后），关着就清掉
+func refresh_danger() -> void:
+	board.set_danger(_compute_danger() if danger_on else {})
 
 
 func _compute_danger() -> Dictionary:
@@ -2236,7 +2354,7 @@ func _show_forecast(att: Unit, def: Unit, wi: int) -> void:
 	forecast_panel.reset_size()
 	var safe := SafeArea.rect()
 	var fs := forecast_panel.get_combined_minimum_size()
-	var right := tile_screen_pos(def.grid_pos).x < 640.0
+	var right := tile_screen_pos(def.grid_pos).x < SafeArea.screen().x / 2.0
 	forecast_panel.position = Vector2(safe.end.x - fs.x if right else safe.position.x, clampf(360.0 - fs.y / 2.0, safe.position.y, safe.end.y - fs.y))
 	if tutorial != null:
 		tutorial.reposition()
@@ -2450,9 +2568,13 @@ func _give_xp(u: Unit, n: int) -> void:
 		lines.append(tr("（能力没有提升……）"))
 	else:
 		var names := {"hp": "HP", "pwr": tr("力量"), "skl": tr("技巧"), "spd": tr("速度"), "dfn": tr("守备"), "res": tr("魔防")}
+		var now := {"hp": u.max_hp, "pwr": u.pwr, "skl": u.skl, "spd": u.spd, "dfn": u.dfn, "res": u.res}
 		for k in gains:
-			lines.append("%s +1" % names[k])
+			var g := int(gains[k])
+			lines.append("%s  %d → %d" % [names[k], int(now[k]) - g, int(now[k])])
 	levelup_label.text = "\n".join(PackedStringArray(lines))
+	levelup_panel.reset_size()
+	levelup_panel.position = (SafeArea.screen() - levelup_panel.get_combined_minimum_size()) / 2.0
 	levelup_panel.visible = true
 	await _wait_or_tap(2.0)
 	levelup_panel.visible = false

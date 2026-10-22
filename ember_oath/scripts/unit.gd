@@ -935,6 +935,12 @@ func _draw_hp() -> void:
 		draw_line(base, base + Vector2(0, 14), Color(0.15, 0.12, 0.1), 2.0)
 		draw_colored_polygon(PackedVector2Array([base, base + Vector2(10, 4), base + Vector2(0, 8)]), c)
 		draw_polyline(PackedVector2Array([base, base + Vector2(10, 4), base + Vector2(0, 8)]), Color(0.1, 0.08, 0.1), 1.0)
+	if is_boss and not is_player() and _sprite != null:
+		# 像素小人没有程序画的皇冠：HP 条左边补一个金色小皇冠，首领一眼认得出
+		var c0 := Vector2(-31, 30)
+		var crown := PackedVector2Array([c0 + Vector2(-6, 4), c0 + Vector2(-6, -4), c0 + Vector2(-3, 0), c0 + Vector2(0, -6), c0 + Vector2(3, 0), c0 + Vector2(6, -4), c0 + Vector2(6, 4)])
+		draw_colored_polygon(crown, Color(1.0, 0.8, 0.2))
+		draw_polyline(crown + PackedVector2Array([crown[0]]), OUTLINE, 1.5)
 	if draw_hp_bar:
 		var w := 44.0
 		var ratio := float(hp) / float(maxi(1, max_hp))

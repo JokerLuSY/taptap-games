@@ -48,6 +48,7 @@ func _run() -> void:
 		await _check_qa2_batch_d()
 		await _check_qa3_batch_a()
 		await _check_qa3_batch_b()
+		await _check_qa3_batch_c()
 		print("SMOKE TEST: ALL PASS" if _failures.is_empty() else "SMOKE TEST: %d FAILURES" % _failures.size())
 		for f_ in _failures:
 			print("  FAIL: " + f_)
@@ -90,7 +91,7 @@ func _run() -> void:
 	var safe := SafeArea.rect()
 	var goal_rect: Rect2 = battle.hud.goal_win.get_global_rect()
 	_check(safe.encloses(goal_rect), "目标窗应落在安全区内, 实际 %s" % goal_rect)
-	_check(goal_rect.size.x <= 360.0, "目标窗应是小窗，宽 %s" % goal_rect.size.x)
+	_check(goal_rect.size.x <= 400.0, "目标窗应是小窗，宽 %s" % goal_rect.size.x)
 	var chapter_label := battle.ui.find_child("ChapterLabel", true, false) as Label
 	_check(chapter_label != null and chapter_label.get_global_rect().position.x >= SafeArea.MARGIN_X, "章节名应避开左缘 64px")
 	_check(battle.ui.find_child("TurnLabel", true, false) != null, "应有回合标签")
@@ -661,6 +662,7 @@ func _run() -> void:
 	await _check_qa2_batch_d()
 	await _check_qa3_batch_a()
 	await _check_qa3_batch_b()
+	await _check_qa3_batch_c()
 	await _check_wide_screen()
 	await _check_part3()
 	await _check_autoplay()
@@ -1135,6 +1137,69 @@ func _mouse(pos: Vector2, down: bool) -> void:
 	ev.pressed = down
 	ev.position = pos
 	battle._unhandled_input(ev)
+
+
+func _check_qa3_batch_c() -> void:
+	_mark("QA3 C 批：点敌人直接攻击 / 危险范围 / 常驻按钮 / 卖装备确认")
+	CampaignSave.clear()
+	Campaign.reset()
+	load("res://scripts/battle.gd").queue_chapter(null)
+	await _new_battle()
+	await _skip_story()
+	var tia: Unit = battle.get_unit("tia")
+	# 常驻按钮
+	var qb = battle.hud.quick_box
+	_check(qb != null and qb.get_child_count() == 3, "应有菜单 / 危险 / 下一个三个常驻按钮")
+	await _frames(2)
+	_check(qb != null and qb.visible, "我方回合空闲时常驻按钮可见")
+	battle._on_quick("next")
+	_check(battle.state == battle.S.MOVE_SEL and battle.selected != null, "【下一个】应选中一名还没行动的我方单位")
+	battle.cancel()
+	await _frames(2)
+	# 危险范围：开着时行动后自动刷新
+	battle.toggle_danger()
+	_check(not battle.board.danger_tiles.is_empty(), "打开危险范围")
+	battle.board.set_danger({})
+	battle.after_player_action()
+	_check(not battle.board.danger_tiles.is_empty(), "危险范围开着时，行动后应自动重算")
+	battle.toggle_danger()
+	_check(battle.board.danger_tiles.is_empty(), "关掉危险范围")
+	# 选中后点红色范围里的敌人：自动走过去弹预报
+	battle.click_tile(tia.grid_pos)
+	var foe: Unit = null
+	for e in battle.units:
+		if not e.is_player() and e.is_alive() and battle.board.atk_tiles.has(e.grid_pos):
+			foe = e
+			break
+	if foe == null:
+		var spot: Vector2i = Vector2i(-1, -1)
+		for t in battle.board.atk_tiles:
+			if battle.board.unit_at(t) == null and battle.board.terrain(t)["pass"]:
+				spot = t
+				break
+		for e in battle.units:
+			if not e.is_player() and e.is_alive():
+				foe = e
+				break
+		if spot.x >= 0 and foe != null:
+			foe.grid_pos = spot
+			foe.position = foe.tile_center()
+	_check(foe != null, "要有一个在攻击范围里的敌人")
+	if foe != null:
+		battle._move_click(foe.grid_pos)
+		var shown: bool = await _wait_cond(func() -> bool: return battle.forecast_panel.visible, 6.0)
+		_check(shown and battle._forecast_target == foe, "选中后点敌人应直接走过去并弹出战斗预报")
+		battle._on_forecast_cancel()
+		battle.cancel()
+		battle.cancel()
+		await _frames(4)
+	# 卖装备确认
+	_check(PrepScreen.needs_sell_confirm(tia, 0), "卖装备中的武器要二次确认")
+	battle.queue_free()
+	await _frames(3)
+	battle = null
+	CampaignSave.clear()
+	Campaign.reset()
 
 
 func _check_qa3_batch_b() -> void:
@@ -2454,6 +2519,8 @@ func _check_tutorial() -> void:
 	battle.shop_window.buy("vulnerary")
 	_check(battle.gold == 700 and tia.items.count("vulnerary") == vul_before + 1, "道具店买伤药 300G，金钱应剩 700，实际 %d" % battle.gold)
 	var gold_mid: int = battle.gold
+	battle.shop_window.sell(0)
+	_check(battle.gold == gold_mid, "卖装备中的武器第一次只确认，不成交")
 	battle.shop_window.sell(0)
 	_check(battle.gold > gold_mid, "卖出东西应拿回金钱")
 	battle.shop_window.close_shop()

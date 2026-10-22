@@ -524,7 +524,7 @@ func _build_license() -> void:
 	_license_text.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 	_license_text.custom_minimum_size = Vector2(scroll.size.x - 24, 0)
 	_license_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_license_text.add_theme_font_size_override("font_size", 16)
+	_license_text.add_theme_font_size_override("font_size", 18)
 	_license_text.add_theme_color_override("font_color", Color(0.85, 0.82, 0.78))
 	scroll.add_child(_license_text)
 	_license_close = Button.new()

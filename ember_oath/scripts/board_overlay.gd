@@ -8,7 +8,7 @@ const MOVE_FILL := Color(0.30, 0.58, 1.0, 0.40)
 const MOVE_EDGE := Color(0.70, 0.88, 1.0, 0.90)
 const ATK_FILL := Color(1.0, 0.28, 0.22, 0.36)
 const ATK_EDGE := Color(1.0, 0.70, 0.62, 0.90)
-const DANGER_FILL := Color(1.0, 0.20, 0.20, 0.10)
+const DANGER_FILL := Color(1.0, 0.20, 0.20, 0.22)
 const DANGER_EDGE := Color(1.0, 0.32, 0.28, 0.85)
 const ARROW_FILL := Color(0.62, 0.86, 1.0, 1.0)
 const ARROW_LIGHT := Color(0.92, 0.98, 1.0, 1.0)
@@ -59,6 +59,12 @@ func _draw_region(tiles: Dictionary, fill: Color, edge: Color, k: float, dashed:
 	for p in tiles:
 		var r := _cell(p).grow(-1.0)
 		draw_rect(r, f)
+		if dashed:
+			# 危险范围加两道斜线：火焰图、红土地上也看得出，也不只靠颜色分辨
+			var hc := edge
+			hc.a = 0.35
+			draw_line(r.position + Vector2(0, TILE * 0.5), r.position + Vector2(TILE * 0.5, 0), hc, 1.5)
+			draw_line(r.position + Vector2(TILE * 0.5, TILE - 2), r.position + Vector2(TILE - 2, TILE * 0.5), hc, 1.5)
 		if not dashed:
 			var inner := edge
 			inner.a *= 0.28 * k
