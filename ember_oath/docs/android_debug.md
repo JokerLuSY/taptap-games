@@ -94,7 +94,9 @@ $env:GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD = "<你设的密码>"
 & "E:\projects\taptap\tools\godot\Godot_v4.7.2-stable_win64_console.exe" --headless --path ember_oath --export-release "Android Play" "builds/ember_oath_play.aab"
 ```
 
-Godot 4.7.2 的 Gradle 是 8.11.1。本机系统 JDK 是 24，不能启动这个 Gradle。已另装 Temurin 17 到 `E:\projects\taptap\tools\jdk-17\jdk-17.0.20.1+1`（不进 git），编辑器 **Editor Settings → Export → Android → Java SDK Path** 应指向该目录。Android SDK（`E:\projects\taptap\tools\android-sdk`）需要 `platforms/android-36`、`build-tools/36.1.0`、`ndk/29.0.14206865`。
+Godot 4.7.2 的 Gradle 是 8.11.1。本机系统 JDK 是 24，不能启动这个 Gradle。已另装 Temurin 17 到 `E:\projects\taptap\tools\jdk-17\jdk-17.0.20.1+1`（不进 git），编辑器 **Editor Settings → Export → Android → Java SDK Path** 已改成这个目录。若编辑器当时开着，退出时可能把旧路径写回去，导出前再确认一次。Android SDK（`E:\projects\taptap\tools\android-sdk`）已有 `platforms/android-36`、`build-tools/36.1.0`、`ndk/29.0.14206865`。
+
+2026-10-28 在已安装的 Gradle 工程里用这份 JDK 跑过 `gradlew.bat validateJavaVersion`，结果 `BUILD SUCCESSFUL`。第一次跑会从 `services.gradle.org` 拉 Gradle 8.11.1，连接超时就再试一次。
 
 还没有 upload keystore 时不要导出：Godot 的 release 导出找不到 release keystore 会直接失败，也不会退回 debug 密钥。debug 密钥签出的 AAB 不能当 Play 包上传。
 
@@ -106,8 +108,9 @@ $dest = "ember_oath\android\build"
 New-Item -ItemType Directory -Force -Path $dest | Out-Null
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 [System.IO.Compression.ZipFile]::ExtractToDirectory($zip, (Resolve-Path $dest))
-Set-Content -NoNewline -Path "ember_oath\android\.build_version" -Value "4.7.2.stable`n"
-Set-Content -Path "ember_oath\android\build\.gdignore" -Value ""
+$root = (Get-Location).Path
+[System.IO.File]::WriteAllText((Join-Path $root "ember_oath\android\.build_version"), "4.7.2.stable`n")
+[System.IO.File]::WriteAllText((Join-Path $root "ember_oath\android\build\.gdignore"), "")
 ```
 
 ## 装上之后怎么点
