@@ -13,6 +13,13 @@
 tools/godot/
 tools/gh/
 tools/android-sdk/
+tools/jdk-17/
+tools/jdk17.zip
+tools/godot_android_src_peek/
+
+# Godot Android Gradle 工程。从导出模板 android_source.zip 装到 ember_oath/android/。
+# libs 里的 godot-lib AAR 超过 GitHub 单文件 100MB 限制，不入库。
+ember_oath/android/
 tools/templates/
 tools/cmdline-tools.zip
 tools/yes.txt

@@ -54,7 +54,61 @@ godot --headless --path ember_oath --import
 godot --headless --path ember_oath --export-debug "Android" builds/ember_oath_debug.apk
 ```
 
-预设关闭 Gradle，直接打进官方 `android_debug.apk` 模板。AAB 需要另开 `gradle_build/use_gradle_build`，本试包不做。
+预设 `Android` 关闭 Gradle，直接打进官方 `android_debug.apk` 模板。上架用另一条预设 `Android Play`（见下）。
+
+## Play 上架 AAB
+
+Play Console 草稿应用 `com.emberoath.vow` 已开启 Play App Signing，Internal testing 要的是 **AAB**，不是 debug APK。
+
+| 项 | 值 |
+|---|---|
+| 预设 | `export_presets.cfg` → `Android Play` |
+| 产物 | `ember_oath/builds/ember_oath_play.aab`（不进 git） |
+| Gradle | `gradle_build/use_gradle_build=true`，`export_format=1`（AAB） |
+| 包名 / 版本 | `com.emberoath.vow`，`0.1.0`（version code 1） |
+| 模板 | 官方 `android_source.zip` 解到 `ember_oath/android/build/`。该目录已 gitignore：里面的 `godot-lib` AAR 超过 GitHub 单文件 100MB |
+| 目标 SDK | 模板默认 compile/target **36**，build-tools **36.1.0**，NDK **29.0.14206865**，minSdk 24 |
+| 签名 | 上传密钥。预设里 keystore 三项都留空，密码只走环境变量，不写入仓库 |
+
+`Android` 这条 debug APK 预设保持原样。编辑器一键运行仍用它（`Android Play` 的 `runnable=false`）。
+
+本机已有的 `keys/pin_circle_release.keystore` 是 `com.taptap.pincircle` 的密钥，不要拿来签炎烬之誓。`C:\Users\lushe\.android\debug.keystore` 是公开调试密钥，Play 会拒收。
+
+还没有 `com.emberoath.vow` 的上传密钥。Play App Signing 已开时，这个 keystore 是 **upload key**（Google 保管应用签名密钥）。第一次上传会登记这张证书，之后每个版本都要用同一把。丢了只能走 Play 支持重置。keystore 密码和 key 密码必须相同。
+
+生成一次（自己记密码，文件放在已 gitignore 的 `keys/`）：
+
+```powershell
+& "C:\Program Files\Java\jdk-24\bin\keytool.exe" -genkeypair -v -keystore "E:\projects\taptap\keys\ember_oath_upload.keystore" -alias upload -keyalg RSA -keysize 2048 -validity 10000
+```
+
+提示里 store 密码和 key 密码填同一个。姓名等证书字段随意，建议只含字母数字。把 `ember_oath_upload.keystore` 和密码备份到仓库以外的地方。
+
+导出（在仓库根目录；不要把密码写进 `export_presets.cfg`）：
+
+```powershell
+$env:GODOT_ANDROID_KEYSTORE_RELEASE_PATH = "E:\projects\taptap\keys\ember_oath_upload.keystore"
+$env:GODOT_ANDROID_KEYSTORE_RELEASE_USER = "upload"
+$env:GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD = "<你设的密码>"
+& "E:\projects\taptap\tools\godot\Godot_v4.7.2-stable_win64_console.exe" --headless --path ember_oath --import
+& "E:\projects\taptap\tools\godot\Godot_v4.7.2-stable_win64_console.exe" --headless --path ember_oath --export-release "Android Play" "builds/ember_oath_play.aab"
+```
+
+Godot 4.7.2 的 Gradle 是 8.11.1。本机系统 JDK 是 24，不能启动这个 Gradle。已另装 Temurin 17 到 `E:\projects\taptap\tools\jdk-17\jdk-17.0.20.1+1`（不进 git），编辑器 **Editor Settings → Export → Android → Java SDK Path** 应指向该目录。Android SDK（`E:\projects\taptap\tools\android-sdk`）需要 `platforms/android-36`、`build-tools/36.1.0`、`ndk/29.0.14206865`。
+
+还没有 upload keystore 时不要导出：Godot 的 release 导出找不到 release keystore 会直接失败，也不会退回 debug 密钥。debug 密钥签出的 AAB 不能当 Play 包上传。
+
+Gradle 工程若被清掉，用已安装的导出模板重装（`.build_version` 必须是 `4.7.2.stable`）：
+
+```powershell
+$zip = "$env:APPDATA\Godot\export_templates\4.7.2.stable\android_source.zip"
+$dest = "ember_oath\android\build"
+New-Item -ItemType Directory -Force -Path $dest | Out-Null
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+[System.IO.Compression.ZipFile]::ExtractToDirectory($zip, (Resolve-Path $dest))
+Set-Content -NoNewline -Path "ember_oath\android\.build_version" -Value "4.7.2.stable`n"
+Set-Content -Path "ember_oath\android\build\.gdignore" -Value ""
+```
 
 ## 装上之后怎么点
 
